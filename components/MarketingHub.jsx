@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import * as db from "@/lib/db";
 import {
   LayoutDashboard, Users, Calendar, CheckSquare, Link2, FileText,
   BarChart3, Settings, LogOut, Plus, Edit3, Trash2, X, Check,
@@ -457,27 +458,72 @@ export default function MarketingHub() {
   const [fStatus, setFStatus] = useState("All");
   const [fPlat, setFPlat] = useState("All");
 
-  const [users, setUsers] = useState(INIT_USERS);
-  const [weeklyThemes, setWeeklyThemes] = useState(INIT_WEEKLY_THEMES);
-  const [calendar, setCalendar] = useState(INIT_CALENDAR);
-  const [tasks, setTasks] = useState(INIT_TASKS);
-  const [resources, setResources] = useState(INIT_RESOURCES);
-  const [ops, setOps] = useState(INIT_OPS);
-  const [stats, setStats] = useState(INIT_STATS);
-  const [notes, setNotes] = useState(INIT_NOTES);
-  const [keyDates, setKeyDates] = useState(INIT_KEY_DATES);
-  const [campaigns, setCampaigns] = useState(INIT_CAMPAIGNS);
-  const [activity, setActivity] = useState(INIT_ACTIVITY);
-  const [projects, setProjects] = useState(INIT_PROJECTS);
-  const [outreach, setOutreach] = useState(INIT_OUTREACH);
+  const [users, setUsers] = useState([]);
+  const [weeklyThemes, setWeeklyThemes] = useState([]);
+  const [calendar, setCalendar] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [ops, setOps] = useState({ ideas:[], captions:[], hashtags:[], messaging:[], templates:[] });
+  const [stats, setStats] = useState({ lastUpdated:"", totals:{}, targets:{}, platforms:{}, weeklyGrowth:[], topPosts:[] });
+  const [notes, setNotes] = useState([]);
+  const [keyDates, setKeyDates] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [outreach, setOutreach] = useState([]);
   const [outreachFilter, setOutreachFilter] = useState("All");
+  const [dbLoading, setDbLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
+
+  // Load all data from Supabase on mount
+  useEffect(() => {
+    db.loadAllData().then(data => {
+      setUsers(data.users.length ? data.users : INIT_USERS);
+      setWeeklyThemes(data.weeklyThemes.length ? data.weeklyThemes : INIT_WEEKLY_THEMES);
+      setCalendar(data.calendar.length ? data.calendar : INIT_CALENDAR);
+      setTasks(data.tasks.length ? data.tasks : INIT_TASKS);
+      setResources(data.resources.length ? data.resources : INIT_RESOURCES);
+      setOps(data.ops.ideas.length ? data.ops : INIT_OPS);
+      setStats(data.stats.weeklyGrowth.length ? data.stats : INIT_STATS);
+      setNotes(data.notes.length ? data.notes : INIT_NOTES);
+      setKeyDates(data.keyDates.length ? data.keyDates : INIT_KEY_DATES);
+      setCampaigns(data.campaigns.length ? data.campaigns : INIT_CAMPAIGNS);
+      setProjects(data.projects.length ? data.projects : INIT_PROJECTS);
+      setOutreach(data.outreach.length ? data.outreach : INIT_OUTREACH);
+      setActivity(data.activity.length ? data.activity : INIT_ACTIVITY);
+      setDbLoading(false);
+    }).catch(err => {
+      console.error("Failed to load from Supabase, using defaults:", err);
+      setUsers(INIT_USERS); setWeeklyThemes(INIT_WEEKLY_THEMES); setCalendar(INIT_CALENDAR);
+      setTasks(INIT_TASKS); setResources(INIT_RESOURCES); setOps(INIT_OPS);
+      setStats(INIT_STATS); setNotes(INIT_NOTES); setKeyDates(INIT_KEY_DATES);
+      setCampaigns(INIT_CAMPAIGNS); setProjects(INIT_PROJECTS);
+      setOutreach(INIT_OUTREACH); setActivity(INIT_ACTIVITY);
+      setDbError("Could not connect to database — running in offline mode");
+      setDbLoading(false);
+    });
+  }, []);
 
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
   const uName = (id) => users.find(u=>u.id===id)?.name || "Unknown";
-  const log = (action, target, sec) => { if(!curUser) return; setActivity((p)=>[{id:uid("a"),user:curUser.id,action,target,section:sec,time:new Date().toISOString()},...p].slice(0,50)); };
+  const log = (action, target, sec) => {
+    if(!curUser) return;
+    const entry = {id:uid("a"),user:curUser.id,action,target,section:sec,time:new Date().toISOString()};
+    setActivity(p=>[entry,...p].slice(0,50));
+    db.logActivity(entry).catch(console.error);
+  };
   const openM = (type, data = {}) => { setForm(data); setModal(type); };
   const closeM = () => { setModal(null); setForm({}); };
+
+  if (dbLoading) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1B21",fontFamily:FONT_BODY}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><NanuLogo size={52}/></div>
+        <p style={{color:"#8AA4B0",fontSize:14}}>Loading Marketing Hub…</p>
+      </div>
+    </div>
+  );
 
   if (!curUser) return <><LoginScreen onLogin={setCurUser} users={users}/></>;
 
@@ -1090,7 +1136,7 @@ export default function MarketingHub() {
                     alert(`PIN for ${u.name} reset to: ${np}`);
                   }}><Lock size={12}/> Reset</Btn>
                   <Btn theme={theme} small onClick={()=>openM("editUser",{...u})}><Edit3 size={12}/></Btn>
-                  {u.id!==curUser.id&&<Btn theme={theme} small danger onClick={()=>{if(confirm(`Remove ${u.name}?`)){setUsers(p=>p.filter(x=>x.id!==u.id));log("removed",u.name,"Admin")}}}><Trash2 size={12}/></Btn>}
+                  {u.id!==curUser.id&&<Btn theme={theme} small danger onClick={()=>{if(confirm(`Remove ${u.name}?`)){setUsers(p=>p.filter(x=>x.id!==u.id));db.deleteUser(u.id).catch(console.error);log("removed",u.name,"Admin")}}}><Trash2 size={12}/></Btn>}
                 </div>
               </div>
             ))}
@@ -1143,7 +1189,7 @@ export default function MarketingHub() {
         <FormRow><div><Label theme={theme}>Publish Time</Label><Input theme={theme} type="time" value={form.publishTime||""} onChange={e=>setForm(p=>({...p,publishTime:e.target.value}))}/></div><div><Label theme={theme}>Campaign</Label><Sel theme={theme} options={[{value:"",label:"None"},...campaigns.map(c=>({value:c.tag,label:c.name}))]} value={form.campaign||""} onChange={e=>setForm(p=>({...p,campaign:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Caption</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))}/></div>
         <div><Label theme={theme}>Asset Link</Label><Input theme={theme} value={form.assetLink||""} onChange={e=>setForm(p=>({...p,assetLink:e.target.value}))} placeholder="https://..."/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));log("deleted",form.title,"Calendar");closeM()}:null} onSave={()=>{if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?{...form}:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,{...form,id:uid("c")}]);log("created",form.title,"Calendar")}closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));db.deleteCalendarItem(form.id).catch(console.error);log("deleted",form.title,"Calendar");closeM()}:null} onSave={()=>{const cid=form.id||uid("c");const cdata={...form,id:cid};if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?cdata:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,cdata]);log("created",form.title,"Calendar")}db.saveCalendarItem(cdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={580}><FormCol>
@@ -1153,14 +1199,14 @@ export default function MarketingHub() {
         <FormRow><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
         <FormRow><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...projects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></FormRow>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setTasks(p=>p.filter(t=>t.id!==form.id));log("deleted",form.title,"Tasks");closeM()}:null} onSave={()=>{if(form.id){setTasks(p=>p.map(t=>t.id===form.id?{...form}:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,{...form,id:uid("t")}]);log("created",form.title,"Tasks")}closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id).catch(console.error);log("deleted",form.title,"Tasks");closeM()}:null} onSave={()=>{const tid=form.id||uid("t");const tdata={...form,id:tid};if(form.id){setTasks(p=>p.map(t=>t.id===form.id?tdata:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",form.title,"Tasks")}db.saveTask(tdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editResource": return <Modal theme={theme} title={form.id?"Edit Resource":"New Resource"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Label</Label><Input theme={theme} value={form.label||""} onChange={e=>setForm(p=>({...p,label:e.target.value}))}/></div>
         <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))}/></div>
         <div><Label theme={theme}>Group</Label><Sel theme={theme} options={RESOURCE_GROUPS} value={form.group||"Drives"} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setResources(p=>p.filter(r=>r.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setResources(p=>p.map(r=>r.id===form.id?{...form}:r));else setResources(p=>[...p,{...form,id:uid("r")}]);closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setResources(p=>p.filter(r=>r.id!==form.id));db.deleteResource(form.id).catch(console.error);closeM()}:null} onSave={()=>{const rid=form.id||uid("r");const rdata={...form,id:rid};if(form.id)setResources(p=>p.map(r=>r.id===form.id?rdata:r));else setResources(p=>[...p,rdata]);db.saveResource(rdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editUser": return <Modal theme={theme} title={form.id?"Edit Team Member":"Add Team Member"} onClose={closeM}><FormCol>
@@ -1180,7 +1226,7 @@ export default function MarketingHub() {
             ))}
           </div>
         </div>
-        <FormActions theme={theme} onClose={closeM} onSave={()=>{if(form.id){setUsers((p)=>p.map((u)=>u.id===form.id?{...form,socials:form.socials||{}}:u));log("updated",form.name,"Team")}else{setUsers((p)=>[...p,{...form,id:uid("u"),socials:form.socials||{}}]);log("added",form.name,"Team")}closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{const uuid=form.id||uid("u");const udata={...form,id:uuid,socials:form.socials||{}};if(form.id){setUsers(p=>p.map(u=>u.id===form.id?udata:u));log("updated",form.name,"Team")}else{setUsers(p=>[...p,udata]);log("added",form.name,"Team")}db.saveUser(udata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editThemes": return <Modal theme={theme} title="Edit Weekly Themes" onClose={closeM} width={600}>
@@ -1192,7 +1238,7 @@ export default function MarketingHub() {
             <input type="color" value={w.color} onChange={e=>{const u=[...weeklyThemes];u[i]={...w,color:e.target.value};setWeeklyThemes(u)}} style={{width:36,height:36,border:"none",borderRadius:8,cursor:"pointer",background:"none"}}/>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16,gap:10}}><Btn theme={theme} onClick={closeM}>Cancel</Btn><Btn primary theme={theme} onClick={()=>{log("updated","Weekly Themes","Admin");closeM()}}>Save</Btn></div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16,gap:10}}><Btn theme={theme} onClick={closeM}>Cancel</Btn><Btn primary theme={theme} onClick={()=>{db.saveThemes(weeklyThemes).catch(console.error);log("updated","Weekly Themes","Admin");closeM()}}>Save</Btn></div>
       </Modal>;
 
       case "editKeyDates": return <Modal theme={theme} title="Manage Key Dates" onClose={closeM} width={600}>
@@ -1205,46 +1251,46 @@ export default function MarketingHub() {
             <button onClick={()=>setKeyDates(p=>p.filter(x=>x.id!==d.id))} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={14}/></button>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn primary theme={theme} onClick={()=>{log("updated","Key Dates","Admin");closeM()}}>Done</Btn></div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn primary theme={theme} onClick={()=>{db.saveKeyDates(keyDates).catch(console.error);log("updated","Key Dates","Admin");closeM()}}>Done</Btn></div>
       </Modal>;
 
       case "editTargets": return <Modal theme={theme} title="Set Growth Targets" onClose={closeM}><FormCol>
         {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["linkClicks","Link Clicks"],["newsletterSignups","Newsletter Sign-ups"],["nanuUsers","Nanu Users"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
-        <FormActions theme={theme} onClose={closeM} onSave={()=>{setStats(p=>({...p,targets:{...form}}));log("updated","Growth Targets","Stats");closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{const newTargets={...form};setStats(p=>{const ns={...p,targets:newTargets};db.saveStats(ns.totals,newTargets,ns.lastUpdated).catch(console.error);return ns});log("updated","Growth Targets","Stats");closeM()}}/>
       </FormCol></Modal>;
 
       case "editStats": return <Modal theme={theme} title="Update Stats" onClose={closeM}><FormCol>
         {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["shares","Shares"],["linkClicks","Link Clicks"],["videoViews","Video Views"],["websiteTraffic","Website Traffic"],["newsletterSignups","Newsletter Sign-ups"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" step={k==="engagement"?"0.1":"1"} value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
-        <FormActions theme={theme} onClose={closeM} onSave={()=>{setStats(p=>({...p,totals:{...form},lastUpdated:new Date().toISOString().split("T")[0]}));log("updated","Social Stats","Stats");closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{const newTotals={...form};const newDate=new Date().toISOString().split('T')[0];setStats(p=>{const ns={...p,totals:newTotals,lastUpdated:newDate};db.saveStats(newTotals,ns.targets,newDate).catch(console.error);return ns});log('updated','Social Stats','Stats');closeM()}}/>
       </FormCol></Modal>;
 
       case "editIdea": return <Modal theme={theme} title={form.id?"Edit Idea":"New Idea"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Idea</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <FormRow><div><Label theme={theme}>Category</Label><Sel theme={theme} options={["Video","Design","Campaign","Blog","Social","Other"]} value={form.category||"Video"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Open","Approved","In Progress","Done","Rejected"]} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Votes</Label><Input theme={theme} type="number" value={form.votes||0} onChange={e=>setForm(p=>({...p,votes:Number(e.target.value)}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,ideas:[...p.ideas,{...form,id:uid("i")}]}));closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));db.deleteIdea(form.id).catch(console.error);closeM()}:null} onSave={()=>{const iid=form.id||uid("i");const idata={...form,id:iid};if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?idata:x)}));else setOps(p=>({...p,ideas:[...p.ideas,idata]}));db.saveIdea(idata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editCaption": return <Modal theme={theme} title={form.id?"Edit Caption":"New Caption"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Caption Text</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,captions:[...p.captions,{...form,id:uid("cap")}]}));closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));db.deleteCaption(form.id).catch(console.error);closeM()}:null} onSave={()=>{const capid=form.id||uid("cap");const capdata={...form,id:capid};if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?capdata:x)}));else setOps(p=>({...p,captions:[...p.captions,capdata]}));db.saveCaption(capdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editHashtag": return <Modal theme={theme} title={form.id?"Edit Hashtags":"New Hashtag Group"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Group Name</Label><Input theme={theme} value={form.group||""} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
         <div><Label theme={theme}>Hashtags (comma-separated)</Label><Textarea theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,{...form,id:uid("h")}]}));closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));db.deleteHashtag(form.id).catch(console.error);closeM()}:null} onSave={()=>{const hid=form.id||uid("h");const hdata={...form,id:hid};if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?hdata:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,hdata]}));db.saveHashtag(hdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editMessaging": return <Modal theme={theme} title={form.id?"Edit Messaging":"New Messaging Pillar"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Pillar Name</Label><Input theme={theme} value={form.pillar||""} onChange={e=>setForm(p=>({...p,pillar:e.target.value}))}/></div>
         <div><Label theme={theme}>Key Message</Label><Textarea theme={theme} value={form.line||""} onChange={e=>setForm(p=>({...p,line:e.target.value}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,messaging:[...p.messaging,{...form,id:uid("m")}]}));closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));db.deleteMessaging(form.id).catch(console.error);closeM()}:null} onSave={()=>{const mid=form.id||uid("m");const mdata={...form,id:mid};if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?mdata:x)}));else setOps(p=>({...p,messaging:[...p.messaging,mdata]}));db.saveMessaging(mdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editTemplate": return <Modal theme={theme} title={form.id?"Edit Template":"New Template"} onClose={closeM} width={580}><FormCol>
@@ -1252,14 +1298,14 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Platform</Label><Sel theme={theme} options={PLATFORMS} value={form.platform||PLATFORMS[0]} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div>
         <div><Label theme={theme}>Caption Template</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))} style={{minHeight:120}}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,templates:[...p.templates,{...form,id:uid("tp")}]}));closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));db.deleteTemplate(form.id).catch(console.error);closeM()}:null} onSave={()=>{const tpid=form.id||uid("tp");const tpdata={...form,id:tpid};if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?tpdata:x)}));else setOps(p=>({...p,templates:[...p.templates,tpdata]}));db.saveTemplate(tpdata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editCampaign": return <Modal theme={theme} title={form.id?"Edit Campaign":"New Campaign"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Campaign Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Tag (for linking content)</Label><Input theme={theme} value={form.tag||""} onChange={e=>setForm(p=>({...p,tag:e.target.value.toLowerCase().replace(/\s+/g,"-")}))}/></div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?{...form}:c));else setCampaigns(p=>[...p,{...form,id:uid("camp")}]);log(form.id?"updated":"created",form.name,"Campaigns");closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));db.deleteCampaign(form.id).catch(console.error);closeM()}:null} onSave={()=>{const campid=form.id||uid("camp");const campdata={...form,id:campid};if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?campdata:c));else setCampaigns(p=>[...p,campdata]);db.saveCampaign(campdata).catch(console.error);log(form.id?"updated":"created",form.name,"Campaigns");closeM()}}/>
       </FormCol></Modal>;
 
       case "editNote": return <Modal theme={theme} title={form.id?"Edit Note":"New Note"} onClose={closeM}><FormCol>
@@ -1268,7 +1314,7 @@ export default function MarketingHub() {
           <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:40,height:32,border:"none",borderRadius:6,cursor:"pointer"}}/></div>
           <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}><input type="checkbox" checked={form.pinned||false} onChange={e=>setForm(p=>({...p,pinned:e.target.checked}))}/>Pin to top</label>
         </div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setNotes(p=>p.filter(n=>n.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setNotes(p=>p.map(n=>n.id===form.id?{...form}:n));else setNotes(p=>[...p,{...form,id:uid("n"),author:curUser.id,date:new Date().toISOString().split("T")[0]}]);closeM()}}/>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setNotes(p=>p.filter(n=>n.id!==form.id));db.deleteNote(form.id).catch(console.error);closeM()}:null} onSave={()=>{const nid=form.id||uid("n");const ndata=form.id?{...form}:{...form,id:nid,author:curUser.id,date:new Date().toISOString().split("T")[0]};if(form.id)setNotes(p=>p.map(n=>n.id===form.id?ndata:n));else setNotes(p=>[...p,ndata]);db.saveNote(ndata).catch(console.error);closeM()}}/>
       </FormCol></Modal>;
 
       case "editPlatform": return <Modal theme={theme} title={`Update ${form._platformName||"Platform"} Stats`} onClose={closeM}><FormCol>
@@ -1279,7 +1325,7 @@ export default function MarketingHub() {
         <FormActions theme={theme} onClose={closeM} onSave={()=>{
           const name=form._platformName;
           const {_platformName,...data}=form;
-          setStats(p=>({...p,platforms:{...p.platforms,[name]:data},lastUpdated:new Date().toISOString().split("T")[0]}));
+          setStats(p=>({...p,platforms:{...p.platforms,[name]:data},lastUpdated:new Date().toISOString().split('T')[0]}));db.savePlatformStat(name,data).catch(console.error);
           log("updated",name+" stats","Stats");
           closeM();
         }}/>
@@ -1298,7 +1344,7 @@ export default function MarketingHub() {
         <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>{
-            setStats(p=>({...p,weeklyGrowth:form.entries||[],lastUpdated:new Date().toISOString().split("T")[0]}));
+            const growthEntries=form.entries||[];setStats(p=>({...p,weeklyGrowth:growthEntries,lastUpdated:new Date().toISOString().split('T')[0]}));db.saveWeeklyGrowth(growthEntries).catch(console.error);
             log("updated","Nanu User Growth","Stats");
             closeM();
           }}>Save</Btn>
@@ -1310,9 +1356,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={(e)=>setForm((p)=>({...p,description:e.target.value}))}/></div>
         <FormRow><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setProjects((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Projects");closeM()}:null} onSave={()=>{
-          if(form.id){setProjects((p)=>p.map((x)=>x.id===form.id?{...form}:x));log("updated",form.name,"Projects")}
-          else{setProjects((p)=>[...p,{...form,id:uid("proj")}]);log("created",form.name,"Projects")}
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id).catch(console.error);log("deleted",form.name,"Projects");closeM()}:null} onSave={()=>{
+          const projid=form.id||uid("proj");const projdata={...form,id:projid};if(form.id){setProjects(p=>p.map(x=>x.id===form.id?projdata:x));log("updated",form.name,"Projects")}
+          else{setProjects(p=>[...p,projdata]);log("created",form.name,"Projects")}
           closeM();
         }}/>
       </FormCol></Modal>;
@@ -1323,9 +1369,9 @@ export default function MarketingHub() {
         <FormRow><div><Label theme={theme}>Platform / Channel</Label><Input theme={theme} value={form.platform||""} onChange={(e)=>setForm((p)=>({...p,platform:e.target.value}))} placeholder="e.g. Podcast, Discord, YouTube"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div></FormRow>
         <FormRow><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={(e)=>setForm((p)=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={(e)=>setForm((p)=>({...p,url:e.target.value}))} placeholder="https://..."/></div></FormRow>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))} placeholder="Context, talking points, follow-up actions..."/></div>
-        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOutreach((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Outreach");closeM()}:null} onSave={()=>{
-          if(form.id){setOutreach((p)=>p.map((x)=>x.id===form.id?{...form}:x));log("updated",form.name,"Outreach")}
-          else{setOutreach((p)=>[...p,{...form,id:uid("out")}]);log("created",form.name,"Outreach")}
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOutreach(p=>p.filter(x=>x.id!==form.id));db.deleteOutreach(form.id).catch(console.error);log("deleted",form.name,"Outreach");closeM()}:null} onSave={()=>{
+          const outid=form.id||uid("out");const outdata={...form,id:outid};if(form.id){setOutreach(p=>p.map(x=>x.id===form.id?outdata:x));log("updated",form.name,"Outreach")}
+          else{setOutreach(p=>[...p,outdata]);log("created",form.name,"Outreach")}
           closeM();
         }}/>
       </FormCol></Modal>;
@@ -1339,7 +1385,7 @@ export default function MarketingHub() {
           </div>
         ))}
         <FormActions theme={theme} onClose={closeM} onSave={()=>{
-          setUsers((p)=>p.map((u)=>u.id===curUser.id?{...u,socials:form.socials||{}}:u));
+          setUsers(p=>p.map(u=>u.id===curUser.id?{...u,socials:form.socials||{}}:u));db.saveUser({...curUser,socials:form.socials||{}}).catch(console.error);
           log("updated","My Socials","Team");
           closeM();
         }}/>
