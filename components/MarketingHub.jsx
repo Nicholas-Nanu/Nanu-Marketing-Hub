@@ -358,6 +358,16 @@ const ProgressBar = ({ value, max, color, theme }) => {
   );
 };
 
+const FormCol = ({ children }) => <div style={{display:"flex",flexDirection:"column",gap:14}}>{children}</div>;
+const FormRow = ({ children }) => <div className="nanu-form-row">{children}</div>;
+const FormActions = ({ onSave, onDelete, onClose, theme, saveLabel="Save" }) => (
+  <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+    {onDelete&&<Btn theme={theme} danger onClick={onDelete}><Trash2 size={13}/> Delete</Btn>}
+    <Btn theme={theme} onClick={onClose}>Cancel</Btn>
+    <Btn primary theme={theme} onClick={onSave}>{saveLabel}</Btn>
+  </div>
+);
+
 /* ═══════════════════════════════════════════════════════════════
    LOGIN
    ═══════════════════════════════════════════════════════════════ */
@@ -1124,48 +1134,39 @@ export default function MarketingHub() {
   /* ═══ MODAL FORMS ═══ */
   const renderModal = () => {
     if (!modal) return null;
-    const F = ({ children }) => <div style={{display:"flex",flexDirection:"column",gap:14}}>{children}</div>;
-    const Row = ({ children }) => <div className="nanu-form-row">{children}</div>;
-    const Actions = ({ onSave, onDelete, saveLabel="Save" }) => (
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-        {onDelete&&<Btn theme={theme} danger onClick={onDelete}><Trash2 size={13}/> Delete</Btn>}
-        <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-        <Btn primary theme={theme} onClick={onSave}>{saveLabel}</Btn>
-      </div>
-    );
 
     switch(modal) {
-      case "editCal": return <Modal theme={theme} title={form.id?"Edit Content":"New Content"} onClose={closeM} width={580}><F>
+      case "editCal": return <Modal theme={theme} title={form.id?"Edit Content":"New Content"} onClose={closeM} width={580}><FormCol>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
-        <Row><div><Label theme={theme}>Platform</Label><Sel theme={theme} options={PLATFORMS} value={form.platform} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={STATUSES} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></Row>
-        <Row><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></Row>
-        <Row><div><Label theme={theme}>Publish Time</Label><Input theme={theme} type="time" value={form.publishTime||""} onChange={e=>setForm(p=>({...p,publishTime:e.target.value}))}/></div><div><Label theme={theme}>Campaign</Label><Sel theme={theme} options={[{value:"",label:"None"},...campaigns.map(c=>({value:c.tag,label:c.name}))]} value={form.campaign||""} onChange={e=>setForm(p=>({...p,campaign:e.target.value}))}/></div></Row>
+        <FormRow><div><Label theme={theme}>Platform</Label><Sel theme={theme} options={PLATFORMS} value={form.platform} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={STATUSES} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Publish Time</Label><Input theme={theme} type="time" value={form.publishTime||""} onChange={e=>setForm(p=>({...p,publishTime:e.target.value}))}/></div><div><Label theme={theme}>Campaign</Label><Sel theme={theme} options={[{value:"",label:"None"},...campaigns.map(c=>({value:c.tag,label:c.name}))]} value={form.campaign||""} onChange={e=>setForm(p=>({...p,campaign:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Caption</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))}/></div>
         <div><Label theme={theme}>Asset Link</Label><Input theme={theme} value={form.assetLink||""} onChange={e=>setForm(p=>({...p,assetLink:e.target.value}))} placeholder="https://..."/></div>
-        <Actions onDelete={form.id?()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));log("deleted",form.title,"Calendar");closeM()}:null} onSave={()=>{if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?{...form}:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,{...form,id:uid("c")}]);log("created",form.title,"Calendar")}closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));log("deleted",form.title,"Calendar");closeM()}:null} onSave={()=>{if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?{...form}:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,{...form,id:uid("c")}]);log("created",form.title,"Calendar")}closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={580}><F>
+      case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={580}><FormCol>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Add context, details, links, or instructions for this task..." style={{minHeight:100}}/></div>
-        <Row><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TASK_STATUSES} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></Row>
-        <Row><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></Row>
+        <FormRow><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TASK_STATUSES} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
-        <Row><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...projects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></Row>
-        <Actions onDelete={form.id?()=>{setTasks(p=>p.filter(t=>t.id!==form.id));log("deleted",form.title,"Tasks");closeM()}:null} onSave={()=>{if(form.id){setTasks(p=>p.map(t=>t.id===form.id?{...form}:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,{...form,id:uid("t")}]);log("created",form.title,"Tasks")}closeM()}}/>
-      </F></Modal>;
+        <FormRow><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...projects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></FormRow>
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setTasks(p=>p.filter(t=>t.id!==form.id));log("deleted",form.title,"Tasks");closeM()}:null} onSave={()=>{if(form.id){setTasks(p=>p.map(t=>t.id===form.id?{...form}:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,{...form,id:uid("t")}]);log("created",form.title,"Tasks")}closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editResource": return <Modal theme={theme} title={form.id?"Edit Resource":"New Resource"} onClose={closeM}><F>
+      case "editResource": return <Modal theme={theme} title={form.id?"Edit Resource":"New Resource"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Label</Label><Input theme={theme} value={form.label||""} onChange={e=>setForm(p=>({...p,label:e.target.value}))}/></div>
         <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))}/></div>
         <div><Label theme={theme}>Group</Label><Sel theme={theme} options={RESOURCE_GROUPS} value={form.group||"Drives"} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
-        <Actions onDelete={form.id?()=>{setResources(p=>p.filter(r=>r.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setResources(p=>p.map(r=>r.id===form.id?{...form}:r));else setResources(p=>[...p,{...form,id:uid("r")}]);closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setResources(p=>p.filter(r=>r.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setResources(p=>p.map(r=>r.id===form.id?{...form}:r));else setResources(p=>[...p,{...form,id:uid("r")}]);closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editUser": return <Modal theme={theme} title={form.id?"Edit Team Member":"Add Team Member"} onClose={closeM}><F>
+      case "editUser": return <Modal theme={theme} title={form.id?"Edit Team Member":"Add Team Member"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Full Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
-        <Row><div><Label theme={theme}>Username</Label><Input theme={theme} value={form.username||""} onChange={e=>setForm(p=>({...p,username:e.target.value}))}/></div><div><Label theme={theme}>PIN</Label><Input theme={theme} value={form.pin||"1234"} onChange={e=>setForm(p=>({...p,pin:e.target.value}))} maxLength={6}/></div></Row>
-        <Row><div><Label theme={theme}>Role</Label><Sel theme={theme} options={ROLES} value={form.role||"Content Creator"} onChange={e=>setForm(p=>({...p,role:e.target.value}))}/></div><div><Label theme={theme}>Timezone</Label><Sel theme={theme} options={TZ_OPTIONS.map(t=>({value:t.label,label:t.label}))} value={form.tzLabel||"London"} onChange={e=>{const tz=TZ_OPTIONS.find(t=>t.label===e.target.value);setForm(p=>({...p,tzLabel:e.target.value,tz:tz?.tz||"Europe/London"}))}}/></div></Row>
+        <FormRow><div><Label theme={theme}>Username</Label><Input theme={theme} value={form.username||""} onChange={e=>setForm(p=>({...p,username:e.target.value}))}/></div><div><Label theme={theme}>PIN</Label><Input theme={theme} value={form.pin||"1234"} onChange={e=>setForm(p=>({...p,pin:e.target.value}))} maxLength={6}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Role</Label><Sel theme={theme} options={ROLES} value={form.role||"Content Creator"} onChange={e=>setForm(p=>({...p,role:e.target.value}))}/></div><div><Label theme={theme}>Timezone</Label><Sel theme={theme} options={TZ_OPTIONS.map(t=>({value:t.label,label:t.label}))} value={form.tzLabel||"London"} onChange={e=>{const tz=TZ_OPTIONS.find(t=>t.label===e.target.value);setForm(p=>({...p,tzLabel:e.target.value,tz:tz?.tz||"Europe/London"}))}}/></div></FormRow>
         <div><Label theme={theme}>Email</Label><Input theme={theme} value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
         <div><Label theme={theme}>Responsibilities</Label><Input theme={theme} value={form.resp||""} onChange={e=>setForm(p=>({...p,resp:e.target.value}))}/></div>
         <div style={{borderTop:`1px solid ${theme.border}`,paddingTop:14,marginTop:4}}>
@@ -1179,8 +1180,8 @@ export default function MarketingHub() {
             ))}
           </div>
         </div>
-        <Actions onSave={()=>{if(form.id){setUsers((p)=>p.map((u)=>u.id===form.id?{...form,socials:form.socials||{}}:u));log("updated",form.name,"Team")}else{setUsers((p)=>[...p,{...form,id:uid("u"),socials:form.socials||{}}]);log("added",form.name,"Team")}closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{if(form.id){setUsers((p)=>p.map((u)=>u.id===form.id?{...form,socials:form.socials||{}}:u));log("updated",form.name,"Team")}else{setUsers((p)=>[...p,{...form,id:uid("u"),socials:form.socials||{}}]);log("added",form.name,"Team")}closeM()}}/>
+      </FormCol></Modal>;
 
       case "editThemes": return <Modal theme={theme} title="Edit Weekly Themes" onClose={closeM} width={600}>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Customise the content theme for each day of the week.</p>
@@ -1207,82 +1208,82 @@ export default function MarketingHub() {
         <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn primary theme={theme} onClick={()=>{log("updated","Key Dates","Admin");closeM()}}>Done</Btn></div>
       </Modal>;
 
-      case "editTargets": return <Modal theme={theme} title="Set Growth Targets" onClose={closeM}><F>
+      case "editTargets": return <Modal theme={theme} title="Set Growth Targets" onClose={closeM}><FormCol>
         {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["linkClicks","Link Clicks"],["newsletterSignups","Newsletter Sign-ups"],["nanuUsers","Nanu Users"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
-        <Actions onSave={()=>{setStats(p=>({...p,targets:{...form}}));log("updated","Growth Targets","Stats");closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{setStats(p=>({...p,targets:{...form}}));log("updated","Growth Targets","Stats");closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editStats": return <Modal theme={theme} title="Update Stats" onClose={closeM}><F>
+      case "editStats": return <Modal theme={theme} title="Update Stats" onClose={closeM}><FormCol>
         {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["shares","Shares"],["linkClicks","Link Clicks"],["videoViews","Video Views"],["websiteTraffic","Website Traffic"],["newsletterSignups","Newsletter Sign-ups"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" step={k==="engagement"?"0.1":"1"} value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
-        <Actions onSave={()=>{setStats(p=>({...p,totals:{...form},lastUpdated:new Date().toISOString().split("T")[0]}));log("updated","Social Stats","Stats");closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{setStats(p=>({...p,totals:{...form},lastUpdated:new Date().toISOString().split("T")[0]}));log("updated","Social Stats","Stats");closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editIdea": return <Modal theme={theme} title={form.id?"Edit Idea":"New Idea"} onClose={closeM}><F>
+      case "editIdea": return <Modal theme={theme} title={form.id?"Edit Idea":"New Idea"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Idea</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
-        <Row><div><Label theme={theme}>Category</Label><Sel theme={theme} options={["Video","Design","Campaign","Blog","Social","Other"]} value={form.category||"Video"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Open","Approved","In Progress","Done","Rejected"]} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></Row>
+        <FormRow><div><Label theme={theme}>Category</Label><Sel theme={theme} options={["Video","Design","Campaign","Blog","Social","Other"]} value={form.category||"Video"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Open","Approved","In Progress","Done","Rejected"]} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Votes</Label><Input theme={theme} type="number" value={form.votes||0} onChange={e=>setForm(p=>({...p,votes:Number(e.target.value)}))}/></div>
-        <Actions onDelete={form.id?()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,ideas:[...p.ideas,{...form,id:uid("i")}]}));closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,ideas:[...p.ideas,{...form,id:uid("i")}]}));closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editCaption": return <Modal theme={theme} title={form.id?"Edit Caption":"New Caption"} onClose={closeM}><F>
+      case "editCaption": return <Modal theme={theme} title={form.id?"Edit Caption":"New Caption"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Caption Text</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <Actions onDelete={form.id?()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,captions:[...p.captions,{...form,id:uid("cap")}]}));closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,captions:[...p.captions,{...form,id:uid("cap")}]}));closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editHashtag": return <Modal theme={theme} title={form.id?"Edit Hashtags":"New Hashtag Group"} onClose={closeM}><F>
+      case "editHashtag": return <Modal theme={theme} title={form.id?"Edit Hashtags":"New Hashtag Group"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Group Name</Label><Input theme={theme} value={form.group||""} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
         <div><Label theme={theme}>Hashtags (comma-separated)</Label><Textarea theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <Actions onDelete={form.id?()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,{...form,id:uid("h")}]}));closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,{...form,id:uid("h")}]}));closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editMessaging": return <Modal theme={theme} title={form.id?"Edit Messaging":"New Messaging Pillar"} onClose={closeM}><F>
+      case "editMessaging": return <Modal theme={theme} title={form.id?"Edit Messaging":"New Messaging Pillar"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Pillar Name</Label><Input theme={theme} value={form.pillar||""} onChange={e=>setForm(p=>({...p,pillar:e.target.value}))}/></div>
         <div><Label theme={theme}>Key Message</Label><Textarea theme={theme} value={form.line||""} onChange={e=>setForm(p=>({...p,line:e.target.value}))}/></div>
-        <Actions onDelete={form.id?()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,messaging:[...p.messaging,{...form,id:uid("m")}]}));closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,messaging:[...p.messaging,{...form,id:uid("m")}]}));closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editTemplate": return <Modal theme={theme} title={form.id?"Edit Template":"New Template"} onClose={closeM} width={580}><F>
+      case "editTemplate": return <Modal theme={theme} title={form.id?"Edit Template":"New Template"} onClose={closeM} width={580}><FormCol>
         <div><Label theme={theme}>Template Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Platform</Label><Sel theme={theme} options={PLATFORMS} value={form.platform||PLATFORMS[0]} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div>
         <div><Label theme={theme}>Caption Template</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))} style={{minHeight:120}}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
-        <Actions onDelete={form.id?()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,templates:[...p.templates,{...form,id:uid("tp")}]}));closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));closeM()}:null} onSave={()=>{if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?{...form}:x)}));else setOps(p=>({...p,templates:[...p.templates,{...form,id:uid("tp")}]}));closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editCampaign": return <Modal theme={theme} title={form.id?"Edit Campaign":"New Campaign"} onClose={closeM}><F>
+      case "editCampaign": return <Modal theme={theme} title={form.id?"Edit Campaign":"New Campaign"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Campaign Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Tag (for linking content)</Label><Input theme={theme} value={form.tag||""} onChange={e=>setForm(p=>({...p,tag:e.target.value.toLowerCase().replace(/\s+/g,"-")}))}/></div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
-        <Actions onDelete={form.id?()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?{...form}:c));else setCampaigns(p=>[...p,{...form,id:uid("camp")}]);log(form.id?"updated":"created",form.name,"Campaigns");closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?{...form}:c));else setCampaigns(p=>[...p,{...form,id:uid("camp")}]);log(form.id?"updated":"created",form.name,"Campaigns");closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editNote": return <Modal theme={theme} title={form.id?"Edit Note":"New Note"} onClose={closeM}><F>
+      case "editNote": return <Modal theme={theme} title={form.id?"Edit Note":"New Note"} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Note</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <div style={{display:"flex",gap:12,alignItems:"center"}}>
           <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:40,height:32,border:"none",borderRadius:6,cursor:"pointer"}}/></div>
           <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}><input type="checkbox" checked={form.pinned||false} onChange={e=>setForm(p=>({...p,pinned:e.target.checked}))}/>Pin to top</label>
         </div>
-        <Actions onDelete={form.id?()=>{setNotes(p=>p.filter(n=>n.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setNotes(p=>p.map(n=>n.id===form.id?{...form}:n));else setNotes(p=>[...p,{...form,id:uid("n"),author:curUser.id,date:new Date().toISOString().split("T")[0]}]);closeM()}}/>
-      </F></Modal>;
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setNotes(p=>p.filter(n=>n.id!==form.id));closeM()}:null} onSave={()=>{if(form.id)setNotes(p=>p.map(n=>n.id===form.id?{...form}:n));else setNotes(p=>[...p,{...form,id:uid("n"),author:curUser.id,date:new Date().toISOString().split("T")[0]}]);closeM()}}/>
+      </FormCol></Modal>;
 
-      case "editPlatform": return <Modal theme={theme} title={`Update ${form._platformName||"Platform"} Stats`} onClose={closeM}><F>
+      case "editPlatform": return <Modal theme={theme} title={`Update ${form._platformName||"Platform"} Stats`} onClose={closeM}><FormCol>
         <div><Label theme={theme}>Followers</Label><Input theme={theme} type="number" value={form.followers||0} onChange={e=>setForm(p=>({...p,followers:Number(e.target.value)}))}/></div>
         <div><Label theme={theme}>Reach</Label><Input theme={theme} type="number" value={form.reach||0} onChange={e=>setForm(p=>({...p,reach:Number(e.target.value)}))}/></div>
         <div><Label theme={theme}>Engagement %</Label><Input theme={theme} type="number" step="0.1" value={form.engagement||0} onChange={e=>setForm(p=>({...p,engagement:Number(e.target.value)}))}/></div>
         <div><Label theme={theme}>Growth %</Label><Input theme={theme} type="number" step="0.1" value={form.growth||0} onChange={e=>setForm(p=>({...p,growth:Number(e.target.value)}))}/></div>
-        <Actions onSave={()=>{
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{
           const name=form._platformName;
           const {_platformName,...data}=form;
           setStats(p=>({...p,platforms:{...p.platforms,[name]:data},lastUpdated:new Date().toISOString().split("T")[0]}));
           log("updated",name+" stats","Stats");
           closeM();
         }}/>
-      </F></Modal>;
+      </FormCol></Modal>;
 
       case "editGrowth": return <Modal theme={theme} title="Update Nanu User Growth" onClose={closeM} width={600}>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:14}}>Edit weekly user counts or add a new data point.</p>
@@ -1304,32 +1305,32 @@ export default function MarketingHub() {
         </div>
       </Modal>;
 
-      case "editProject": return <Modal theme={theme} title={form.id?"Edit Project":"New Project"} onClose={closeM} width={580}><F>
+      case "editProject": return <Modal theme={theme} title={form.id?"Edit Project":"New Project"} onClose={closeM} width={580}><FormCol>
         <div><Label theme={theme}>Project Name</Label><Input theme={theme} value={form.name||""} onChange={(e)=>setForm((p)=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={(e)=>setForm((p)=>({...p,description:e.target.value}))}/></div>
-        <Row><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></Row>
+        <FormRow><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></FormRow>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
-        <Actions onDelete={form.id?()=>{setProjects((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Projects");closeM()}:null} onSave={()=>{
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setProjects((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Projects");closeM()}:null} onSave={()=>{
           if(form.id){setProjects((p)=>p.map((x)=>x.id===form.id?{...form}:x));log("updated",form.name,"Projects")}
           else{setProjects((p)=>[...p,{...form,id:uid("proj")}]);log("created",form.name,"Projects")}
           closeM();
         }}/>
-      </F></Modal>;
+      </FormCol></Modal>;
 
-      case "editOutreach": return <Modal theme={theme} title={form.id?"Edit Outreach Contact":"New Outreach Contact"} onClose={closeM} width={580}><F>
+      case "editOutreach": return <Modal theme={theme} title={form.id?"Edit Outreach Contact":"New Outreach Contact"} onClose={closeM} width={580}><FormCol>
         <div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={(e)=>setForm((p)=>({...p,name:e.target.value}))}/></div>
-        <Row><div><Label theme={theme}>Type</Label><Sel theme={theme} options={OUTREACH_TYPES} value={form.type||"Community"} onChange={(e)=>setForm((p)=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={OUTREACH_STATUSES} value={form.status||"Identified"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></Row>
-        <Row><div><Label theme={theme}>Platform / Channel</Label><Input theme={theme} value={form.platform||""} onChange={(e)=>setForm((p)=>({...p,platform:e.target.value}))} placeholder="e.g. Podcast, Discord, YouTube"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div></Row>
-        <Row><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={(e)=>setForm((p)=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={(e)=>setForm((p)=>({...p,url:e.target.value}))} placeholder="https://..."/></div></Row>
+        <FormRow><div><Label theme={theme}>Type</Label><Sel theme={theme} options={OUTREACH_TYPES} value={form.type||"Community"} onChange={(e)=>setForm((p)=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={OUTREACH_STATUSES} value={form.status||"Identified"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Platform / Channel</Label><Input theme={theme} value={form.platform||""} onChange={(e)=>setForm((p)=>({...p,platform:e.target.value}))} placeholder="e.g. Podcast, Discord, YouTube"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div></FormRow>
+        <FormRow><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={(e)=>setForm((p)=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={(e)=>setForm((p)=>({...p,url:e.target.value}))} placeholder="https://..."/></div></FormRow>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))} placeholder="Context, talking points, follow-up actions..."/></div>
-        <Actions onDelete={form.id?()=>{setOutreach((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Outreach");closeM()}:null} onSave={()=>{
+        <FormActions theme={theme} onClose={closeM} onDelete={form.id?()=>{setOutreach((p)=>p.filter((x)=>x.id!==form.id));log("deleted",form.name,"Outreach");closeM()}:null} onSave={()=>{
           if(form.id){setOutreach((p)=>p.map((x)=>x.id===form.id?{...form}:x));log("updated",form.name,"Outreach")}
           else{setOutreach((p)=>[...p,{...form,id:uid("out")}]);log("created",form.name,"Outreach")}
           closeM();
         }}/>
-      </F></Modal>;
+      </FormCol></Modal>;
 
-      case "editSocials": return <Modal theme={theme} title="Edit My Socials" onClose={closeM}><F>
+      case "editSocials": return <Modal theme={theme} title="Edit My Socials" onClose={closeM}><FormCol>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:8}}>Add your social profile links so the team can find you.</p>
         {[["linkedin","LinkedIn"],["x","X / Twitter"],["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"]].map(([key,label])=>(
           <div key={key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
@@ -1337,12 +1338,12 @@ export default function MarketingHub() {
             <Input theme={theme} value={form.socials?.[key]||""} onChange={(e)=>setForm((p)=>({...p,socials:{...(p.socials||{}), [key]:e.target.value}}))} placeholder={`https://...`}/>
           </div>
         ))}
-        <Actions onSave={()=>{
+        <FormActions theme={theme} onClose={closeM} onSave={()=>{
           setUsers((p)=>p.map((u)=>u.id===curUser.id?{...u,socials:form.socials||{}}:u));
           log("updated","My Socials","Team");
           closeM();
         }}/>
-      </F></Modal>;
+      </FormCol></Modal>;
 
       default: return null;
     }
