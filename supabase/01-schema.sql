@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS stats (
 CREATE TABLE IF NOT EXISTS platform_stats (
   platform TEXT PRIMARY KEY,
   followers INT DEFAULT 0,
+  last_week INT DEFAULT 0,
   reach INT DEFAULT 0,
   engagement NUMERIC(5,2) DEFAULT 0,
   growth NUMERIC(5,2) DEFAULT 0

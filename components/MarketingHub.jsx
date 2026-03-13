@@ -174,13 +174,13 @@ const INIT_STATS = {
   targets: { followers:5000, reach:100000, impressions:250000, engagement:5.0, linkClicks:3000, newsletterSignups:500, nanuUsers:5000 },
   totals: { followers:2847, reach:45200, impressions:128500, engagement:3.2, shares:892, linkClicks:1240, videoViews:18700, websiteTraffic:4320, newsletterSignups:187 },
   platforms: {
-    LinkedIn:{ followers:620, reach:12400, engagement:4.1, growth:8.2 },
-    "X / Twitter":{ followers:890, reach:18200, engagement:2.8, growth:5.4 },
-    Instagram:{ followers:445, reach:6800, engagement:3.9, growth:12.1 },
-    TikTok:{ followers:312, reach:4200, engagement:5.2, growth:18.5 },
-    Reddit:{ followers:280, reach:2100, engagement:2.1, growth:3.8 },
-    YouTube:{ followers:180, reach:1200, engagement:1.8, growth:6.0 },
-    Facebook:{ followers:120, reach:300, engagement:1.2, growth:-2.1 },
+    LinkedIn:{ followers:620, lastWeek:580, reach:12400, engagement:4.1, growth:8.2 },
+    "X / Twitter":{ followers:890, lastWeek:845, reach:18200, engagement:2.8, growth:5.4 },
+    Instagram:{ followers:445, lastWeek:398, reach:6800, engagement:3.9, growth:12.1 },
+    TikTok:{ followers:312, lastWeek:263, reach:4200, engagement:5.2, growth:18.5 },
+    Reddit:{ followers:280, lastWeek:270, reach:2100, engagement:2.1, growth:3.8 },
+    YouTube:{ followers:180, lastWeek:170, reach:1200, engagement:1.8, growth:6.0 },
+    Facebook:{ followers:120, lastWeek:123, reach:300, engagement:1.2, growth:-2.1 },
   },
   topPosts: [
     { platform:"X / Twitter", title:"First peer-reviewed community case", metric:"12.4K imp." },
@@ -256,15 +256,25 @@ function exportCSV(rows, filename) {
 }
 
 function exportDOCX(title, items, filename) {
-  // Simple HTML-to-DOCX via Blob (Word can open .doc HTML files)
-  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1a1a1a}h1{font-size:18pt;color:#1FC2C2;border-bottom:2px solid #1FC2C2;padding-bottom:6pt;margin-bottom:12pt}h2{font-size:13pt;color:#0D1B21;margin-top:14pt}p{margin:4pt 0;line-height:1.5}.meta{color:#666;font-size:9pt}</style></head><body><h1>${title}</h1>`;
+  // Generate RTF which is universally supported by Word/LibreOffice/Google Docs
+  let rtf = "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Segoe UI;}{\\f1 Courier New;}}";
+  rtf += "{\\colortbl;\\red31\\green194\\blue194;\\red26\\green27\\blue33;\\red100\\green100\\blue100;}";
+  rtf += "\\f0\\fs22\\cf2 ";
+  // Title
+  rtf += "\\fs36\\b\\cf1 " + title.replace(/[\\{}]/g,"") + "\\b0\\line\\fs22\\cf2\\line ";
+  // Items
   items.forEach(item => {
-    html += `<h2>${item.heading}</h2><p>${item.body.replace(/\n/g,"<br/>")}</p>`;
+    rtf += "\\fs26\\b " + (item.heading||"").replace(/[\\{}]/g,"") + "\\b0\\line\\fs22 ";
+    const lines = (item.body||"").split("\n");
+    lines.forEach(line => { rtf += line.replace(/[\\{}]/g,"") + "\\line "; });
+    rtf += "\\line ";
   });
-  html += `<p class="meta" style="margin-top:24pt;border-top:1px solid #ccc;padding-top:8pt">Exported from Nanu Marketing Hub · ${new Date().toLocaleDateString("en-GB")}</p></body></html>`;
+  // Footer
+  rtf += "\\line\\cf3\\fs18 Exported from Nanu Marketing Hub \\bullet  " + new Date().toLocaleDateString("en-GB");
+  rtf += "}";
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([html], { type:"application/msword" }));
-  a.download = filename;
+  a.href = URL.createObjectURL(new Blob([rtf], { type:"application/rtf" }));
+  a.download = filename.replace(".doc",".rtf");
   a.click();
 }
 
@@ -1038,11 +1048,10 @@ export default function MarketingHub() {
         <div className="nanu-grid-stats-top" style={{marginBottom:20}}>
           {[
             {l:"Followers",v:stats.totals.followers,t:stats.targets.followers,i:<Users size={15}/>},
-            {l:"Reach",v:stats.totals.reach,t:stats.targets.reach,i:<Globe size={15}/>},
-            {l:"Engagement",v:stats.totals.engagement,t:stats.targets.engagement,i:<TrendingUp size={15}/>,s:"%"},
-            {l:"Link Clicks",v:stats.totals.linkClicks,t:stats.targets.linkClicks,i:<Link2 size={15}/>},
             {l:"Newsletter",v:stats.totals.newsletterSignups,t:stats.targets.newsletterSignups,i:<MessageSquare size={15}/>},
-            {l:"Nanu Users",v:stats.weeklyGrowth.at(-1).users,t:stats.targets.nanuUsers,i:<Star size={15}/>},
+            {l:"Nanu Users",v:(stats.weeklyGrowth.length?stats.weeklyGrowth.at(-1).users:0),t:stats.targets.nanuUsers,i:<Star size={15}/>},
+            {l:"Website Traffic",v:stats.totals.websiteTraffic,t:0,i:<Globe size={15}/>},
+            {l:"Shares",v:stats.totals.shares,t:0,i:<Send size={15}/>},
           ].map(m=>(
             <Card key={m.l} theme={theme} style={{padding:14}}>
               <div style={{color:theme.teal,marginBottom:6}}>{m.i}</div>
@@ -1056,27 +1065,24 @@ export default function MarketingHub() {
           ))}
         </div>
         <div className="nanu-grid-stats-plat" style={{marginBottom:20}}>
-          {Object.entries(stats.platforms).map(([p,d])=>(
-            <Card key={p} theme={theme} style={{padding:14,cursor:isAdmin?"pointer":"default"}} onClick={isAdmin?()=>openM("editPlatform",{_platformName:p,...d}):undefined}>
+          {Object.entries(stats.platforms).map(([p,d])=>{
+            const diff = d.followers - (d.lastWeek||0);
+            const diffStr = diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : "—";
+            return <Card key={p} theme={theme} style={{padding:14,cursor:isAdmin?"pointer":"default"}} onClick={isAdmin?()=>openM("editPlatform",{_platformName:p,...d}):undefined}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <span style={{fontWeight:600,fontSize:14}}>{p}</span>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontFamily:FONT_MONO,fontSize:11,color:d.growth>0?theme.green:d.growth<0?theme.red:theme.textMut}}>{d.growth>0?"+":""}{d.growth}%</span>
-                  {isAdmin&&<Edit3 size={11} color={theme.textMut}/>}
-                </div>
+                {isAdmin&&<Edit3 size={11} color={theme.textMut}/>}
               </div>
-              <div style={{fontSize:13,color:theme.textSec,lineHeight:1.8}}>{d.followers.toLocaleString()} followers<br/>{d.reach.toLocaleString()} reach<br/>{d.engagement}% engagement</div>
-            </Card>
-          ))}
+              <div className="nanu-big-num" style={{fontSize:22}}>{d.followers.toLocaleString()}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>followers</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                <span style={{fontSize:12,color:diff>0?theme.green:diff<0?theme.red:theme.textMut,fontWeight:600}}>{diffStr} this week</span>
+                {d.lastWeek>0&&<span style={{fontSize:11,color:theme.textMut}}>from {d.lastWeek.toLocaleString()}</span>}
+              </div>
+            </Card>;
+          })}
         </div>
-        <Card theme={theme} style={{padding:16,marginBottom:12}}>
-          <div style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:15,marginBottom:10}}>Top Performing Posts</div>
-          {stats.topPosts.map((p,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderTop:i?`1px solid ${theme.borderLight}`:"none"}}>
-              <Badge label={p.platform} color={PLATFORM_COLORS[p.platform]||theme.teal}/><span style={{fontSize:14,flex:1}}>{p.title}</span><span style={{fontFamily:FONT_MONO,fontSize:12,color:theme.teal,fontWeight:700}}>{p.metric}</span>
-            </div>
-          ))}
-        </Card>
+
         <Card theme={theme} style={{padding:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:15}}>Nanu User Growth</div>
@@ -1255,14 +1261,14 @@ export default function MarketingHub() {
       </Modal>;
 
       case "editTargets": return <Modal theme={theme} title="Set Growth Targets" onClose={closeM}><FormCol>
-        {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["linkClicks","Link Clicks"],["newsletterSignups","Newsletter Sign-ups"],["nanuUsers","Nanu Users"]].map(([k,l])=>(
+        {[["followers","Followers"],["newsletterSignups","Newsletter Sign-ups"],["nanuUsers","Nanu Users"],["websiteTraffic","Website Traffic"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
         <FormActions theme={theme} onClose={closeM} onSave={()=>{const newTargets={...form};setStats(p=>{const ns={...p,targets:newTargets};db.saveStats(ns.totals,newTargets,ns.lastUpdated).catch(console.error);return ns});log("updated","Growth Targets","Stats");closeM()}}/>
       </FormCol></Modal>;
 
       case "editStats": return <Modal theme={theme} title="Update Stats" onClose={closeM}><FormCol>
-        {[["followers","Followers"],["reach","Reach"],["impressions","Impressions"],["engagement","Engagement %"],["shares","Shares"],["linkClicks","Link Clicks"],["videoViews","Video Views"],["websiteTraffic","Website Traffic"],["newsletterSignups","Newsletter Sign-ups"]].map(([k,l])=>(
+        {[["followers","Followers"],["shares","Shares"],["websiteTraffic","Website Traffic"],["newsletterSignups","Newsletter Sign-ups"]].map(([k,l])=>(
           <div key={k}><Label theme={theme}>{l}</Label><Input theme={theme} type="number" step={k==="engagement"?"0.1":"1"} value={form[k]||0} onChange={e=>setForm(p=>({...p,[k]:Number(e.target.value)}))}/></div>
         ))}
         <FormActions theme={theme} onClose={closeM} onSave={()=>{const newTotals={...form};const newDate=new Date().toISOString().split('T')[0];setStats(p=>{const ns={...p,totals:newTotals,lastUpdated:newDate};db.saveStats(newTotals,ns.targets,newDate).catch(console.error);return ns});log('updated','Social Stats','Stats');closeM()}}/>
@@ -1318,10 +1324,8 @@ export default function MarketingHub() {
       </FormCol></Modal>;
 
       case "editPlatform": return <Modal theme={theme} title={`Update ${form._platformName||"Platform"} Stats`} onClose={closeM}><FormCol>
-        <div><Label theme={theme}>Followers</Label><Input theme={theme} type="number" value={form.followers||0} onChange={e=>setForm(p=>({...p,followers:Number(e.target.value)}))}/></div>
-        <div><Label theme={theme}>Reach</Label><Input theme={theme} type="number" value={form.reach||0} onChange={e=>setForm(p=>({...p,reach:Number(e.target.value)}))}/></div>
-        <div><Label theme={theme}>Engagement %</Label><Input theme={theme} type="number" step="0.1" value={form.engagement||0} onChange={e=>setForm(p=>({...p,engagement:Number(e.target.value)}))}/></div>
-        <div><Label theme={theme}>Growth %</Label><Input theme={theme} type="number" step="0.1" value={form.growth||0} onChange={e=>setForm(p=>({...p,growth:Number(e.target.value)}))}/></div>
+        <div><Label theme={theme}>Followers (this week)</Label><Input theme={theme} type="number" value={form.followers||0} onChange={e=>setForm(p=>({...p,followers:Number(e.target.value)}))}/></div>
+        <div><Label theme={theme}>Followers (last week)</Label><Input theme={theme} type="number" value={form.lastWeek||0} onChange={e=>setForm(p=>({...p,lastWeek:Number(e.target.value)}))}/></div>
         <FormActions theme={theme} onClose={closeM} onSave={()=>{
           const name=form._platformName;
           const {_platformName,...data}=form;

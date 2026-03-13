@@ -45,12 +45,12 @@ INSERT INTO calendar_items (id, title, platform, status, owner, due_date, publis
 INSERT INTO tasks (id, title, owner, due_date, status, blocker, priority, notes, linked_content, project) VALUES
 ('t1','Finalise Ambassador Programme tracker','u5','2026-03-10','In Progress','','High','Master Excel tracker needs final column for engagement metrics. Ed has the latest version — check with him before updating.','','proj1'),
 ('t2','Create podcast one-pager for Traci (Total Conundrum)','u2','2026-03-09','Overdue','','Urgent','Traci specifically requested a one-pager. Keep it concise: what Nanu is, Nicholas''s story, key talking points, and a media kit link.','','proj3'),
-('t3','Design Founding Community badge variants','u3','2026-03-12','In Progress','','Medium','Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.','',NULL),
+('t3','Design Founding Community badge variants','u3','2026-03-12','In Progress','','Medium','Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.','',''),
 ('t4','Draft The Signal brand launch post','u4','2026-03-14','Not Started','','High','Use the Signal Broadcast logo mark. Tagline: ''News through every lens · by Nanu''. Tease the lens ratings system without giving too much away.','c10','proj2'),
 ('t5','Follow up with Joel on Buildathon commitments','u2','2026-03-11','In Progress','Waiting on Joel''s response','High','Joel still owes: announcement copy, mentor/judge bench, brand assets, and distribution channels. Chase via email and WhatsApp.','c7','proj3'),
 ('t6','UApedia follow-up','u2','2026-03-13','Not Started','','Low','Pending task flagged for Holly. Check status of the collaboration discussion.','','proj3'),
 ('t7','Prepare Vanessa Rogers podcast brief','u1','2026-03-20','Not Started','','Medium','Fabric of Folklore — April Calendly confirmed. Prepare talking points around Nanu''s Myths & History category.','','proj3'),
-('t8','Weekly content calendar sign-off','u2','2026-03-09','Needs Approval','','Medium','Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.','',NULL);
+('t8','Weekly content calendar sign-off','u2','2026-03-09','Needs Approval','','Medium','Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.','','');
 
 -- RESOURCES
 INSERT INTO resources (id, grp, label, url) VALUES
@@ -110,14 +110,14 @@ INSERT INTO stats (id, last_updated, totals, targets) VALUES (1, '2026-03-07',
 '{"followers":5000,"reach":100000,"impressions":250000,"engagement":5.0,"linkClicks":3000,"newsletterSignups":500,"nanuUsers":5000}');
 
 -- PLATFORM STATS
-INSERT INTO platform_stats (platform, followers, reach, engagement, growth) VALUES
-('LinkedIn',620,12400,4.1,8.2),
-('X / Twitter',890,18200,2.8,5.4),
-('Instagram',445,6800,3.9,12.1),
-('TikTok',312,4200,5.2,18.5),
-('Reddit',280,2100,2.1,3.8),
-('YouTube',180,1200,1.8,6.0),
-('Facebook',120,300,1.2,-2.1);
+INSERT INTO platform_stats (platform, followers, last_week, reach, engagement, growth) VALUES
+('LinkedIn',620,580,12400,4.1,8.2),
+('X / Twitter',890,845,18200,2.8,5.4),
+('Instagram',445,398,6800,3.9,12.1),
+('TikTok',312,263,4200,5.2,18.5),
+('Reddit',280,270,2100,2.1,3.8),
+('YouTube',180,170,1200,1.8,6.0),
+('Facebook',120,123,300,1.2,-2.1);
 
 -- WEEKLY GROWTH
 INSERT INTO weekly_growth (week, users_count, sort_order) VALUES
