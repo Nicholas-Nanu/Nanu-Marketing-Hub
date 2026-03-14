@@ -515,7 +515,7 @@ export default function MarketingHub() {
     if(!curUser) return;
     const entry = {id:uid("a"),user:curUser.id,action,target,section:sec,time:new Date().toISOString()};
     setActivity(p=>[entry,...p].slice(0,50));
-    db.logActivity(entry).catch(console.error);
+    db.logActivity(entry);
   };
   const openM = (type, data = {}) => { setForm(data); setModal(type); };
   const closeM = () => { setModal(null); setForm({}); };
@@ -1142,7 +1142,7 @@ export default function MarketingHub() {
                     alert(`PIN for ${u.name} reset to: ${np}`);
                   }}><Lock size={12}/> Reset</Btn>
                   <Btn theme={theme} small onClick={()=>openM("editUser",{...u})}><Edit3 size={12}/></Btn>
-                  {u.id!==curUser.id&&<Btn theme={theme} small danger onClick={()=>{if(confirm(`Remove ${u.name}?`)){setUsers(p=>p.filter(x=>x.id!==u.id));db.deleteUser(u.id).catch(console.error);log("removed",u.name,"Admin")}}}><Trash2 size={12}/></Btn>}
+                  {u.id!==curUser.id&&<Btn theme={theme} small danger onClick={()=>{if(confirm(`Remove ${u.name}?`)){setUsers(p=>p.filter(x=>x.id!==u.id));db.deleteUser(u.id);log("removed",u.name,"Admin")}}}><Trash2 size={12}/></Btn>}
                 </div>
               </div>
             ))}
@@ -1196,9 +1196,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Caption</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))}/></div>
         <div><Label theme={theme}>Asset Link</Label><Input theme={theme} value={form.assetLink||""} onChange={e=>setForm(p=>({...p,assetLink:e.target.value}))} placeholder="https://..."/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));db.deleteCalendarItem(form.id).catch(console.error);log("deleted",form.title,"Calendar")})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCalendar(p=>p.filter(c=>c.id!==form.id));db.deleteCalendarItem(form.id);log("deleted",form.title,"Calendar")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const cid=form.id||uid("c");const cdata={...form,id:cid};if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?cdata:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,cdata]);log("created",form.title,"Calendar")}db.saveCalendarItem(cdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const cid=form.id||uid("c");const cdata={...form,id:cid};if(form.id){setCalendar(p=>p.map(c=>c.id===form.id?cdata:c));log("updated",form.title,"Calendar")}else{setCalendar(p=>[...p,cdata]);log("created",form.title,"Calendar")}db.saveCalendarItem(cdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1210,9 +1210,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...projects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id).catch(console.error);log("deleted",form.title,"Tasks")})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id);log("deleted",form.title,"Tasks")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const tid=form.id||uid("t");const tdata={...form,id:tid};if(form.id){setTasks(p=>p.map(t=>t.id===form.id?tdata:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",form.title,"Tasks")}db.saveTask(tdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const tid=form.id||uid("t");const tdata={...form,id:tid};if(form.id){setTasks(p=>p.map(t=>t.id===form.id?tdata:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",form.title,"Tasks")}db.saveTask(tdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1221,9 +1221,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))}/></div>
         <div><Label theme={theme}>Group</Label><Sel theme={theme} options={RESOURCE_GROUPS} value={form.group||"Drives"} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setResources(p=>p.filter(r=>r.id!==form.id));db.deleteResource(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setResources(p=>p.filter(r=>r.id!==form.id));db.deleteResource(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const rid=form.id||uid("r");const rdata={...form,id:rid};if(form.id)setResources(p=>p.map(r=>r.id===form.id?rdata:r));else setResources(p=>[...p,rdata]);db.saveResource(rdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const rid=form.id||uid("r");const rdata={...form,id:rid};if(form.id)setResources(p=>p.map(r=>r.id===form.id?rdata:r));else setResources(p=>[...p,rdata]);db.saveResource(rdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1246,7 +1246,7 @@ export default function MarketingHub() {
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const uuid=form.id||uid("u");const udata={...form,id:uuid,socials:form.socials||{}};if(form.id){setUsers(p=>p.map(u=>u.id===form.id?udata:u));log("updated",form.name,"Team")}else{setUsers(p=>[...p,udata]);log("added",form.name,"Team")}db.saveUser(udata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const uuid=form.id||uid("u");const udata={...form,id:uuid,socials:form.socials||{}};if(form.id){setUsers(p=>p.map(u=>u.id===form.id?udata:u));log("updated",form.name,"Team")}else{setUsers(p=>[...p,udata]);log("added",form.name,"Team")}db.saveUser(udata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1259,7 +1259,7 @@ export default function MarketingHub() {
             <input type="color" value={w.color} onChange={e=>{const u=[...weeklyThemes];u[i]={...w,color:e.target.value};setWeeklyThemes(u)}} style={{width:36,height:36,border:"none",borderRadius:8,cursor:"pointer",background:"none"}}/>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16,gap:10}}><Btn theme={theme} onClick={closeM}>Cancel</Btn><Btn primary theme={theme} onClick={()=>doSave(()=>{db.saveThemes(weeklyThemes).catch(console.error);log("updated","Weekly Themes","Admin")})}>Done</Btn></div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:16,gap:10}}><Btn theme={theme} onClick={closeM}>Cancel</Btn><Btn primary theme={theme} onClick={()=>doSave(()=>{db.saveThemes(weeklyThemes);log("updated","Weekly Themes","Admin")})}>Done</Btn></div>
       </Modal>;
 
       case "editKeyDates": return <Modal theme={theme} title="Manage Key Dates" onClose={closeM} width={600}>
@@ -1272,7 +1272,7 @@ export default function MarketingHub() {
             <button onClick={()=>setKeyDates(p=>p.filter(x=>x.id!==d.id))} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={14}/></button>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn primary theme={theme} onClick={()=>doSave(()=>{db.saveKeyDates(keyDates).catch(console.error);log("updated","Key Dates","Admin")})}>Done</Btn></div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn primary theme={theme} onClick={()=>doSave(()=>{db.saveKeyDates(keyDates);log("updated","Key Dates","Admin")})}>Done</Btn></div>
       </Modal>;
 
       case "editTargets": return <Modal theme={theme} title="Set Growth Targets" onClose={closeM}><div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -1281,7 +1281,7 @@ export default function MarketingHub() {
         ))}
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const newTargets={...form};setStats(p=>{const ns={...p,targets:newTargets};db.saveStats(ns.totals,newTargets,ns.lastUpdated).catch(console.error);return ns});log("updated","Growth Targets","Stats")})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const newTargets={...form};setStats(p=>{const ns={...p,targets:newTargets};db.saveStats(ns.totals,newTargets,ns.lastUpdated);return ns});log("updated","Growth Targets","Stats")})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1291,7 +1291,7 @@ export default function MarketingHub() {
         ))}
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const newTotals={...form};const newDate=new Date().toISOString().split('T')[0];setStats(p=>{const ns={...p,totals:newTotals,lastUpdated:newDate};db.saveStats(newTotals,ns.targets,newDate).catch(console.error);return ns});log('updated','Social Stats','Stats')})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const newTotals={...form};const newDate=new Date().toISOString().split('T')[0];setStats(p=>{const ns={...p,totals:newTotals,lastUpdated:newDate};db.saveStats(newTotals,ns.targets,newDate);return ns});log('updated','Social Stats','Stats')})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1300,9 +1300,9 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Category</Label><Sel theme={theme} options={["Video","Design","Campaign","Blog","Social","Other"]} value={form.category||"Video"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Open","Approved","In Progress","Done","Rejected"]} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Votes</Label><Input theme={theme} type="number" value={form.votes||0} onChange={e=>setForm(p=>({...p,votes:Number(e.target.value)}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));db.deleteIdea(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,ideas:p.ideas.filter(x=>x.id!==form.id)}));db.deleteIdea(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const iid=form.id||uid("i");const idata={...form,id:iid};if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?idata:x)}));else setOps(p=>({...p,ideas:[...p.ideas,idata]}));db.saveIdea(idata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const iid=form.id||uid("i");const idata={...form,id:iid};if(form.id)setOps(p=>({...p,ideas:p.ideas.map(x=>x.id===form.id?idata:x)}));else setOps(p=>({...p,ideas:[...p.ideas,idata]}));db.saveIdea(idata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1310,9 +1310,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Caption Text</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));db.deleteCaption(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,captions:p.captions.filter(x=>x.id!==form.id)}));db.deleteCaption(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const capid=form.id||uid("cap");const capdata={...form,id:capid};if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?capdata:x)}));else setOps(p=>({...p,captions:[...p.captions,capdata]}));db.saveCaption(capdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const capid=form.id||uid("cap");const capdata={...form,id:capid};if(form.id)setOps(p=>({...p,captions:p.captions.map(x=>x.id===form.id?capdata:x)}));else setOps(p=>({...p,captions:[...p.captions,capdata]}));db.saveCaption(capdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1320,9 +1320,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Group Name</Label><Input theme={theme} value={form.group||""} onChange={e=>setForm(p=>({...p,group:e.target.value}))}/></div>
         <div><Label theme={theme}>Hashtags (comma-separated)</Label><Textarea theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));db.deleteHashtag(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,hashtags:p.hashtags.filter(x=>x.id!==form.id)}));db.deleteHashtag(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const hid=form.id||uid("h");const hdata={...form,id:hid};if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?hdata:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,hdata]}));db.saveHashtag(hdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const hid=form.id||uid("h");const hdata={...form,id:hid};if(form.id)setOps(p=>({...p,hashtags:p.hashtags.map(x=>x.id===form.id?hdata:x)}));else setOps(p=>({...p,hashtags:[...p.hashtags,hdata]}));db.saveHashtag(hdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1330,9 +1330,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Pillar Name</Label><Input theme={theme} value={form.pillar||""} onChange={e=>setForm(p=>({...p,pillar:e.target.value}))}/></div>
         <div><Label theme={theme}>Key Message</Label><Textarea theme={theme} value={form.line||""} onChange={e=>setForm(p=>({...p,line:e.target.value}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));db.deleteMessaging(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,messaging:p.messaging.filter(x=>x.id!==form.id)}));db.deleteMessaging(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const mid=form.id||uid("m");const mdata={...form,id:mid};if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?mdata:x)}));else setOps(p=>({...p,messaging:[...p.messaging,mdata]}));db.saveMessaging(mdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const mid=form.id||uid("m");const mdata={...form,id:mid};if(form.id)setOps(p=>({...p,messaging:p.messaging.map(x=>x.id===form.id?mdata:x)}));else setOps(p=>({...p,messaging:[...p.messaging,mdata]}));db.saveMessaging(mdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1342,9 +1342,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Caption Template</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))} style={{minHeight:120}}/></div>
         <div><Label theme={theme}>Tags (comma-separated)</Label><Input theme={theme} value={(form.tags||[]).join(", ")} onChange={e=>setForm(p=>({...p,tags:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));db.deleteTemplate(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOps(p=>({...p,templates:p.templates.filter(x=>x.id!==form.id)}));db.deleteTemplate(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const tpid=form.id||uid("tp");const tpdata={...form,id:tpid};if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?tpdata:x)}));else setOps(p=>({...p,templates:[...p.templates,tpdata]}));db.saveTemplate(tpdata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const tpid=form.id||uid("tp");const tpdata={...form,id:tpid};if(form.id)setOps(p=>({...p,templates:p.templates.map(x=>x.id===form.id?tpdata:x)}));else setOps(p=>({...p,templates:[...p.templates,tpdata]}));db.saveTemplate(tpdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1353,9 +1353,9 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Tag (for linking content)</Label><Input theme={theme} value={form.tag||""} onChange={e=>setForm(p=>({...p,tag:e.target.value.toLowerCase().replace(/\s+/g,"-")}))}/></div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));db.deleteCampaign(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCampaigns(p=>p.filter(c=>c.id!==form.id));db.deleteCampaign(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const campid=form.id||uid("camp");const campdata={...form,id:campid};if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?campdata:c));else setCampaigns(p=>[...p,campdata]);db.saveCampaign(campdata).catch(console.error);log(form.id?"updated":"created",form.name,"Campaigns")})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const campid=form.id||uid("camp");const campdata={...form,id:campid};if(form.id)setCampaigns(p=>p.map(c=>c.id===form.id?campdata:c));else setCampaigns(p=>[...p,campdata]);db.saveCampaign(campdata);log(form.id?"updated":"created",form.name,"Campaigns")})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1366,9 +1366,9 @@ export default function MarketingHub() {
           <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}><input type="checkbox" checked={form.pinned||false} onChange={e=>setForm(p=>({...p,pinned:e.target.checked}))}/>Pin to top</label>
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setNotes(p=>p.filter(n=>n.id!==form.id));db.deleteNote(form.id).catch(console.error)})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setNotes(p=>p.filter(n=>n.id!==form.id));db.deleteNote(form.id)})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const nid=form.id||uid("n");const ndata=form.id?{...form}:{...form,id:nid,author:curUser.id,date:new Date().toISOString().split("T")[0]};if(form.id)setNotes(p=>p.map(n=>n.id===form.id?ndata:n));else setNotes(p=>[...p,ndata]);db.saveNote(ndata).catch(console.error)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const nid=form.id||uid("n");const ndata=form.id?{...form}:{...form,id:nid,author:curUser.id,date:new Date().toISOString().split("T")[0]};if(form.id)setNotes(p=>p.map(n=>n.id===form.id?ndata:n));else setNotes(p=>[...p,ndata]);db.saveNote(ndata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1380,7 +1380,7 @@ export default function MarketingHub() {
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const name=form._platformName;
             const {_platformName,...data}=form;
-            setStats(p=>({...p,platforms:{...p.platforms,[name]:data},lastUpdated:new Date().toISOString().split('T')[0]}));db.savePlatformStat(name,data).catch(console.error);
+            setStats(p=>({...p,platforms:{...p.platforms,[name]:data},lastUpdated:new Date().toISOString().split('T')[0]}));db.savePlatformStat(name,data);
             log("updated",name+" stats","Stats");
             })}>Done</Btn>
         </div>
@@ -1399,7 +1399,7 @@ export default function MarketingHub() {
         <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
-            const growthEntries=form.entries||[];setStats(p=>({...p,weeklyGrowth:growthEntries,lastUpdated:new Date().toISOString().split('T')[0]}));db.saveWeeklyGrowth(growthEntries).catch(console.error);
+            const growthEntries=form.entries||[];setStats(p=>({...p,weeklyGrowth:growthEntries,lastUpdated:new Date().toISOString().split('T')[0]}));db.saveWeeklyGrowth(growthEntries);
             log("updated","Nanu User Growth","Stats");
             })}>Done</Btn>
         </div>
@@ -1411,11 +1411,11 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id).catch(console.error);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const projid=form.id||uid("proj");const projdata={...form,id:projid};if(form.id){setProjects(p=>p.map(x=>x.id===form.id?projdata:x));log("updated",form.name,"Projects")}
-            else{setProjects(p=>[...p,projdata]);log("created",form.name,"Projects")}db.saveProject(projdata).catch(console.error);
+            else{setProjects(p=>[...p,projdata]);log("created",form.name,"Projects")}db.saveProject(projdata);
             })}>Done</Btn>
         </div>
       </div></Modal>;
@@ -1427,11 +1427,11 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={(e)=>setForm((p)=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={(e)=>setForm((p)=>({...p,url:e.target.value}))} placeholder="https://..."/></div></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))} placeholder="Context, talking points, follow-up actions..."/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
-          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOutreach(p=>p.filter(x=>x.id!==form.id));db.deleteOutreach(form.id).catch(console.error);log("deleted",form.name,"Outreach")})}><Trash2 size={13}/> Delete</Btn>}
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOutreach(p=>p.filter(x=>x.id!==form.id));db.deleteOutreach(form.id);log("deleted",form.name,"Outreach")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const outid=form.id||uid("out");const outdata={...form,id:outid};if(form.id){setOutreach(p=>p.map(x=>x.id===form.id?outdata:x));log("updated",form.name,"Outreach")}
-            else{setOutreach(p=>[...p,outdata]);log("created",form.name,"Outreach")}db.saveOutreach(outdata).catch(console.error);
+            else{setOutreach(p=>[...p,outdata]);log("created",form.name,"Outreach")}db.saveOutreach(outdata);
             })}>Done</Btn>
         </div>
       </div></Modal>;
@@ -1447,7 +1447,7 @@ export default function MarketingHub() {
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
-            setUsers(p=>p.map(u=>u.id===curUser.id?{...u,socials:form.socials||{}}:u));db.saveUser({...curUser,socials:form.socials||{}}).catch(console.error);
+            setUsers(p=>p.map(u=>u.id===curUser.id?{...u,socials:form.socials||{}}:u));db.saveUser({...curUser,socials:form.socials||{}});
             log("updated","My Socials","Team");
             })}>Done</Btn>
         </div>
