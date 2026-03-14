@@ -298,7 +298,7 @@ const Badge = ({ label, color, style }) => (
 );
 
 const Btn = ({ children, onClick, primary, theme, small, danger, disabled, style }) => (
-  <button onClick={onClick} disabled={disabled} style={{
+  <button type="button" onClick={onClick} disabled={disabled} style={{
     padding: small ? "5px 12px" : "8px 18px", borderRadius:8, border: primary ? "none" : `1px solid ${danger ? theme.red : theme.border}`,
     background: primary ? theme.teal : "transparent", color: primary ? "#0D1B21" : danger ? theme.red : theme.text,
     fontFamily:FONT_BODY, fontWeight:600, fontSize: small ? 12 : 13, cursor: disabled ? "not-allowed" : "pointer",
@@ -336,11 +336,11 @@ const SectionHead = ({ theme, children, right }) => (
 );
 
 const Modal = ({ theme, title, onClose, children, width=540 }) => (
-  <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.55)", backdropFilter:"blur(4px)" }} onClick={onClose}>
-    <div onClick={e=>e.stopPropagation()} style={{ background:theme.bgCard, borderRadius:16, border:`1px solid ${theme.border}`, padding:28, width, maxWidth:"92vw", maxHeight:"88vh", overflow:"auto", boxShadow:theme.shadowLg }}>
+  <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.55)", backdropFilter:"blur(4px)" }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+    <div style={{ background:theme.bgCard, borderRadius:16, border:`1px solid ${theme.border}`, padding:28, width, maxWidth:"92vw", maxHeight:"88vh", overflow:"auto", boxShadow:theme.shadowLg }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
         <h3 style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:18, color:theme.text, margin:0 }}>{title}</h3>
-        <button onClick={onClose} style={{ background:"none", border:"none", color:theme.textMut, cursor:"pointer" }}><X size={18}/></button>
+        <button type="button" onClick={onClose} style={{ background:"none", border:"none", color:theme.textMut, cursor:"pointer" }}><X size={18}/></button>
       </div>
       {children}
     </div>
