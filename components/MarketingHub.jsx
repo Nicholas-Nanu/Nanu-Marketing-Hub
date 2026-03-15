@@ -855,7 +855,7 @@ export default function MarketingHub() {
           }}><Download size={13}/> DOCX</Btn>
           <Btn primary theme={theme} onClick={()=>openM("editTask",{owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:"",linkedContent:"",project:""})}><Plus size={14}/> Add Task</Btn>
         </>}>Tasks</SectionHead>
-        {sortedTasks.map((t)=>{
+        {sortedTasks.filter(t=>t.status!=="Done").map((t)=>{
           const hl=["Overdue","Blocked","Needs Approval"].includes(t.status);
           const proj = projects.find((p)=>p.id===t.project);
           return <Card key={t.id} theme={theme} onClick={()=>openM("editTask",{...t})} style={{padding:12,marginBottom:6,cursor:"pointer",borderLeft:`3px solid ${TASK_STATUS_COLORS[t.status]||theme.border}`,background:hl?`${TASK_STATUS_COLORS[t.status]}06`:theme.bgCard}}>
@@ -873,6 +873,27 @@ export default function MarketingHub() {
             {t.linkedContent&&calendar.find((c)=>c.id===t.linkedContent)&&<div style={{marginTop:4,display:"flex",alignItems:"center",gap:4}}><Link2 size={11} color={theme.teal}/><span style={{fontSize:11,color:theme.teal}}>Linked: {calendar.find((c)=>c.id===t.linkedContent)?.title}</span></div>}
           </Card>;
         })}
+        {sortedTasks.filter(t=>t.status==="Done").length > 0 && (
+          <div style={{marginTop:20}}>
+            <button onClick={()=>setForm(p=>({...p,_showDone:!p._showDone}))} style={{display:"flex",alignItems:"center",gap:8,background:"none",border:"none",cursor:"pointer",fontFamily:FONT_BODY,fontSize:14,fontWeight:600,color:theme.textSec,padding:"8px 0"}}>
+              <Check size={16} color={theme.green}/>
+              Done ({sortedTasks.filter(t=>t.status==="Done").length})
+              <ChevronRight size={14} style={{transform:form._showDone?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+            </button>
+            {form._showDone && sortedTasks.filter(t=>t.status==="Done").map((t)=>{
+              const proj = projects.find((p)=>p.id===t.project);
+              return <Card key={t.id} theme={theme} onClick={()=>openM("editTask",{...t})} style={{padding:12,marginBottom:6,cursor:"pointer",borderLeft:`3px solid ${theme.green}`,opacity:0.7}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <Check size={14} color={theme.green}/>
+                  <span style={{fontWeight:600,fontSize:14,flex:1,textDecoration:"line-through",color:theme.textMut}}>{t.title}</span>
+                  {proj&&<Badge label={proj.name} color={proj.color}/>}
+                  <span style={{fontSize:12,color:theme.textMut}}>{uNames(t.owners)}</span>
+                  <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{t.dueDate}</span>
+                </div>
+              </Card>;
+            })}
+          </div>
+        )}
       </div>
     );
 
