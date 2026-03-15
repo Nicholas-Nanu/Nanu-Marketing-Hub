@@ -42,15 +42,15 @@ INSERT INTO calendar_items (id, title, platform, status, owner, due_date, publis
 ('c10','The Signal Launch Teaser','LinkedIn','In Design','u4','2026-03-18','09:00','News through every lens. The Signal by Nanu — coming soon.','','signal-launch');
 
 -- TASKS
-INSERT INTO tasks (id, title, owner, due_date, status, blocker, priority, notes, linked_content, project) VALUES
-('t1','Finalise Ambassador Programme tracker','u5','2026-03-10','In Progress','','High','Master Excel tracker needs final column for engagement metrics. Ed has the latest version — check with him before updating.','','proj1'),
-('t2','Create podcast one-pager for Traci (Total Conundrum)','u2','2026-03-09','Overdue','','Urgent','Traci specifically requested a one-pager. Keep it concise: what Nanu is, Nicholas''s story, key talking points, and a media kit link.','','proj3'),
-('t3','Design Founding Community badge variants','u3','2026-03-12','In Progress','','Medium','Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.','',NULL),
-('t4','Draft The Signal brand launch post','u4','2026-03-14','Not Started','','High','Use the Signal Broadcast logo mark. Tagline: ''News through every lens · by Nanu''. Tease the lens ratings system without giving too much away.','c10','proj2'),
-('t5','Follow up with Joel on Buildathon commitments','u2','2026-03-11','In Progress','Waiting on Joel''s response','High','Joel still owes: announcement copy, mentor/judge bench, brand assets, and distribution channels. Chase via email and WhatsApp.','c7','proj3'),
-('t6','UApedia follow-up','u2','2026-03-13','Not Started','','Low','Pending task flagged for Holly. Check status of the collaboration discussion.','','proj3'),
-('t7','Prepare Vanessa Rogers podcast brief','u1','2026-03-20','Not Started','','Medium','Fabric of Folklore — April Calendly confirmed. Prepare talking points around Nanu''s Myths & History category.','','proj3'),
-('t8','Weekly content calendar sign-off','u2','2026-03-09','Needs Approval','','Medium','Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.','',NULL);
+INSERT INTO tasks (id, title, owners, due_date, status, blocker, priority, notes, linked_content, project) VALUES
+('t1','Finalise Ambassador Programme tracker','["u5"]','2026-03-10','In Progress','','High','Master Excel tracker needs final column for engagement metrics. Ed has the latest version — check with him before updating.','','proj1'),
+('t2','Create podcast one-pager for Traci (Total Conundrum)','["u2"]','2026-03-09','Overdue','','Urgent','Traci specifically requested a one-pager. Keep it concise: what Nanu is, Nicholas''s story, key talking points, and a media kit link.','','proj3'),
+('t3','Design Founding Community badge variants','["u3"]','2026-03-12','In Progress','','Medium','Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.','',''),
+('t4','Draft The Signal brand launch post','["u4"]','2026-03-14','Not Started','','High','Use the Signal Broadcast logo mark. Tagline: ''News through every lens · by Nanu''. Tease the lens ratings system without giving too much away.','c10','proj2'),
+('t5','Follow up with Joel on Buildathon commitments','["u2"]','2026-03-11','In Progress','Waiting on Joel''s response','High','Joel still owes: announcement copy, mentor/judge bench, brand assets, and distribution channels. Chase via email and WhatsApp.','c7','proj3'),
+('t6','UApedia follow-up','["u2"]','2026-03-13','Not Started','','Low','Pending task flagged for Holly. Check status of the collaboration discussion.','','proj3'),
+('t7','Prepare Vanessa Rogers podcast brief','["u1"]','2026-03-20','Not Started','','Medium','Fabric of Folklore — April Calendly confirmed. Prepare talking points around Nanu''s Myths & History category.','','proj3'),
+('t8','Weekly content calendar sign-off','["u2"]','2026-03-09','Needs Approval','','Medium','Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.','','','','');
 
 -- RESOURCES
 INSERT INTO resources (id, grp, label, url) VALUES
@@ -148,14 +148,14 @@ INSERT INTO campaigns (id, name, tag, color) VALUES
 ('camp2','Buildathon','buildathon','#DA77F2');
 
 -- OUTREACH
-INSERT INTO outreach (id, name, type, platform, status, owner, notes, url, date) VALUES
-('out1','Vanessa Y. Rogers','Content Creator','Podcast — Fabric of Folklore','Confirmed','u1','April Calendly confirmed. Prepare talking points around Myths & History.','','2026-04-15'),
-('out2','Traci — Total Conundrum','Content Creator','Podcast','In Conversation','u2','One-pager requested. Waiting on scheduling.','',''),
-('out3','The Activity Continues','Content Creator','Podcast','Contacted','u2','Registration done. Awaiting response.','',''),
-('out4','James Fox','Influencer','X / Twitter','In Conversation','u1','X Space co-hosting event planned for 20 March.','','2026-03-20'),
-('out5','Nathan Cole — UAPWatch','Community','Discord / YouTube','In Conversation','u5','Potential cross-community collaboration.','',''),
-('out6','Nick Cook Event','Organisation','In-person (London)','Confirmed','u1','Invite-only. April. Nicholas attending.','','2026-04-20'),
-('out7','Reddit AMA','Community','Reddit','Identified','u4','Plan to announce Communities feature via AMA.','','');
+INSERT INTO outreach (id, name, type, platform, status, owner, notes, url, date, contact_name, contact_email) VALUES
+('out1','Vanessa Y. Rogers','Content Creator','Podcast — Fabric of Folklore','Confirmed','u1','April Calendly confirmed. Prepare talking points around Myths & History.','','2026-04-15','Vanessa Y. Rogers',''),
+('out2','Traci — Total Conundrum','Content Creator','Podcast','In Conversation','u2','One-pager requested. Waiting on scheduling.','','','Traci',''),
+('out3','The Activity Continues','Content Creator','Podcast','Contacted','u2','Registration done. Awaiting response.','','','',''),
+('out4','James Fox','Influencer','X / Twitter','In Conversation','u1','X Space co-hosting event planned for 20 March.','','2026-03-20','James Fox',''),
+('out5','Nathan Cole — UAPWatch','Community','Discord / YouTube','In Conversation','u5','Potential cross-community collaboration.','','','',''),
+('out6','Nick Cook Event','Organisation','In-person (London)','Confirmed','u1','Invite-only. April. Nicholas attending.','','2026-04-20','Nick Cook',''),
+('out7','Reddit AMA','Community','Reddit','Identified','u4','Plan to announce Communities feature via AMA.','','','','');
 
 -- ACTIVITY LOG
 INSERT INTO activity_log (id, user_id, action, target, section, time) VALUES

@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
-  owner TEXT REFERENCES users(id),
+  owners JSONB DEFAULT '[]'::jsonb,
   due_date TEXT,
   status TEXT DEFAULT 'Not Started',
   blocker TEXT,
@@ -195,6 +195,8 @@ CREATE TABLE IF NOT EXISTS outreach (
   notes TEXT,
   url TEXT,
   date TEXT,
+  contact_name TEXT DEFAULT '',
+  contact_email TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
