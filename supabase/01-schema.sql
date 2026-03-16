@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS projects (
   color TEXT DEFAULT '#1FC2C2',
   owner TEXT REFERENCES users(id),
   status TEXT DEFAULT 'Planning',
+  members JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

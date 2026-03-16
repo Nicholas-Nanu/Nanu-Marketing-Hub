@@ -217,10 +217,10 @@ const INIT_ACTIVITY = [
 ];
 
 const INIT_PROJECTS = [
-  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active" },
-  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active" },
-  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active" },
-  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning" },
+  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active", members:["u2"] },
+  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active", members:["u1","u2"] },
+  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active", members:["u1","u5"] },
+  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning", members:["u1","u3"] },
 ];
 
 const PROJECT_STATUSES = ["Planning", "Active", "Paused", "Complete"];
@@ -900,7 +900,7 @@ export default function MarketingHub() {
     /* ─── PROJECTS ─── */
     case "projects": return (
       <div>
-        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
+        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[]})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
         <div className="nanu-grid-2col">
           {projects.map((proj)=>{
             const projTasks = tasks.filter((t)=>t.project===proj.id);
@@ -919,8 +919,9 @@ export default function MarketingHub() {
                   {isAdmin&&<button onClick={()=>openM("editProject",{...proj})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={14}/></button>}
                 </div>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,flexWrap:"wrap"}}>
                 <span style={{fontSize:12,color:theme.textMut}}>Owner: {uName(proj.owner)}</span>
+                {proj.members&&proj.members.length>0&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.textSec}}>Team: {proj.members.map(id=>uName(id)).join(", ")}</span></>}
                 <span style={{fontSize:12,color:theme.textMut}}>·</span>
                 <span style={{fontSize:12,color:proj.color,fontWeight:600}}>{total} tasks ({done} done)</span>
               </div>
@@ -1197,7 +1198,7 @@ export default function MarketingHub() {
             </Card>
             <Card theme={theme}>
               <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:10}}>Projects</div>
-              <Btn primary theme={theme} small onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id})} style={{marginBottom:10}}><Plus size={13}/> Add</Btn>
+              <Btn primary theme={theme} small onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[]})} style={{marginBottom:10}}><Plus size={13}/> Add</Btn>
               {projects.map((proj)=>(
                 <div key={proj.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:proj.color}}/><span style={{fontSize:14,flex:1}}>{proj.name}</span><Badge label={proj.status} color={PROJECT_STATUS_COLORS[proj.status]}/>
@@ -1444,6 +1445,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Project Name</Label><Input theme={theme} value={form.name||""} onChange={(e)=>setForm((p)=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={(e)=>setForm((p)=>({...p,description:e.target.value}))}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Team Members</Label><div style={{display:"flex",flexDirection:"column",gap:4}}>{users.filter(u=>u.id!==(form.owner||"")).map(u=>(<label key={u.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.members||[]).includes(u.id)} onChange={e=>{const cur=form.members||[];setForm(p=>({...p,members:e.target.checked?[...cur,u.id]:cur.filter(x=>x!==u.id)}))}}/>{u.name}</label>))}</div></div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
