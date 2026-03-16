@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS projects (
   owner TEXT REFERENCES users(id),
   status TEXT DEFAULT 'Planning',
   members JSONB DEFAULT '[]'::jsonb,
+  notes TEXT DEFAULT '',
+  links JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

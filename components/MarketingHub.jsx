@@ -217,10 +217,10 @@ const INIT_ACTIVITY = [
 ];
 
 const INIT_PROJECTS = [
-  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active", members:["u2"] },
-  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active", members:["u1","u2"] },
-  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active", members:["u1","u5"] },
-  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning", members:["u1","u3"] },
+  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active", members:["u2"], notes:"Ed leading recruitment. Playbook v1 drafted. Need to finalise tracking spreadsheet and invite code system.", links:[{label:"Ambassador Hub",url:"https://nanu-ambassador-hub.vercel.app"},{label:"Playbook Draft",url:"https://drive.google.com"}] },
+  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active", members:["u1","u2"], notes:"14-day phased implementation plan established. Jacob on frontend, Alex on Azure backend. RSS feed list compiled (161+ feeds).", links:[{label:"Signal Site",url:"https://nanu-signal.com"},{label:"RSS Feed List",url:"https://drive.google.com"},{label:"Brand Assets",url:"https://drive.google.com"}] },
+  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active", members:["u1","u5"], notes:"Susan handling 3-5 orgs/week. Vanessa Rogers confirmed for April. Traci one-pager needed. James Fox X Space 20 March.", links:[{label:"Outreach Tracker",url:"https://drive.google.com"},{label:"Partner Kit",url:"https://drive.google.com"}] },
+  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning", members:["u1","u3"], notes:"First show: April 9th. Comms schedule from March 23rd. Streaming platform decision pending (Zoom discussed). Nicholas and Holly co-host, Sean handles intro.", links:[] },
 ];
 
 const PROJECT_STATUSES = ["Planning", "Active", "Paused", "Complete"];
@@ -900,44 +900,94 @@ export default function MarketingHub() {
     /* ─── PROJECTS ─── */
     case "projects": return (
       <div>
-        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[]})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
-        <div className="nanu-grid-2col">
+        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[],notes:"",links:[]})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
           {projects.map((proj)=>{
             const projTasks = tasks.filter((t)=>t.project===proj.id);
-            const done = projTasks.filter((t)=>t.status==="Done").length;
+            const activeTasks = projTasks.filter(t=>t.status!=="Done");
+            const doneTasks = projTasks.filter(t=>t.status==="Done");
             const total = projTasks.length;
-            const pct = total > 0 ? Math.round((done/total)*100) : 0;
-            return <Card key={proj.id} theme={theme} style={{position:"relative"}}>
-              <div style={{position:"absolute",top:0,left:0,right:0,height:3,borderRadius:"12px 12px 0 0",background:proj.color}}/>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginTop:4}}>
-                <div>
-                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:17}}>{proj.name}</div>
-                  <div style={{fontSize:13,color:theme.textSec,marginTop:4,lineHeight:1.5}}>{proj.description}</div>
-                </div>
-                <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-                  <Badge label={proj.status} color={PROJECT_STATUS_COLORS[proj.status]}/>
-                  {isAdmin&&<button onClick={()=>openM("editProject",{...proj})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={14}/></button>}
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,color:theme.textMut}}>Owner: {uName(proj.owner)}</span>
-                {proj.members&&proj.members.length>0&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.textSec}}>Team: {proj.members.map(id=>uName(id)).join(", ")}</span></>}
-                <span style={{fontSize:12,color:theme.textMut}}>·</span>
-                <span style={{fontSize:12,color:proj.color,fontWeight:600}}>{total} tasks ({done} done)</span>
-              </div>
-              {total > 0 && <div style={{marginTop:8}}><ProgressBar value={done} max={total} color={proj.color} theme={theme}/></div>}
-              <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:4}}>
-                {projTasks.filter((t)=>t.status!=="Done").slice(0,4).map((t)=>(
-                  <div key={t.id} onClick={()=>openM("editTask",{...t})} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:6,background:theme.bgInput,cursor:"pointer",fontSize:12}}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status],flexShrink:0}}/>
-                    <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span>
-                    <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
+            const expanded = form[`_proj_${proj.id}`];
+            const showDone = form[`_projdone_${proj.id}`];
+            return <Card key={proj.id} theme={theme} style={{position:"relative",padding:0,overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:proj.color}}/>
+              {/* Header */}
+              <div style={{padding:"18px 18px 0"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:18}}>{proj.name}</div>
+                    <div style={{fontSize:13,color:theme.textSec,marginTop:4,lineHeight:1.5}}>{proj.description}</div>
                   </div>
-                ))}
-                {projTasks.filter((t)=>t.status!=="Done").length > 4 && <div style={{fontSize:11,color:theme.textMut,paddingLeft:8}}>+{projTasks.filter((t)=>t.status!=="Done").length - 4} more</div>}
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                    <Badge label={proj.status} color={PROJECT_STATUS_COLORS[proj.status]}/>
+                    {isAdmin&&<button onClick={()=>openM("editProject",{...proj})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={14}/></button>}
+                  </div>
+                </div>
+                {/* Team */}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:theme.textMut}}>Owner: <strong style={{color:theme.text}}>{uName(proj.owner)}</strong></span>
+                  {proj.members&&proj.members.length>0&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.textSec}}>Team: {proj.members.map(id=>uName(id)).join(", ")}</span></>}
+                  <span style={{fontSize:12,color:theme.textMut}}>·</span>
+                  <span style={{fontSize:12,color:proj.color,fontWeight:600}}>{total} tasks ({doneTasks.length} done)</span>
+                </div>
+                {total > 0 && <div style={{marginTop:8}}><ProgressBar value={doneTasks.length} max={total} color={proj.color} theme={theme}/></div>}
               </div>
-              <div style={{marginTop:10}}>
-                <Btn theme={theme} small onClick={()=>openM("editTask",{owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:"",linkedContent:"",project:proj.id})}><Plus size={12}/> Add Task to Project</Btn>
+
+              {/* Project Notes */}
+              {proj.notes && <div style={{padding:"10px 18px 0"}}>
+                <div style={{padding:"10px 12px",background:theme.bgInput,borderRadius:8,fontSize:13,color:theme.textSec,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{proj.notes}</div>
+              </div>}
+
+              {/* Linked Work / Resources */}
+              {proj.links && proj.links.length > 0 && <div style={{padding:"10px 18px 0"}}>
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:6,textTransform:"uppercase"}}>Linked Work</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {proj.links.map((link,i) => (
+                    <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,color:theme.text,textDecoration:"none",fontSize:12,fontWeight:500}}>
+                      <ExternalLink size={11} color={proj.color}/>{link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>}
+
+              {/* Tasks — expand/collapse */}
+              <div style={{padding:"12px 18px 14px"}}>
+                <button onClick={()=>setForm(p=>({...p,[`_proj_${proj.id}`]:!expanded}))} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:600,color:theme.textSec,padding:0,marginBottom:expanded?10:0}}>
+                  <ChevronRight size={14} style={{transform:expanded?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+                  {expanded?"Hide":"Show"} Tasks ({activeTasks.length} active{doneTasks.length>0?`, ${doneTasks.length} done`:""})
+                </button>
+
+                {expanded && <>
+                  {/* Active tasks */}
+                  {activeTasks.length===0 && <p style={{fontSize:12,color:theme.textMut,paddingLeft:4}}>No active tasks</p>}
+                  {activeTasks.map(t=>(
+                    <div key={t.id} onClick={()=>openM("editTask",{...t})} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:6,background:theme.bgInput,cursor:"pointer",fontSize:12,marginBottom:4}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status],flexShrink:0}}/>
+                      <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span>
+                      <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
+                      <span style={{fontSize:11,color:theme.textMut}}>{uNames(t.owners)}</span>
+                    </div>
+                  ))}
+
+                  {/* Done tasks — collapsible */}
+                  {doneTasks.length > 0 && <>
+                    <button onClick={()=>setForm(p=>({...p,[`_projdone_${proj.id}`]:!showDone}))} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:FONT_BODY,fontSize:12,fontWeight:600,color:theme.green,padding:"6px 0",marginTop:4}}>
+                      <Check size={12}/> Done ({doneTasks.length})
+                      <ChevronRight size={12} style={{transform:showDone?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+                    </button>
+                    {showDone && doneTasks.map(t=>(
+                      <div key={t.id} onClick={()=>openM("editTask",{...t})} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:6,cursor:"pointer",fontSize:12,marginBottom:4,opacity:0.6}}>
+                        <Check size={12} color={theme.green}/>
+                        <span style={{flex:1,textDecoration:"line-through",color:theme.textMut}}>{t.title}</span>
+                        <span style={{fontSize:11,color:theme.textMut}}>{uNames(t.owners)}</span>
+                      </div>
+                    ))}
+                  </>}
+
+                  <div style={{marginTop:8}}>
+                    <Btn theme={theme} small onClick={()=>openM("editTask",{owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:"",linkedContent:"",project:proj.id})}><Plus size={12}/> Add Task</Btn>
+                  </div>
+                </>}
               </div>
             </Card>;
           })}
@@ -1441,11 +1491,25 @@ export default function MarketingHub() {
         </div>
       </Modal>;
 
-      case "editProject": return <Modal theme={theme} title={form.id?"Edit Project":"New Project"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+      case "editProject": return <Modal theme={theme} title={form.id?"Edit Project":"New Project"} onClose={closeM} width={620}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Project Name</Label><Input theme={theme} value={form.name||""} onChange={(e)=>setForm((p)=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={(e)=>setForm((p)=>({...p,description:e.target.value}))}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map((u)=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={(e)=>setForm((p)=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PROJECT_STATUSES} value={form.status||"Planning"} onChange={(e)=>setForm((p)=>({...p,status:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Team Members</Label><div style={{display:"flex",flexDirection:"column",gap:4}}>{users.filter(u=>u.id!==(form.owner||"")).map(u=>(<label key={u.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.members||[]).includes(u.id)} onChange={e=>{const cur=form.members||[];setForm(p=>({...p,members:e.target.checked?[...cur,u.id]:cur.filter(x=>x!==u.id)}))}}/>{u.name}</label>))}</div></div>
+        <div><Label theme={theme}>Project Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))} placeholder="Key context, decisions, status updates..." style={{minHeight:100}}/></div>
+        <div>
+          <Label theme={theme}>Linked Work</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(form.links||[]).map((link,i) => (
+              <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+                <Input theme={theme} value={link.label} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,label:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="Label (e.g. Brand Assets)" style={{flex:1}}/>
+                <Input theme={theme} value={link.url} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,url:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="https://..." style={{flex:2}}/>
+                <button onClick={()=>{const u=[...(form.links||[])];u.splice(i,1);setForm(p=>({...p,links:u}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",flexShrink:0}}><Trash2 size={14}/></button>
+              </div>
+            ))}
+            <Btn theme={theme} small onClick={()=>setForm(p=>({...p,links:[...(p.links||[]),{label:"",url:""}]}))}><Plus size={12}/> Add Link</Btn>
+          </div>
+        </div>
         <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
