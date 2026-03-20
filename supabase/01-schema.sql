@@ -205,6 +205,24 @@ CREATE TABLE IF NOT EXISTS outreach (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT DEFAULT '',
+  link TEXT DEFAULT '',
+  read BOOLEAN DEFAULT false,
+  time TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- NOTIFICATION SETTINGS
+CREATE TABLE IF NOT EXISTS notif_settings (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  settings JSONB DEFAULT '{}'::jsonb
+);
+
 -- ACTIVITY LOG
 CREATE TABLE IF NOT EXISTS activity_log (
   id TEXT PRIMARY KEY,
@@ -260,3 +278,8 @@ CREATE POLICY "Allow all" ON key_dates FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON campaigns FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON outreach FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON activity_log FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notif_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON notifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON notif_settings FOR ALL USING (true) WITH CHECK (true);

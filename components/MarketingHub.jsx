@@ -483,6 +483,16 @@ export default function MarketingHub() {
   const [outreachFilter, setOutreachFilter] = useState("All");
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [notifSettings, setNotifSettings] = useState({
+    taskAssigned: true,
+    taskUpdated: true,
+    taskDue: true,
+    projectUpdated: true,
+    weeklyRecap: true,
+    inHubBell: true,
+  });
 
   // Load all data from Supabase on mount
   useEffect(() => {
@@ -520,6 +530,27 @@ export default function MarketingHub() {
       setDbLoading(false);
     });
   }, []);
+
+  // Load notification settings for current user
+  useEffect(() => {
+    if (!curUser) return;
+    db.loadNotifSettings(curUser.id).then(s => { if (s) setNotifSettings(s); });
+    db.loadNotifications(curUser.id).then(n => { if (n && n.length) setNotifications(n); });
+  }, [curUser]);
+
+  // Helper: create and store a notification
+  const notify = (targetUserId, type, title, body, link) => {
+    if (!targetUserId || targetUserId === curUser?.id) return; // don't notify yourself
+    const n = { id: uid("notif"), user_id: targetUserId, type, title, body, link: link||"", read: false, time: new Date().toISOString() };
+    // If the target is the current logged-in user, show it immediately
+    if (targetUserId === curUser?.id) setNotifications(prev => [n, ...prev]);
+    db.saveNotification(n);
+  };
+
+  // Helper: notify multiple users
+  const notifyMany = (userIds, type, title, body, link) => {
+    (userIds || []).forEach(uid2 => notify(uid2, type, title, body, link));
+  };
 
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
@@ -566,12 +597,14 @@ export default function MarketingHub() {
     { key:"content-ops", label:"Content Ops", icon:<FileText size={18}/> },
     { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
     { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
+    { key:"settings", label:"Settings", icon:<Bell size={18}/> },
     ...(isAdmin?[{key:"admin",label:"Admin",icon:<Settings size={18}/>}]:[]),
   ];
 
+  const todayStr = new Date().toISOString().split("T")[0];
   const overdue = tasks.filter(t=>t.status==="Overdue").length;
   const approvals = [...tasks.filter(t=>t.status==="Needs Approval"),...calendar.filter(c=>c.status==="Needs Approval")];
-  const todayItems = calendar.filter(i=>i.dueDate==="2026-03-09");
+  const todayItems = calendar.filter(i=>i.dueDate===todayStr);
   const alertTasks = tasks.filter(t=>["Overdue","Blocked","Needs Approval"].includes(t.status)||t.blocker);
   const filteredCal = calendar.filter(c=>(fStatus==="All"||c.status===fStatus)&&(fPlat==="All"||c.platform===fPlat));
 
@@ -602,7 +635,8 @@ export default function MarketingHub() {
     return true;
   });
   const sortedTasks = [...filteredTasks].sort((a,b)=>{const p=t=>t.status==="Overdue"?0:t.status==="Blocked"?1:t.status==="Needs Approval"?2:t.status==="In Progress"?3:t.status==="Done"?5:4;return p(a)-p(b);});
-  const today = new Date(2026,2,9);
+  const today = new Date();
+  today.setHours(0,0,0,0);
 
   const weekDates = (() => {
     const d = today.getDay()===0?6:today.getDay()-1;
@@ -1250,6 +1284,65 @@ export default function MarketingHub() {
       </div>
     );
 
+    /* ─── SETTINGS ─── */
+    case "settings": return (
+      <div>
+        <SectionHead theme={theme}>Notification Settings</SectionHead>
+        <Card theme={theme} style={{maxWidth:600}}>
+          <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:16}}>Email & In-Hub Notifications</div>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:20,lineHeight:1.5}}>Choose which notifications you receive. Email notifications are sent to your registered email address. In-hub notifications appear in the bell icon.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {[
+              {key:"taskAssigned",label:"Task assigned to me",desc:"When someone assigns you to a task"},
+              {key:"taskUpdated",label:"Task I'm on was updated",desc:"When a task you're assigned to gets updated or someone posts an update"},
+              {key:"taskDue",label:"Task due today / overdue",desc:"Daily reminder for tasks due today or overdue"},
+              {key:"projectUpdated",label:"Project I'm on was updated",desc:"When a project you're part of gets updated"},
+              {key:"weeklyRecap",label:"Weekly recap email",desc:"Monday morning summary of your tasks, projects, and team activity"},
+              {key:"inHubBell",label:"In-hub notification bell",desc:"Show notifications in the bell icon at the top of the hub"},
+            ].map(s=>(
+              <div key={s.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600}}>{s.label}</div>
+                  <div style={{fontSize:12,color:theme.textMut,marginTop:2}}>{s.desc}</div>
+                </div>
+                <label style={{position:"relative",width:44,height:24,cursor:"pointer"}}>
+                  <input type="checkbox" checked={notifSettings[s.key]||false} onChange={e=>{
+                    const ns={...notifSettings,[s.key]:e.target.checked};
+                    setNotifSettings(ns);
+                    db.saveNotifSettings(curUser.id,ns);
+                  }} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
+                  <div style={{position:"absolute",inset:0,borderRadius:12,background:notifSettings[s.key]?theme.teal:theme.border,transition:"background .2s"}}>
+                    <div style={{position:"absolute",top:2,left:notifSettings[s.key]?22:2,width:20,height:20,borderRadius:10,background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:20,padding:"14px 16px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Notification email address</div>
+            <div style={{fontSize:13,color:theme.textSec}}>{curUser.email||"No email set — update in Team settings"}</div>
+          </div>
+        </Card>
+        {/* Notification History */}
+        <div style={{marginTop:24}}>
+          <SectionHead theme={theme} right={notifications.length>0&&<button type="button" onClick={()=>{setNotifications([]);db.clearNotifications(curUser.id)}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear all</button>}>Recent Notifications</SectionHead>
+          <Card theme={theme} style={{maxWidth:600}}>
+            {notifications.length===0&&<p style={{fontSize:13,color:theme.textMut,padding:8}}>No notifications</p>}
+            {notifications.slice(0,50).map(n=>(
+              <div key={n.id} style={{padding:"10px 0",borderBottom:`1px solid ${theme.border}`,display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:n.read?theme.textMut:theme.teal,flexShrink:0,marginTop:6}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:n.read?400:600}}>{n.title}</div>
+                  <div style={{fontSize:12,color:theme.textMut}}>{n.body}</div>
+                  <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO,marginTop:3}}>{new Date(n.time).toLocaleDateString("en-GB")} {new Date(n.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
+      </div>
+    );
+
     /* ─── ADMIN ─── */
     case "admin": return isAdmin ? (
       <div>
@@ -1368,7 +1461,24 @@ export default function MarketingHub() {
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id);log("deleted",form.title,"Tasks")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const {_newUpdate,...cleanForm}=form;const tid=cleanForm.id||uid("t");const tdata={...cleanForm,id:tid};if(cleanForm.id){setTasks(p=>p.map(t=>t.id===cleanForm.id?tdata:t));log("updated",cleanForm.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",cleanForm.title,"Tasks")}db.saveTask(tdata)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const {_newUpdate,...cleanForm}=form;const tid=cleanForm.id||uid("t");const tdata={...cleanForm,id:tid};
+            const oldTask=tasks.find(t=>t.id===cleanForm.id);
+            if(cleanForm.id){
+              setTasks(p=>p.map(t=>t.id===cleanForm.id?tdata:t));log("updated",cleanForm.title,"Tasks");
+              // Notify: task updated
+              const taskMembers=(tdata.owners||[]).filter(id=>id!==curUser.id);
+              notifyMany(taskMembers,"task_updated",`Task updated: ${tdata.title}`,`${curUser.name} updated this task`,"tasks");
+              // Notify: newly assigned people
+              const oldOwners=oldTask?.owners||[];
+              const newlyAssigned=(tdata.owners||[]).filter(id=>!oldOwners.includes(id)&&id!==curUser.id);
+              notifyMany(newlyAssigned,"task_assigned",`You were assigned: ${tdata.title}`,`${curUser.name} assigned you to this task`,"tasks");
+            }else{
+              setTasks(p=>[...p,tdata]);log("created",cleanForm.title,"Tasks");
+              // Notify: assigned people on new task
+              const assigned=(tdata.owners||[]).filter(id=>id!==curUser.id);
+              notifyMany(assigned,"task_assigned",`New task: ${tdata.title}`,`${curUser.name} assigned you to this task`,"tasks");
+            }
+            db.saveTask(tdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1592,8 +1702,21 @@ export default function MarketingHub() {
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
-            const projid=form.id||uid("proj");const projdata={...form,id:projid};if(form.id){setProjects(p=>p.map(x=>x.id===form.id?projdata:x));log("updated",form.name,"Projects")}
-            else{setProjects(p=>[...p,projdata]);log("created",form.name,"Projects")}db.saveProject(projdata);
+            const projid=form.id||uid("proj");const projdata={...form,id:projid};
+            const allProjPeople=[...(projdata.members||[]),projdata.owner].filter(id=>id&&id!==curUser.id);
+            if(form.id){
+              setProjects(p=>p.map(x=>x.id===form.id?projdata:x));log("updated",form.name,"Projects");
+              notifyMany(allProjPeople,"project_updated",`Project updated: ${projdata.name}`,`${curUser.name} updated this project`,"projects");
+              // Notify newly added members
+              const oldProj=projects.find(p=>p.id===form.id);
+              const oldMembers=[...(oldProj?.members||[]),oldProj?.owner].filter(Boolean);
+              const newPeople=allProjPeople.filter(id=>!oldMembers.includes(id));
+              notifyMany(newPeople,"task_assigned",`Added to project: ${projdata.name}`,`${curUser.name} added you to this project`,"projects");
+            }else{
+              setProjects(p=>[...p,projdata]);log("created",form.name,"Projects");
+              notifyMany(allProjPeople,"task_assigned",`New project: ${projdata.name}`,`${curUser.name} added you to this project`,"projects");
+            }
+            db.saveProject(projdata);
             })}>Done</Btn>
         </div>
       </div></Modal>;
@@ -1663,10 +1786,42 @@ export default function MarketingHub() {
       {/* Main */}
       <div style={{flex:1,overflow:"auto"}}>
         <div className="nanu-topbar" style={{borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:theme.bgSidebar,position:"sticky",top:0,zIndex:100}}>
-          <div><span style={{fontWeight:600,fontSize:15}}>Welcome back, {curUser.name.split(" ")[0]}</span><span style={{fontSize:13,color:theme.textMut,marginLeft:12}}>{new Date(2026,2,9).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
+          <div><span style={{fontWeight:600,fontSize:15}}>Welcome back, {curUser.name.split(" ")[0]}</span><span style={{fontSize:13,color:theme.textMut,marginLeft:12}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</span></div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {overdue>0&&<Badge label={`${overdue} overdue`} color={theme.red}/>}
             {approvals.length>0&&<Badge label={`${approvals.length} approvals`} color={theme.yellow}/>}
+            {/* Notification Bell */}
+            <div style={{position:"relative"}}>
+              <button type="button" onClick={()=>setShowNotifPanel(p=>!p)} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut,position:"relative",padding:4}}>
+                <Bell size={18}/>
+                {notifications.filter(n=>!n.read).length>0&&<span style={{position:"absolute",top:0,right:0,width:8,height:8,borderRadius:"50%",background:theme.red}}/>}
+              </button>
+              {/* Notification Panel */}
+              {showNotifPanel&&<div style={{position:"absolute",top:"100%",right:0,marginTop:8,width:380,maxHeight:480,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:12,boxShadow:theme.shadowLg,overflow:"hidden",zIndex:200}}>
+                <div style={{padding:"14px 16px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Notifications</span>
+                  <div style={{display:"flex",gap:8}}>
+                    {notifications.filter(n=>!n.read).length>0&&<button type="button" onClick={()=>{setNotifications(p=>p.map(n=>({...n,read:true})));notifications.forEach(n=>{if(!n.read)db.markNotifRead(n.id)})}} style={{background:"none",border:"none",color:theme.teal,cursor:"pointer",fontSize:11,fontWeight:600}}>Mark all read</button>}
+                    <button type="button" onClick={()=>{setSection("settings");setShowNotifPanel(false)}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Settings size={14}/></button>
+                  </div>
+                </div>
+                <div style={{maxHeight:400,overflow:"auto"}}>
+                  {notifications.length===0&&<p style={{padding:20,textAlign:"center",fontSize:13,color:theme.textMut}}>No notifications yet</p>}
+                  {notifications.slice(0,30).map(n=>(
+                    <div key={n.id} onClick={()=>{if(!n.read){setNotifications(p=>p.map(x=>x.id===n.id?{...x,read:true}:x));db.markNotifRead(n.id)}if(n.link){setSection(n.link);setShowNotifPanel(false)}}} style={{padding:"12px 16px",borderBottom:`1px solid ${theme.border}`,cursor:"pointer",background:n.read?"transparent":`${theme.teal}08`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:n.read?400:600,color:theme.text}}>{n.title}</div>
+                          <div style={{fontSize:12,color:theme.textMut,marginTop:2}}>{n.body}</div>
+                        </div>
+                        {!n.read&&<div style={{width:6,height:6,borderRadius:"50%",background:theme.teal,flexShrink:0,marginTop:6}}/>}
+                      </div>
+                      <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO,marginTop:4}}>{new Date(n.time).toLocaleDateString("en-GB")} {new Date(n.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>}
+            </div>
             <Badge label={curUser.role} color={ROLE_COLORS[curUser.role]||theme.teal}/>
           </div>
         </div>
