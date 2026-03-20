@@ -535,15 +535,29 @@ export default function MarketingHub() {
   useEffect(() => {
     if (!curUser) return;
     db.loadNotifSettings(curUser.id).then(s => { if (s) setNotifSettings(s); });
-    db.loadNotifications(curUser.id).then(n => { if (n && n.length) setNotifications(n); });
+    db.loadNotifications(curUser.id).then(n => { if (n) setNotifications(n); });
+  }, [curUser]);
+
+  // Refresh notifications from DB
+  const refreshNotifications = () => {
+    if (!curUser) return;
+    db.loadNotifications(curUser.id).then(n => { if (n) setNotifications(n); });
+  };
+
+  // Auto-refresh notifications every 30 seconds
+  useEffect(() => {
+    if (!curUser) return;
+    const interval = setInterval(refreshNotifications, 30000);
+    return () => clearInterval(interval);
   }, [curUser]);
 
   // Helper: create and store a notification
   const notify = (targetUserId, type, title, body, link) => {
-    if (!targetUserId || targetUserId === curUser?.id) return; // don't notify yourself
+    if (!targetUserId) return;
     const n = { id: uid("notif"), user_id: targetUserId, type, title, body, link: link||"", read: false, time: new Date().toISOString() };
-    // If the target is the current logged-in user, show it immediately
+    // If the target is the current logged-in user, show it immediately in the UI
     if (targetUserId === curUser?.id) setNotifications(prev => [n, ...prev]);
+    // Always save to database (even for self — so it persists across sessions)
     db.saveNotification(n);
   };
 
@@ -1285,7 +1299,9 @@ export default function MarketingHub() {
     );
 
     /* ─── SETTINGS ─── */
-    case "settings": return (
+    case "settings": {
+      refreshNotifications();
+      return (
       <div>
         <SectionHead theme={theme}>Notification Settings</SectionHead>
         <Card theme={theme} style={{maxWidth:600}}>
@@ -1342,6 +1358,7 @@ export default function MarketingHub() {
         </div>
       </div>
     );
+    }
 
     /* ─── ADMIN ─── */
     case "admin": return isAdmin ? (
@@ -1792,7 +1809,7 @@ export default function MarketingHub() {
             {approvals.length>0&&<Badge label={`${approvals.length} approvals`} color={theme.yellow}/>}
             {/* Notification Bell */}
             <div style={{position:"relative"}}>
-              <button type="button" onClick={()=>setShowNotifPanel(p=>!p)} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut,position:"relative",padding:4}}>
+              <button type="button" onClick={()=>{setShowNotifPanel(p=>!p);refreshNotifications()}} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut,position:"relative",padding:4}}>
                 <Bell size={18}/>
                 {notifications.filter(n=>!n.read).length>0&&<span style={{position:"absolute",top:0,right:0,width:8,height:8,borderRadius:"50%",background:theme.red}}/>}
               </button>
