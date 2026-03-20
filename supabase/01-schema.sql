@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS projects (
   members JSONB DEFAULT '[]'::jsonb,
   notes TEXT DEFAULT '',
   links JSONB DEFAULT '[]'::jsonb,
+  private BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   notes TEXT,
   linked_content TEXT,
   project TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  updates JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

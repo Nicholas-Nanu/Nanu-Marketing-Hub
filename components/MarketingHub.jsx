@@ -109,14 +109,14 @@ const INIT_CALENDAR = [
 ];
 
 const INIT_TASKS = [
-  { id:"t1", title:"Finalise Ambassador Programme tracker", owners:["u5"], dueDate:"2026-03-10", status:"In Progress", blocker:"", priority:"High", notes:"Master Excel tracker needs final column for engagement metrics. Ed has the latest version — check with him before updating.", linkedContent:"", project:"proj1" },
-  { id:"t2", title:"Create podcast one-pager for Traci (Total Conundrum)", owners:["u2"], dueDate:"2026-03-09", status:"Overdue", blocker:"", priority:"Urgent", notes:"Traci specifically requested a one-pager. Keep it concise: what Nanu is, Nicholas's story, key talking points, and a media kit link.", linkedContent:"", project:"proj3" },
-  { id:"t3", title:"Design Founding Community badge variants", owners:["u3"], dueDate:"2026-03-12", status:"In Progress", blocker:"", priority:"Medium", notes:"Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.", linkedContent:"", project:"" },
-  { id:"t4", title:"Draft The Signal brand launch post", owners:["u4"], dueDate:"2026-03-14", status:"Not Started", blocker:"", priority:"High", notes:"Use the Signal Broadcast logo mark. Tagline: 'News through every lens · by Nanu'. Tease the lens ratings system without giving too much away.", linkedContent:"c10", project:"proj2" },
-  { id:"t5", title:"Follow up with Joel on Buildathon commitments", owners:["u2"], dueDate:"2026-03-11", status:"In Progress", blocker:"Waiting on Joel's response", priority:"High", notes:"Joel still owes: announcement copy, mentor/judge bench, brand assets, and distribution channels. Chase via email and WhatsApp.", linkedContent:"c7", project:"proj3" },
-  { id:"t6", title:"UApedia follow-up", owners:["u2"], dueDate:"2026-03-13", status:"Not Started", blocker:"", priority:"Low", notes:"Pending task flagged for Holly. Check status of the collaboration discussion.", linkedContent:"", project:"proj3" },
-  { id:"t7", title:"Prepare Vanessa Rogers podcast brief", owners:["u1"], dueDate:"2026-03-20", status:"Not Started", blocker:"", priority:"Medium", notes:"Fabric of Folklore — April Calendly confirmed. Prepare talking points around Nanu's Myths & History category.", linkedContent:"", project:"proj3" },
-  { id:"t8", title:"Weekly content calendar sign-off", owners:["u2"], dueDate:"2026-03-09", status:"Needs Approval", blocker:"", priority:"Medium", notes:"Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.", linkedContent:"", project:"" },
+  { id:"t1", title:"Finalise Ambassador Programme tracker", owners:["u5"], dueDate:"2026-03-10", status:"In Progress", blocker:"", priority:"High", notes:"Master Excel tracker needs final column for engagement metrics. Ed has the latest version — check with him before updating.", linkedContent:"", project:"proj1", updates:[] },
+  { id:"t2", title:"Create podcast one-pager for Traci (Total Conundrum)", owners:["u2"], dueDate:"2026-03-09", status:"Overdue", blocker:"", priority:"Urgent", notes:"Traci specifically requested a one-pager. Keep it concise: what Nanu is, Nicholas's story, key talking points, and a media kit link.", linkedContent:"", project:"proj3", updates:[] },
+  { id:"t3", title:"Design Founding Community badge variants", owners:["u3"], dueDate:"2026-03-12", status:"In Progress", blocker:"", priority:"Medium", notes:"Four badge variants needed for Alex to implement. Reference the brand guide for colour palette. Dark and light versions of each.", linkedContent:"", project:"", updates:[] },
+  { id:"t4", title:"Draft The Signal brand launch post", owners:["u4"], dueDate:"2026-03-14", status:"Not Started", blocker:"", priority:"High", notes:"Use the Signal Broadcast logo mark. Tagline: 'News through every lens · by Nanu'. Tease the lens ratings system without giving too much away.", linkedContent:"c10", project:"proj2", updates:[] },
+  { id:"t5", title:"Follow up with Joel on Buildathon commitments", owners:["u2"], dueDate:"2026-03-11", status:"In Progress", blocker:"Waiting on Joel's response", priority:"High", notes:"Joel still owes: announcement copy, mentor/judge bench, brand assets, and distribution channels. Chase via email and WhatsApp.", linkedContent:"c7", project:"proj3", updates:[] },
+  { id:"t6", title:"UApedia follow-up", owners:["u2"], dueDate:"2026-03-13", status:"Not Started", blocker:"", priority:"Low", notes:"Pending task flagged for Holly. Check status of the collaboration discussion.", linkedContent:"", project:"proj3", updates:[] },
+  { id:"t7", title:"Prepare Vanessa Rogers podcast brief", owners:["u1"], dueDate:"2026-03-20", status:"Not Started", blocker:"", priority:"Medium", notes:"Fabric of Folklore — April Calendly confirmed. Prepare talking points around Nanu's Myths & History category.", linkedContent:"", project:"proj3", updates:[] },
+  { id:"t8", title:"Weekly content calendar sign-off", owners:["u2"], dueDate:"2026-03-09", status:"Needs Approval", blocker:"", priority:"Medium", notes:"Review all scheduled posts for W2 March. Check captions, platforms, and publish times are correct before approving.", linkedContent:"", project:"", updates:[] },
 ];
 
 const INIT_RESOURCES = [
@@ -217,10 +217,10 @@ const INIT_ACTIVITY = [
 ];
 
 const INIT_PROJECTS = [
-  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active", members:["u2"], notes:"Ed leading recruitment. Playbook v1 drafted. Need to finalise tracking spreadsheet and invite code system.", links:[{label:"Ambassador Hub",url:"https://nanu-ambassador-hub.vercel.app"},{label:"Playbook Draft",url:"https://drive.google.com"}] },
-  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active", members:["u1","u2"], notes:"14-day phased implementation plan established. Jacob on frontend, Alex on Azure backend. RSS feed list compiled (161+ feeds).", links:[{label:"Signal Site",url:"https://nanu-signal.com"},{label:"RSS Feed List",url:"https://drive.google.com"},{label:"Brand Assets",url:"https://drive.google.com"}] },
-  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active", members:["u1","u5"], notes:"Susan handling 3-5 orgs/week. Vanessa Rogers confirmed for April. Traci one-pager needed. James Fox X Space 20 March.", links:[{label:"Outreach Tracker",url:"https://drive.google.com"},{label:"Partner Kit",url:"https://drive.google.com"}] },
-  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning", members:["u1","u3"], notes:"First show: April 9th. Comms schedule from March 23rd. Streaming platform decision pending (Zoom discussed). Nicholas and Holly co-host, Sean handles intro.", links:[] },
+  { id:"proj1", name:"Ambassador Programme", description:"Recruit, onboard, and manage community ambassadors with playbooks, invite codes, and content templates.", color:"#69DB7C", owner:"u5", status:"Active", members:["u2"], notes:"Ed leading recruitment. Playbook v1 drafted. Need to finalise tracking spreadsheet and invite code system.", links:[{label:"Ambassador Hub",url:"https://nanu-ambassador-hub.vercel.app"},{label:"Playbook Draft",url:"https://drive.google.com"}], private:false },
+  { id:"proj2", name:"The Signal Launch", description:"Full launch campaign for nanu-signal.com — brand teaser, editorial pipeline, RSS backend, and social rollout.", color:"#1FC2C2", owner:"u4", status:"Active", members:["u1","u2"], notes:"14-day phased implementation plan established. Jacob on frontend, Alex on Azure backend. RSS feed list compiled (161+ feeds).", links:[{label:"Signal Site",url:"https://nanu-signal.com"},{label:"RSS Feed List",url:"https://drive.google.com"},{label:"Brand Assets",url:"https://drive.google.com"}], private:false },
+  { id:"proj3", name:"Partnerships & Outreach", description:"Podcast circuit, community collaborations, event appearances, and micro-creator programme.", color:"#DA77F2", owner:"u2", status:"Active", members:["u1","u5"], notes:"Susan handling 3-5 orgs/week. Vanessa Rogers confirmed for April. Traci one-pager needed. James Fox X Space 20 March.", links:[{label:"Outreach Tracker",url:"https://drive.google.com"},{label:"Partner Kit",url:"https://drive.google.com"}], private:false },
+  { id:"proj4", name:"Nanu Orbis", description:"Monthly members-only live event — production, promotion, and post-event content.", color:"#FFA94D", owner:"u2", status:"Planning", members:["u1","u3"], notes:"First show: April 9th. Comms schedule from March 23rd. Streaming platform decision pending (Zoom discussed). Nicholas and Holly co-host, Sean handles intro.", links:[], private:false },
 ];
 
 const PROJECT_STATUSES = ["Planning", "Active", "Paused", "Complete"];
@@ -458,6 +458,11 @@ export default function MarketingHub() {
   const [calView, setCalView] = useState("kanban");
   const [calMonth, setCalMonth] = useState(new Date(2026, 2, 1));
   const [taskView, setTaskView] = useState("all");
+  const [tfProject, setTfProject] = useState("All");
+  const [tfPriority, setTfPriority] = useState("All");
+  const [tfStatus, setTfStatus] = useState("All");
+  const [tfPerson, setTfPerson] = useState("All");
+  const [tfDue, setTfDue] = useState("All");
   const [opsTab, setOpsTab] = useState("ideas");
   const [fStatus, setFStatus] = useState("All");
   const [fPlat, setFPlat] = useState("All");
@@ -569,7 +574,33 @@ export default function MarketingHub() {
   const todayItems = calendar.filter(i=>i.dueDate==="2026-03-09");
   const alertTasks = tasks.filter(t=>["Overdue","Blocked","Needs Approval"].includes(t.status)||t.blocker);
   const filteredCal = calendar.filter(c=>(fStatus==="All"||c.status===fStatus)&&(fPlat==="All"||c.platform===fPlat));
-  const filteredTasks = taskView==="mine" ? tasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(curUser.id):t.owners===curUser.id) : tasks;
+
+  // Project visibility: private projects only visible to owner, members, and admin
+  const canSeeProject = (proj) => {
+    if (!proj.private) return true;
+    if (isAdmin) return true;
+    if (proj.owner === curUser.id) return true;
+    if (proj.members && proj.members.includes(curUser.id)) return true;
+    return false;
+  };
+  const visibleProjects = projects.filter(canSeeProject);
+  const privateProjectIds = projects.filter(p => p.private && !canSeeProject(p)).map(p => p.id);
+
+  // Task filtering: hide tasks belonging to private projects user can't see
+  const today2 = new Date().toISOString().split("T")[0];
+  const thisWeekEnd = (() => { const d = new Date(); d.setDate(d.getDate() + (7 - d.getDay())); return d.toISOString().split("T")[0]; })();
+  const accessibleTasks = tasks.filter(t => !t.project || !privateProjectIds.includes(t.project));
+  const filteredTasks = accessibleTasks.filter(t => {
+    if (taskView === "mine" && !(Array.isArray(t.owners) ? t.owners.includes(curUser.id) : t.owners === curUser.id)) return false;
+    if (tfProject !== "All" && t.project !== tfProject) return false;
+    if (tfPriority !== "All" && t.priority !== tfPriority) return false;
+    if (tfStatus !== "All" && t.status !== tfStatus) return false;
+    if (tfPerson !== "All" && !(Array.isArray(t.owners) ? t.owners.includes(tfPerson) : t.owners === tfPerson)) return false;
+    if (tfDue === "Overdue" && (t.status === "Done" || !t.dueDate || t.dueDate >= today2)) return false;
+    if (tfDue === "This Week" && (!t.dueDate || t.dueDate < today2 || t.dueDate > thisWeekEnd)) return false;
+    if (tfDue === "Upcoming" && (!t.dueDate || t.dueDate <= today2)) return false;
+    return true;
+  });
   const sortedTasks = [...filteredTasks].sort((a,b)=>{const p=t=>t.status==="Overdue"?0:t.status==="Blocked"?1:t.status==="Needs Approval"?2:t.status==="In Progress"?3:t.status==="Done"?5:4;return p(a)-p(b);});
   const today = new Date(2026,2,9);
 
@@ -834,27 +865,37 @@ export default function MarketingHub() {
     case "tasks": return (
       <div>
         <SectionHead theme={theme} right={<>
-          <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
-            {[["all","All Tasks"],["mine","My Tasks"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setTaskView(k)} style={{padding:"6px 14px",border:"none",fontSize:13,background:taskView===k?theme.teal:"transparent",color:taskView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
-            ))}
-          </div>
           <Btn theme={theme} small onClick={()=>{
-            const myTasks = taskView==="mine" ? sortedTasks : sortedTasks.filter((t)=>t.owner===curUser.id);
+            const myTasks = taskView==="mine" ? sortedTasks : sortedTasks.filter((t)=>Array.isArray(t.owners)?t.owners.includes(curUser.id):t.owners===curUser.id);
             const rows = [["Title","Status","Priority","Due Date","Owner","Project","Blocker","Notes"]];
-            myTasks.forEach((t)=>rows.push([t.title,t.status,t.priority||"",t.dueDate,uNames(t.owners),projects.find((p)=>p.id===t.project)?.name||"",t.blocker||"",t.notes||""]));
+            myTasks.forEach((t)=>rows.push([t.title,t.status,t.priority||"",t.dueDate,uNames(t.owners),visibleProjects.find((p)=>p.id===t.project)?.name||"",t.blocker||"",t.notes||""]));
             exportCSV(rows,`nanu-tasks-${new Date().toISOString().slice(0,10)}.csv`);
           }}><Download size={13}/> CSV</Btn>
           <Btn theme={theme} small onClick={()=>{
-            const myTasks = taskView==="mine" ? sortedTasks : sortedTasks.filter((t)=>t.owner===curUser.id);
+            const myTasks = taskView==="mine" ? sortedTasks : sortedTasks.filter((t)=>Array.isArray(t.owners)?t.owners.includes(curUser.id):t.owners===curUser.id);
             const items = myTasks.map((t)=>({
               heading:`${t.title} — ${t.status}${t.priority?" · "+t.priority:""}`,
-              body:`Owner: ${uNames(t.owners)}\nDue: ${t.dueDate}\n${t.project?`Project: ${projects.find((p)=>p.id===t.project)?.name||""}\n`:""}${t.blocker?`Blocker: ${t.blocker}\n`:""}${t.notes?`\n${t.notes}`:""}`
+              body:`Owner: ${uNames(t.owners)}\nDue: ${t.dueDate}\n${t.project?`Project: ${visibleProjects.find((p)=>p.id===t.project)?.name||""}\n`:""}${t.blocker?`Blocker: ${t.blocker}\n`:""}${t.notes?`\n${t.notes}`:""}`
             }));
             exportDOCX(`My Tasks — ${new Date().toLocaleDateString("en-GB")}`, items, `nanu-tasks-${new Date().toISOString().slice(0,10)}.doc`);
           }}><Download size={13}/> DOCX</Btn>
-          <Btn primary theme={theme} onClick={()=>openM("editTask",{owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:"",linkedContent:"",project:""})}><Plus size={14}/> Add Task</Btn>
+          <Btn primary theme={theme} onClick={()=>openM("editTask",{owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:"",linkedContent:"",project:"",updates:[]})}><Plus size={14}/> Add Task</Btn>
         </>}>Tasks</SectionHead>
+
+        {/* Filters */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
+          <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+            {[["all","All Tasks"],["mine","My Tasks"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setTaskView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:taskView===k?theme.teal:"transparent",color:taskView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+            ))}
+          </div>
+          <Sel theme={theme} options={[{value:"All",label:"All Projects"},...visibleProjects.map(p=>({value:p.id,label:p.name}))]} value={tfProject} onChange={e=>setTfProject(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Priorities"},...TASK_PRIORITIES.map(p=>({value:p,label:p}))]} value={tfPriority} onChange={e=>setTfPriority(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Statuses"},...TASK_STATUSES.map(s=>({value:s,label:s}))]} value={tfStatus} onChange={e=>setTfStatus(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All People"},...users.map(u=>({value:u.id,label:u.name}))]} value={tfPerson} onChange={e=>setTfPerson(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Dates"},{value:"Overdue",label:"Overdue"},{value:"This Week",label:"This Week"},{value:"Upcoming",label:"Upcoming"}]} value={tfDue} onChange={e=>setTfDue(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          {(tfProject!=="All"||tfPriority!=="All"||tfStatus!=="All"||tfPerson!=="All"||tfDue!=="All")&&<button onClick={()=>{setTfProject("All");setTfPriority("All");setTfStatus("All");setTfPerson("All");setTfDue("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear filters</button>}
+        </div>
         {sortedTasks.filter(t=>t.status!=="Done").map((t)=>{
           const hl=["Overdue","Blocked","Needs Approval"].includes(t.status);
           const proj = projects.find((p)=>p.id===t.project);
@@ -900,10 +941,10 @@ export default function MarketingHub() {
     /* ─── PROJECTS ─── */
     case "projects": return (
       <div>
-        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[],notes:"",links:[]})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
+        <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editProject",{status:"Planning",color:"#1FC2C2",owner:curUser.id,members:[],notes:"",links:[],private:false})}><Plus size={14}/> Add Project</Btn>}>Projects</SectionHead>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
-          {projects.map((proj)=>{
-            const projTasks = tasks.filter((t)=>t.project===proj.id);
+          {visibleProjects.map((proj)=>{
+            const projTasks = accessibleTasks.filter((t)=>t.project===proj.id);
             const activeTasks = projTasks.filter(t=>t.status!=="Done");
             const doneTasks = projTasks.filter(t=>t.status==="Done");
             const total = projTasks.length;
@@ -1288,17 +1329,46 @@ export default function MarketingHub() {
         </div>
       </div></Modal>;
 
-      case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+      case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={620}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
-        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Add context, details, links, or instructions for this task..." style={{minHeight:100}}/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Add context, details, links, or instructions for this task..." style={{minHeight:80}}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Assigned To</Label><div style={{display:"flex",flexDirection:"column",gap:4}}>{users.map(u=>(<label key={u.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.owners||[]).includes(u.id)} onChange={e=>{const cur=form.owners||[];setForm(p=>({...p,owners:e.target.checked?[...cur,u.id]:cur.filter(x=>x!==u.id)}))}}/>{u.name}</label>))}</div></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TASK_STATUSES} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...projects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...visibleProjects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></div>
+
+        {/* Updates / Activity Feed */}
+        {form.id && <div>
+          <Label theme={theme}>Updates</Label>
+          <div style={{background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,maxHeight:200,overflow:"auto",marginBottom:8}}>
+            {(form.updates||[]).length===0 && <p style={{padding:"12px 14px",fontSize:12,color:theme.textMut,margin:0}}>No updates yet</p>}
+            {(form.updates||[]).map((u,i) => (
+              <div key={i} style={{padding:"10px 14px",borderBottom:i<(form.updates||[]).length-1?`1px solid ${theme.border}`:"none",display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:3}}>
+                    <span style={{fontSize:12,fontWeight:600,color:theme.text}}>{uName(u.author)}</span>
+                    <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{u.time}</span>
+                  </div>
+                  <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{u.text}</p>
+                </div>
+                <button onClick={()=>{const upd=[...(form.updates||[])];upd.splice(i,1);setForm(p=>({...p,updates:upd}))}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",flexShrink:0,opacity:0.5}}><X size={12}/></button>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Input theme={theme} value={form._newUpdate||""} onChange={e=>setForm(p=>({...p,_newUpdate:e.target.value}))} placeholder="Add an update..." style={{flex:1}}/>
+            <Btn theme={theme} small onClick={()=>{
+              if(!(form._newUpdate||"").trim()) return;
+              const upd=[...(form.updates||[]),{author:curUser.id,text:form._newUpdate.trim(),time:new Date().toLocaleDateString("en-GB")+" "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}];
+              setForm(p=>({...p,updates:upd,_newUpdate:""}));
+            }}><Plus size={12}/> Post</Btn>
+          </div>
+        </div>}
+
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id);log("deleted",form.title,"Tasks")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const tid=form.id||uid("t");const tdata={...form,id:tid};if(form.id){setTasks(p=>p.map(t=>t.id===form.id?tdata:t));log("updated",form.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",form.title,"Tasks")}db.saveTask(tdata)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const {_newUpdate,...cleanForm}=form;const tid=cleanForm.id||uid("t");const tdata={...cleanForm,id:tid};if(cleanForm.id){setTasks(p=>p.map(t=>t.id===cleanForm.id?tdata:t));log("updated",cleanForm.title,"Tasks")}else{setTasks(p=>[...p,tdata]);log("created",cleanForm.title,"Tasks")}db.saveTask(tdata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -1510,7 +1580,14 @@ export default function MarketingHub() {
             <Btn theme={theme} small onClick={()=>setForm(p=>({...p,links:[...(p.links||[]),{label:"",url:""}]}))}><Plus size={12}/> Add Link</Btn>
           </div>
         </div>
-        <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
+        <div style={{display:"flex",gap:16,alignItems:"center"}}>
+          <div><Label theme={theme}>Colour</Label><input type="color" value={form.color||theme.teal} onChange={(e)=>setForm((p)=>({...p,color:e.target.value}))} style={{width:48,height:36,border:"none",borderRadius:8,cursor:"pointer"}}/></div>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,marginTop:18}}>
+            <input type="checkbox" checked={form.private||false} onChange={e=>setForm(p=>({...p,private:e.target.checked}))}/>
+            <Lock size={13} color={form.private?theme.teal:theme.textMut}/>
+            <span style={{color:form.private?theme.teal:theme.textSec}}>Private — only visible to owner, team members & admin</span>
+          </label>
+        </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setProjects(p=>p.filter(x=>x.id!==form.id));db.deleteProject(form.id);log("deleted",form.name,"Projects")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
