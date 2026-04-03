@@ -231,13 +231,13 @@ const OUTREACH_STATUSES = ["Identified", "Contacted", "In Conversation", "Confir
 const OUTREACH_STATUS_COLORS = { Identified:"#748FFC", Contacted:"#FFA94D", "In Conversation":"#DA77F2", Confirmed:"#69DB7C", Declined:"#FF6B6B", Complete:"#4E6A78" };
 
 const INIT_OUTREACH = [
-  { id:"out1", name:"Vanessa Y. Rogers", type:"Content Creator", platform:"Podcast — Fabric of Folklore", status:"Confirmed", owner:"u1", notes:"April Calendly confirmed. Prepare talking points around Myths & History.", url:"", date:"2026-04-15", contactName:"Vanessa Y. Rogers", contactEmail:"" },
-  { id:"out2", name:"Traci — Total Conundrum", type:"Content Creator", platform:"Podcast", status:"In Conversation", owner:"u2", notes:"One-pager requested. Waiting on scheduling.", url:"", date:"", contactName:"Traci", contactEmail:"" },
-  { id:"out3", name:"The Activity Continues", type:"Content Creator", platform:"Podcast", status:"Contacted", owner:"u2", notes:"Registration done. Awaiting response.", url:"", date:"" , contactName:"", contactEmail:""},
-  { id:"out4", name:"James Fox", type:"Influencer", platform:"X / Twitter", status:"In Conversation", owner:"u1", notes:"X Space co-hosting event planned for 20 March.", url:"", date:"2026-03-20" , contactName:"", contactEmail:""},
-  { id:"out5", name:"Nathan Cole — UAPWatch", type:"Community", platform:"Discord / YouTube", status:"In Conversation", owner:"u5", notes:"Potential cross-community collaboration.", url:"", date:"" , contactName:"", contactEmail:""},
-  { id:"out6", name:"Nick Cook Event", type:"Organisation", platform:"In-person (London)", status:"Confirmed", owner:"u1", notes:"Invite-only. April. Nicholas attending.", url:"", date:"2026-04-20" , contactName:"", contactEmail:""},
-  { id:"out7", name:"Reddit AMA", type:"Community", platform:"Reddit", status:"Identified", owner:"u4", notes:"Plan to announce Communities feature via AMA.", url:"", date:"" , contactName:"", contactEmail:""},
+  { id:"out1", name:"Vanessa Y. Rogers", type:"Content Creator", platform:"Podcast — Fabric of Folklore", status:"Confirmed", owner:"u1", notes:"April Calendly confirmed. Prepare talking points around Myths & History.", url:"", date:"2026-04-15", contactName:"Vanessa Y. Rogers", contactEmail:"", linkedTasks:[] },
+  { id:"out2", name:"Traci — Total Conundrum", type:"Content Creator", platform:"Podcast", status:"In Conversation", owner:"u2", notes:"One-pager requested. Waiting on scheduling.", url:"", date:"", contactName:"Traci", contactEmail:"", linkedTasks:[] },
+  { id:"out3", name:"The Activity Continues", type:"Content Creator", platform:"Podcast", status:"Contacted", owner:"u2", notes:"Registration done. Awaiting response.", url:"", date:"" , contactName:"", contactEmail:"", linkedTasks:[] },
+  { id:"out4", name:"James Fox", type:"Influencer", platform:"X / Twitter", status:"In Conversation", owner:"u1", notes:"X Space co-hosting event planned for 20 March.", url:"", date:"2026-03-20" , contactName:"", contactEmail:"", linkedTasks:[] },
+  { id:"out5", name:"Nathan Cole — UAPWatch", type:"Community", platform:"Discord / YouTube", status:"In Conversation", owner:"u5", notes:"Potential cross-community collaboration.", url:"", date:"" , contactName:"", contactEmail:"", linkedTasks:[] },
+  { id:"out6", name:"Nick Cook Event", type:"Organisation", platform:"In-person (London)", status:"Confirmed", owner:"u1", notes:"Invite-only. April. Nicholas attending.", url:"", date:"2026-04-20" , contactName:"", contactEmail:"", linkedTasks:[] },
+  { id:"out7", name:"Reddit AMA", type:"Community", platform:"Reddit", status:"Identified", owner:"u4", notes:"Plan to announce Communities feature via AMA.", url:"", date:"" , contactName:"", contactEmail:"", linkedTasks:[] },
 ];
 
 /* UID HELPER */
@@ -1089,7 +1089,7 @@ export default function MarketingHub() {
       <div>
         <SectionHead theme={theme} right={<>
           <Sel theme={theme} options={[{value:"All",label:"All Types"},...OUTREACH_TYPES.map(t=>({value:t,label:t}))]} value={outreachFilter} onChange={(e)=>setOutreachFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
-          <Btn primary theme={theme} onClick={()=>openM("editOutreach",{type:"Community",status:"Identified",owner:curUser.id,platform:"",notes:"",url:"",date:"",contactName:"",contactEmail:""})}><Plus size={14}/> Add Contact</Btn>
+          <Btn primary theme={theme} onClick={()=>openM("editOutreach",{type:"Community",status:"Identified",owner:curUser.id,platform:"",notes:"",url:"",date:"",contactName:"",contactEmail:"", linkedTasks:[] })}><Plus size={14}/> Add Contact</Btn>
         </>}>Outreach Pipeline</SectionHead>
         {/* Summary strip */}
         <div className="nanu-grid-summary" style={{marginBottom:18}}>
@@ -1120,6 +1120,11 @@ export default function MarketingHub() {
                   <div style={{fontSize:12,color:theme.textSec,marginTop:4}}>{item.platform}</div>
                   <div style={{fontSize:11,color:theme.textMut,marginTop:4}}>{uName(item.owner)}{item.date?` · ${item.date}`:""}</div>
                   {item.contactName&&<div style={{fontSize:11,color:theme.teal,marginTop:4}}>Contact: {item.contactName}</div>}
+                  {(item.linkedTasks||[]).length>0&&<div style={{marginTop:6,borderTop:`1px solid ${theme.border}`,paddingTop:6}}>
+                    <div style={{fontSize:10,fontWeight:600,color:theme.textMut,marginBottom:3}}>TASKS ({item.linkedTasks.length})</div>
+                    {item.linkedTasks.slice(0,3).map(tid=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} style={{fontSize:11,color:theme.textSec,display:"flex",alignItems:"center",gap:4,marginBottom:2}}><div style={{width:5,height:5,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status]||theme.textMut,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span></div>:null})}
+                    {item.linkedTasks.length>3&&<div style={{fontSize:10,color:theme.textMut}}>+{item.linkedTasks.length-3} more</div>}
+                  </div>}
                   {item.notes&&<p style={{fontSize:11,color:theme.textMut,marginTop:4,lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{item.notes}</p>}
                 </Card>
               ))}
@@ -1745,6 +1750,35 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={(e)=>setForm((p)=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={(e)=>setForm((p)=>({...p,url:e.target.value}))} placeholder="https://..."/></div></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))} placeholder="Context, talking points, follow-up actions..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Contact Name</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))} placeholder="Lead person's name"/></div><div><Label theme={theme}>Contact Email</Label><Input theme={theme} value={form.contactEmail||""} onChange={e=>setForm(p=>({...p,contactEmail:e.target.value}))} placeholder="email@example.com"/></div></div>
+
+        {/* Linked Tasks */}
+        <div>
+          <Label theme={theme}>Linked Tasks</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(form.linkedTasks||[]).map((tid,i)=>{
+              const t=tasks.find(x=>x.id===tid);
+              return t ? <div key={tid} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status]||theme.textMut,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:13,fontWeight:500}}>{t.title}</span>
+                <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
+                <button type="button" onClick={()=>{const lt=[...(form.linkedTasks||[])];lt.splice(i,1);setForm(p=>({...p,linkedTasks:lt}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",flexShrink:0}}><X size={14}/></button>
+              </div> : null;
+            })}
+            {(form.linkedTasks||[]).length===0&&<p style={{fontSize:12,color:theme.textMut,padding:"4px 0"}}>No tasks linked yet</p>}
+          </div>
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <Sel theme={theme} options={[{value:"",label:"Link existing task..."},...tasks.filter(t=>!(form.linkedTasks||[]).includes(t.id)).map(t=>({value:t.id,label:t.title}))]} value="" onChange={e=>{if(e.target.value)setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),e.target.value]}))}} style={{flex:1,fontSize:12,padding:"6px 8px"}}/>
+            <Btn theme={theme} small onClick={()=>{
+              const newId=uid("t");
+              const newTask={id:newId,title:`Task for ${form.name||"outreach"}`,owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:`Created from outreach: ${form.name||""}`,linkedContent:"",project:"",updates:[]};
+              setTasks(p=>[...p,newTask]);
+              db.saveTask(newTask);
+              setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),newId]}));
+              log("created",newTask.title,"Tasks");
+            }}><Plus size={12}/> New Task</Btn>
+          </div>
+        </div>
+
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOutreach(p=>p.filter(x=>x.id!==form.id));db.deleteOutreach(form.id);log("deleted",form.name,"Outreach")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
