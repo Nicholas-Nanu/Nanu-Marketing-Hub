@@ -481,6 +481,7 @@ export default function MarketingHub() {
   const [projects, setProjects] = useState([]);
   const [outreach, setOutreach] = useState([]);
   const [outreachFilter, setOutreachFilter] = useState("All");
+  const [outreachUserFilter, setOutreachUserFilter] = useState("All");
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -1089,6 +1090,8 @@ export default function MarketingHub() {
       <div>
         <SectionHead theme={theme} right={<>
           <Sel theme={theme} options={[{value:"All",label:"All Types"},...OUTREACH_TYPES.map(t=>({value:t,label:t}))]} value={outreachFilter} onChange={(e)=>setOutreachFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Owners"},...users.map(u=>({value:u.id,label:u.name}))]} value={outreachUserFilter} onChange={(e)=>setOutreachUserFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+          {(outreachFilter!=="All"||outreachUserFilter!=="All")&&<button type="button" onClick={()=>{setOutreachFilter("All");setOutreachUserFilter("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>}
           <Btn primary theme={theme} onClick={()=>openM("editOutreach",{type:"Community",status:"Identified",owner:curUser.id,platform:"",notes:"",url:"",date:"",contactName:"",contactEmail:"", linkedTasks:[] })}><Plus size={14}/> Add Contact</Btn>
         </>}>Outreach Pipeline</SectionHead>
         {/* Summary strip */}
@@ -1106,7 +1109,7 @@ export default function MarketingHub() {
         {/* Kanban by status */}
         <div className="nanu-kanban">
           {OUTREACH_STATUSES.map(status=>{
-            const items = outreach.filter((o)=>(outreachFilter==="All"||o.type===outreachFilter)&&o.status===status);
+            const items = outreach.filter((o)=>(outreachFilter==="All"||o.type===outreachFilter)&&(outreachUserFilter==="All"||o.owner===outreachUserFilter)&&o.status===status);
             return <div key={status} className="nanu-kanban-col">
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:OUTREACH_STATUS_COLORS[status]}}/>
