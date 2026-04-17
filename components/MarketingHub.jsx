@@ -350,7 +350,7 @@ const SectionHead = ({ theme, children, right }) => (
 );
 
 const Modal = ({ theme, title, onClose, children, width=540 }) => (
-  <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.55)", backdropFilter:"blur(4px)" }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+  <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.55)", backdropFilter:"blur(4px)" }}>
     <div style={{ background:theme.bgCard, borderRadius:16, border:`1px solid ${theme.border}`, padding:28, width, maxWidth:"92vw", maxHeight:"88vh", overflow:"auto", boxShadow:theme.shadowLg }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
         <h3 style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:18, color:theme.text, margin:0 }}>{title}</h3>
@@ -1144,7 +1144,7 @@ export default function MarketingHub() {
                   {item.contactName&&<div style={{fontSize:11,color:theme.teal,marginTop:4}}>Contact: {item.contactName}</div>}
                   {(item.linkedTasks||[]).length>0&&<div style={{marginTop:6,borderTop:`1px solid ${theme.border}`,paddingTop:6}}>
                     <div style={{fontSize:10,fontWeight:600,color:theme.textMut,marginBottom:3}}>TASKS ({item.linkedTasks.length})</div>
-                    {item.linkedTasks.slice(0,3).map(tid=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} style={{fontSize:11,color:theme.textSec,display:"flex",alignItems:"center",gap:4,marginBottom:2}}><div style={{width:5,height:5,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status]||theme.textMut,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span></div>:null})}
+                    {item.linkedTasks.slice(0,3).map(tid=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} onClick={e=>{e.stopPropagation();openM("editTask",{...t})}} style={{fontSize:11,color:theme.textSec,display:"flex",alignItems:"center",gap:4,marginBottom:2,cursor:"pointer"}}><div style={{width:5,height:5,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status]||theme.textMut,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span></div>:null})}
                     {item.linkedTasks.length>3&&<div style={{fontSize:10,color:theme.textMut}}>+{item.linkedTasks.length-3} more</div>}
                   </div>}
                   {item.notes&&<p style={{fontSize:11,color:theme.textMut,marginTop:4,lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{item.notes}</p>}
@@ -1889,7 +1889,7 @@ export default function MarketingHub() {
               const t=tasks.find(x=>x.id===tid);
               return t ? <div key={tid} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`}}>
                 <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status]||theme.textMut,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:13,fontWeight:500}}>{t.title}</span>
+                <span onClick={()=>openM("editTask",{...t})} style={{flex:1,fontSize:13,fontWeight:500,cursor:"pointer",color:theme.teal}}>{t.title}</span>
                 <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
                 <button type="button" onClick={()=>{const lt=[...(form.linkedTasks||[])];lt.splice(i,1);setForm(p=>({...p,linkedTasks:lt}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",flexShrink:0}}><X size={14}/></button>
               </div> : null;
@@ -1947,7 +1947,7 @@ export default function MarketingHub() {
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {(form.linkedTasks||[]).map((tid,i)=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`}}>
               <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status],flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13}}>{t.title}</span>
+              <span onClick={()=>openM("editTask",{...t})} style={{flex:1,fontSize:13,cursor:"pointer",color:theme.teal}}>{t.title}</span>
               <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
               <button type="button" onClick={()=>{const lt=[...(form.linkedTasks||[])];lt.splice(i,1);setForm(p=>({...p,linkedTasks:lt}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><X size={14}/></button>
             </div>:null})}
