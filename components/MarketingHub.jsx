@@ -963,7 +963,7 @@ export default function MarketingHub() {
           const truncated = caption.length > plat.truncate ? caption.slice(0, plat.truncate) + "..." : caption;
           const hashtagCount = (caption.match(/#\w+/g) || []).length;
 
-          return <div style={{position:"fixed",right:0,top:0,bottom:0,width:400,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,boxShadow:theme.shadowLg,zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          return <div className="nanu-preview-panel" style={{position:"fixed",right:0,top:0,bottom:0,width:400,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,boxShadow:theme.shadowLg,zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"16px 20px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
               <div>
                 <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Social Preview</div>
@@ -1594,7 +1594,7 @@ export default function MarketingHub() {
           <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Your private workspace. Items are only visible to you unless shared.</p>
 
           {/* ── WEEKLY FOCUS ── */}
-          <Card theme={theme} style={{padding:16,marginBottom:16,borderLeft:`3px solid ${theme.teal}`}}>
+          <Card theme={theme} style={{padding:16,marginBottom:16,borderLeft:`3px solid ${theme.teal}`}} className="nanu-ws-focus">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Weekly Focus</div>
               <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>Week of {new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
@@ -1609,7 +1609,7 @@ export default function MarketingHub() {
           </Card>
 
           {/* ── QUICK LINKS TO MY STUFF ── */}
-          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+          <div className="nanu-ws-quicklinks" style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
             {[
               {label:"My Tasks",count:myTaskCount,color:theme.teal,section:"tasks",icon:<CheckSquare size={14}/>},
               {label:"My Projects",count:myProjectCount,color:"#DA77F2",section:"projects",icon:<FolderKanban size={14}/>},
@@ -1628,7 +1628,7 @@ export default function MarketingHub() {
           {/* ── PINNED ITEMS ── */}
           {pinnedItems.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Pinned Items</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <div className="nanu-ws-pinned" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {pinnedItems.map((pin,idx)=>{
                 const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):calendar.find(c=>c.id===pin.id);
                 if(!target) return null;
@@ -1644,7 +1644,7 @@ export default function MarketingHub() {
           </div>}
 
           {/* Tabs */}
-          <div style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
+          <div className="nanu-ws-tabs" style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
             {[["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
               <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 14px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 <Icon size={13}/>{l}
@@ -1655,7 +1655,7 @@ export default function MarketingHub() {
 
           {/* ── TO-DO LIST (with priority & due date) ── */}
           {wsTab==="todos"&&<Card theme={theme} style={{padding:18}}>
-            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+            <div className="nanu-ws-todo-add" style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
               <Input theme={theme} value={form._newTodo||""} onChange={e=>setForm(p=>({...p,_newTodo:e.target.value}))} placeholder="Add a to-do..." style={{flex:1,minWidth:150}} onKeyDown={e=>{if(e.key==="Enter"&&(form._newTodo||"").trim()){updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,priority:form._todoPri||"Medium",dueDate:form._todoDue||"",date:todayStr2}]);setForm(p=>({...p,_newTodo:"",_todoPri:"Medium",_todoDue:""}))}}}/>
               <select value={form._todoPri||"Medium"} onChange={e=>setForm(p=>({...p,_todoPri:e.target.value}))} style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
                 <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
@@ -2443,7 +2443,7 @@ export default function MarketingHub() {
                 {notifications.filter(n=>!n.read).length>0&&<span style={{position:"absolute",top:0,right:0,width:8,height:8,borderRadius:"50%",background:theme.red}}/>}
               </button>
               {/* Notification Panel */}
-              {showNotifPanel&&<div style={{position:"absolute",top:"100%",right:0,marginTop:8,width:380,maxHeight:480,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:12,boxShadow:theme.shadowLg,overflow:"hidden",zIndex:200}}>
+              {showNotifPanel&&<div className="nanu-notif-panel" style={{position:"absolute",top:"100%",right:0,marginTop:8,width:380,maxHeight:480,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:12,boxShadow:theme.shadowLg,overflow:"hidden",zIndex:200}}>
                 <div style={{padding:"14px 16px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Notifications</span>
                   <div style={{display:"flex",gap:8}}>

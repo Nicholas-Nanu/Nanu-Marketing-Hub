@@ -34,6 +34,7 @@ html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-sm
   .nanu-kanban-col { min-width: 200px; flex: 0 0 200px; }
   .nanu-main-pad { padding: 20px; }
   .nanu-topbar { padding: 10px 20px; }
+  .nanu-preview-panel { width: 360px !important; }
 }
 
 /* Tablet portrait / large phone */
@@ -62,6 +63,18 @@ html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-sm
   .nanu-big-num { font-size: 22px !important; }
   .nanu-clock-card { min-width: 80px !important; flex: 1 1 80px !important; }
   .nanu-clock-card .nanu-clock-time { font-size: 17px !important; }
+  /* Preview panel full width on tablet */
+  .nanu-preview-panel { width: 100% !important; left: 0 !important; border-left: none !important; }
+  /* Workspace responsive */
+  .nanu-ws-quicklinks { flex-direction: column; }
+  .nanu-ws-quicklinks > div { flex: 1 1 auto !important; }
+  .nanu-ws-tabs { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
+  .nanu-ws-tabs > button { flex-shrink: 0 !important; padding: 8px 12px !important; font-size: 11px !important; }
+  .nanu-ws-todo-add { flex-direction: column; }
+  .nanu-ws-todo-add > input, .nanu-ws-todo-add > select { width: 100% !important; min-width: 0 !important; }
+  .nanu-ws-pinned { flex-direction: column; }
+  .nanu-ws-pinned > div { width: 100% !important; }
+  .nanu-notif-panel { width: calc(100vw - 80px) !important; right: -10px !important; max-height: 70vh !important; }
 }
 
 /* Small phone */
@@ -73,4 +86,11 @@ html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-sm
   .nanu-themes > div > div:last-child { font-size: 10px !important; }
   .nanu-kanban-col { min-width: 160px; flex: 0 0 160px; }
   .nanu-big-num { font-size: 20px !important; }
+  /* Preview panel */
+  .nanu-preview-panel { width: 100% !important; left: 0 !important; padding: 0 !important; }
+  .nanu-preview-panel > div:last-child { padding: 14px !important; }
+  /* Workspace */
+  .nanu-ws-tabs > button { padding: 6px 10px !important; font-size: 10px !important; gap: 3px !important; }
+  .nanu-ws-quicklinks > div { padding: 10px 12px !important; }
+  .nanu-notif-panel { width: calc(100vw - 24px) !important; right: -40px !important; }
 }
