@@ -10,7 +10,7 @@ import {
   List, Columns, Hash, MessageSquare, Bookmark,
   TrendingUp, ArrowUp, ArrowDown, Minus, Bell, StickyNote,
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
-  Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube
+  Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -243,6 +243,20 @@ const INIT_OUTREACH = [
 /* UID HELPER */
 let _uid = Date.now();
 const uid = (p = "x") => `${p}${_uid++}`;
+
+/* ═══ PARTNERSHIPS ═══ */
+const PARTNERSHIP_TYPES = ["Organisation / Institution", "Event / Conference", "Technology / Platform", "Research / Academic"];
+const PARTNERSHIP_STATUSES = ["Lead / Prospect", "Contacted", "In Discussion", "Agreement Pending", "Active Partner", "Paused", "Ended"];
+const PARTNERSHIP_STATUS_COLORS = { "Lead / Prospect":"#748FFC", Contacted:"#FFA94D", "In Discussion":"#DA77F2", "Agreement Pending":"#FFD43B", "Active Partner":"#69DB7C", Paused:"#4E6A78", Ended:"#FF6B6B" };
+const PARTNERSHIP_TYPE_COLORS = { "Organisation / Institution":"#1FC2C2", "Event / Conference":"#FFA94D", "Technology / Platform":"#748FFC", "Research / Academic":"#DA77F2" };
+
+const INIT_PARTNERSHIPS = [
+  { id:"part1", name:"SETI Institute", description:"Potential integration of SETI data into Nanu or white-label contract. Bill Diamond & Simon Steel contacts.", type:"Research / Academic", status:"In Discussion", owner:"u1", contactName:"Bill Diamond", contactEmail:"", value:"Data integration or white-label platform contract. Outcome expected May; implementation mid-late June if approved.", startDate:"2026-02-01", reviewDate:"2026-05-15", linkedOutreach:"", linkedTasks:[], links:[{label:"Proposal Doc",url:"https://drive.google.com"}], updates:[{author:"u1",text:"Initial meeting went well. Follow-up scheduled for May.",time:"2026-03-10 14:00"}] },
+  { id:"part2", name:"Interesting Engineering", description:"White-label partnership being explored by Steve. Concept design phase.", type:"Technology / Platform", status:"Lead / Prospect", owner:"u1", contactName:"Steve", contactEmail:"", value:"White-label deal — Nanu platform powering their anomalous content section.", startDate:"2026-03-01", reviewDate:"2026-06-01", linkedOutreach:"", linkedTasks:[], links:[], updates:[] },
+  { id:"part3", name:"BlueLine Security", description:"Cybersecurity partner for platform security audit and ongoing monitoring.", type:"Technology / Platform", status:"In Discussion", owner:"u1", contactName:"Pash", contactEmail:"", value:"Cybersecurity scoping for SETI partnership implementation and general platform security.", startDate:"2026-03-15", reviewDate:"2026-04-30", linkedOutreach:"", linkedTasks:[], links:[], updates:[] },
+  { id:"part4", name:"Future Folklore", description:"Virtual 4-day build sprint (Buildathon). Requires confirmed deliverables from Joel.", type:"Event / Conference", status:"Agreement Pending", owner:"u2", contactName:"Joel", contactEmail:"", value:"Cross-community activation, content generation, and brand awareness via collaborative build event.", startDate:"2026-03-01", reviewDate:"2026-04-15", linkedOutreach:"", linkedTasks:[], links:[], updates:[{author:"u2",text:"Joel still owes announcement copy, mentor bench, brand assets, distribution channels.",time:"2026-03-08 11:00"}] },
+  { id:"part5", name:"UAP Check", description:"Collaboration with Michaël Vaillant on UAP data verification tooling.", type:"Research / Academic", status:"Contacted", owner:"u1", contactName:"Michaël Vaillant", contactEmail:"", value:"Shared verification methodology and potential data exchange.", startDate:"2026-03-10", reviewDate:"2026-05-01", linkedOutreach:"", linkedTasks:[], links:[], updates:[] },
+];
 
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
@@ -482,6 +496,9 @@ export default function MarketingHub() {
   const [outreach, setOutreach] = useState([]);
   const [outreachFilter, setOutreachFilter] = useState("All");
   const [outreachUserFilter, setOutreachUserFilter] = useState("All");
+  const [partnerships, setPartnerships] = useState([]);
+  const [partFilter, setPartFilter] = useState("All");
+  const [partStatusFilter, setPartStatusFilter] = useState("All");
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -512,6 +529,7 @@ export default function MarketingHub() {
       setCampaigns(data.campaigns);
       setProjects(data.projects);
       setOutreach(data.outreach);
+      setPartnerships(data.partnerships);
       setActivity(data.activity);
       // If users table is empty, this is a fresh DB — seed it
       if (!data.users.length) {
@@ -526,7 +544,7 @@ export default function MarketingHub() {
       setTasks(INIT_TASKS); setResources(INIT_RESOURCES); setOps(INIT_OPS);
       setStats(INIT_STATS); setNotes(INIT_NOTES); setKeyDates(INIT_KEY_DATES);
       setCampaigns(INIT_CAMPAIGNS); setProjects(INIT_PROJECTS);
-      setOutreach(INIT_OUTREACH); setActivity(INIT_ACTIVITY);
+      setOutreach(INIT_OUTREACH); setPartnerships(INIT_PARTNERSHIPS); setActivity(INIT_ACTIVITY);
       setDbError("Could not connect to database — running in offline mode");
       setDbLoading(false);
     });
@@ -608,6 +626,7 @@ export default function MarketingHub() {
     { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
     { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
     { key:"outreach", label:"Outreach", icon:<Megaphone size={18}/> },
+    { key:"partnerships", label:"Partnerships", icon:<Handshake size={18}/> },
     { key:"resources", label:"Resources", icon:<Link2 size={18}/> },
     { key:"content-ops", label:"Content Ops", icon:<FileText size={18}/> },
     { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
@@ -1133,6 +1152,114 @@ export default function MarketingHub() {
               ))}
             </div>;
           })}
+        </div>
+      </div>
+    );
+
+    /* ─── PARTNERSHIPS ─── */
+    case "partnerships": return (
+      <div>
+        <SectionHead theme={theme} right={<>
+          <Sel theme={theme} options={[{value:"All",label:"All Types"},...PARTNERSHIP_TYPES.map(t=>({value:t,label:t}))]} value={partFilter} onChange={e=>setPartFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Statuses"},...PARTNERSHIP_STATUSES.map(s=>({value:s,label:s}))]} value={partStatusFilter} onChange={e=>setPartStatusFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+          {(partFilter!=="All"||partStatusFilter!=="All")&&<button type="button" onClick={()=>{setPartFilter("All");setPartStatusFilter("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>}
+          <Btn primary theme={theme} onClick={()=>openM("editPartnership",{type:PARTNERSHIP_TYPES[0],status:"Lead / Prospect",owner:curUser.id,contactName:"",contactEmail:"",description:"",value:"",startDate:"",reviewDate:"",linkedOutreach:"",linkedTasks:[],links:[],updates:[]})}><Plus size={14}/> Add Partnership</Btn>
+        </>}>Partnerships</SectionHead>
+
+        {/* Summary strip */}
+        <div className="nanu-grid-summary" style={{marginBottom:18}}>
+          {PARTNERSHIP_STATUSES.filter(s=>partnerships.some(p=>p.status===s)).map(status=>{
+            const count=partnerships.filter(p=>p.status===status).length;
+            return <Card key={status} theme={theme} style={{padding:12,textAlign:"center",cursor:"pointer"}} onClick={()=>setPartStatusFilter(status)}>
+              <div className="nanu-big-num" style={{fontSize:22,color:PARTNERSHIP_STATUS_COLORS[status]||theme.teal}}>{count}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{status}</div>
+            </Card>;
+          })}
+          <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+            <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{partnerships.length}</div>
+            <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Total</div>
+          </Card>
+        </div>
+
+        {/* Partnership cards */}
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {partnerships.filter(p=>(partFilter==="All"||p.type===partFilter)&&(partStatusFilter==="All"||p.status===partStatusFilter)).map(part=>{
+            const partTasks=(part.linkedTasks||[]).map(tid=>tasks.find(t=>t.id===tid)).filter(Boolean);
+            const linkedOut=part.linkedOutreach?outreach.find(o=>o.id===part.linkedOutreach):null;
+            const expanded=form[`_part_${part.id}`];
+            return <Card key={part.id} theme={theme} style={{position:"relative",padding:0,overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:PARTNERSHIP_TYPE_COLORS[part.type]||theme.teal}}/>
+              {/* Header */}
+              <div style={{padding:"18px 18px 0"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:18}}>{part.name}</div>
+                    <div style={{fontSize:13,color:theme.textSec,marginTop:4,lineHeight:1.5}}>{part.description}</div>
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                    <Badge label={part.type} color={PARTNERSHIP_TYPE_COLORS[part.type]||theme.teal}/>
+                    <Badge label={part.status} color={PARTNERSHIP_STATUS_COLORS[part.status]}/>
+                    <button type="button" onClick={()=>openM("editPartnership",{...part})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={14}/></button>
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:theme.textMut}}>Owner: <strong style={{color:theme.text}}>{uName(part.owner)}</strong></span>
+                  {part.contactName&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.teal}}>Contact: {part.contactName}</span></>}
+                  {part.startDate&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.textMut}}>Started: {part.startDate}</span></>}
+                  {part.reviewDate&&<><span style={{fontSize:12,color:theme.textMut}}>·</span><span style={{fontSize:12,color:theme.textMut}}>Review: {part.reviewDate}</span></>}
+                </div>
+                {part.value&&<div style={{padding:"8px 12px",background:theme.bgInput,borderRadius:8,fontSize:13,color:theme.textSec,lineHeight:1.5,marginTop:10}}><strong style={{color:theme.teal,fontSize:11}}>VALUE: </strong>{part.value}</div>}
+              </div>
+
+              {/* Links */}
+              {part.links&&part.links.length>0&&<div style={{padding:"10px 18px 0"}}>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {part.links.map((link,i)=>(<a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,color:theme.text,textDecoration:"none",fontSize:12,fontWeight:500}}><ExternalLink size={11} color={PARTNERSHIP_TYPE_COLORS[part.type]||theme.teal}/>{link.label}</a>))}
+                </div>
+              </div>}
+
+              {/* Expand area */}
+              <div style={{padding:"12px 18px 14px"}}>
+                <button type="button" onClick={()=>setForm(p=>({...p,[`_part_${part.id}`]:!expanded}))} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:600,color:theme.textSec,padding:0,marginBottom:expanded?10:0}}>
+                  <ChevronRight size={14} style={{transform:expanded?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+                  Details{partTasks.length>0?` · ${partTasks.length} tasks`:""}
+                  {(part.updates||[]).length>0?` · ${part.updates.length} updates`:""}
+                </button>
+
+                {expanded&&<>
+                  {/* Linked outreach */}
+                  {linkedOut&&<div style={{padding:"8px 12px",background:theme.bgInput,borderRadius:8,marginBottom:10,fontSize:12}}>
+                    <span style={{color:theme.textMut}}>Linked outreach: </span>
+                    <span style={{fontWeight:600,cursor:"pointer",color:theme.teal}} onClick={()=>{openM("editOutreach",{...linkedOut})}}>{linkedOut.name}</span>
+                    <Badge label={linkedOut.status} color={OUTREACH_STATUS_COLORS[linkedOut.status]} style={{marginLeft:8}}/>
+                  </div>}
+
+                  {/* Tasks */}
+                  {partTasks.length>0&&<div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:6,textTransform:"uppercase"}}>Tasks</div>
+                    {partTasks.map(t=>(<div key={t.id} onClick={()=>openM("editTask",{...t})} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:6,background:theme.bgInput,cursor:"pointer",fontSize:12,marginBottom:4}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status],flexShrink:0}}/>
+                      <span style={{flex:1}}>{t.title}</span>
+                      <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
+                    </div>))}
+                  </div>}
+
+                  {/* Updates log */}
+                  {(part.updates||[]).length>0&&<div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:6,textTransform:"uppercase"}}>Updates</div>
+                    {part.updates.map((u,i)=>(<div key={i} style={{padding:"8px 12px",background:theme.bgInput,borderRadius:6,marginBottom:4}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:3}}>
+                        <span style={{fontSize:12,fontWeight:600}}>{uName(u.author)}</span>
+                        <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{u.time}</span>
+                      </div>
+                      <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{u.text}</p>
+                    </div>))}
+                  </div>}
+                </>}
+              </div>
+            </Card>;
+          })}
+          {partnerships.filter(p=>(partFilter==="All"||p.type===partFilter)&&(partStatusFilter==="All"||p.status===partStatusFilter)).length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No partnerships match the current filters</p>}
         </div>
       </div>
     );
@@ -1789,6 +1916,87 @@ export default function MarketingHub() {
             const outid=form.id||uid("out");const outdata={...form,id:outid};if(form.id){setOutreach(p=>p.map(x=>x.id===form.id?outdata:x));log("updated",form.name,"Outreach")}
             else{setOutreach(p=>[...p,outdata]);log("created",form.name,"Outreach")}db.saveOutreach(outdata);
             })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      case "editPartnership": return <Modal theme={theme} title={form.id?"Edit Partnership":"New Partnership"} onClose={closeM} width={640}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Partner Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+        <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What is this partnership about?"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={PARTNERSHIP_TYPES} value={form.type||PARTNERSHIP_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PARTNERSHIP_STATUSES} value={form.status||"Lead / Prospect"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Linked Outreach</Label><Sel theme={theme} options={[{value:"",label:"None"},...outreach.map(o=>({value:o.id,label:o.name}))]} value={form.linkedOutreach||""} onChange={e=>setForm(p=>({...p,linkedOutreach:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Contact Name</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))}/></div><div><Label theme={theme}>Contact Email</Label><Input theme={theme} value={form.contactEmail||""} onChange={e=>setForm(p=>({...p,contactEmail:e.target.value}))} placeholder="email@example.com"/></div></div>
+        <div><Label theme={theme}>Value / Benefit</Label><Textarea theme={theme} value={form.value||""} onChange={e=>setForm(p=>({...p,value:e.target.value}))} placeholder="What's the strategic value of this partnership?"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Start Date</Label><Input theme={theme} type="date" value={form.startDate||""} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))}/></div><div><Label theme={theme}>Review Date</Label><Input theme={theme} type="date" value={form.reviewDate||""} onChange={e=>setForm(p=>({...p,reviewDate:e.target.value}))}/></div></div>
+
+        {/* Shared Documents / Links */}
+        <div>
+          <Label theme={theme}>Shared Documents / Links</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(form.links||[]).map((link,i)=>(<div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+              <Input theme={theme} value={link.label} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,label:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="Label" style={{flex:1}}/>
+              <Input theme={theme} value={link.url} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,url:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="https://..." style={{flex:2}}/>
+              <button type="button" onClick={()=>{const u=[...(form.links||[])];u.splice(i,1);setForm(p=>({...p,links:u}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={14}/></button>
+            </div>))}
+            <Btn theme={theme} small onClick={()=>setForm(p=>({...p,links:[...(p.links||[]),{label:"",url:""}]}))}><Plus size={12}/> Add Link</Btn>
+          </div>
+        </div>
+
+        {/* Linked Tasks */}
+        <div>
+          <Label theme={theme}>Linked Tasks</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(form.linkedTasks||[]).map((tid,i)=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:TASK_STATUS_COLORS[t.status],flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13}}>{t.title}</span>
+              <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
+              <button type="button" onClick={()=>{const lt=[...(form.linkedTasks||[])];lt.splice(i,1);setForm(p=>({...p,linkedTasks:lt}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><X size={14}/></button>
+            </div>:null})}
+          </div>
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <Sel theme={theme} options={[{value:"",label:"Link existing task..."},...tasks.filter(t=>!(form.linkedTasks||[]).includes(t.id)).map(t=>({value:t.id,label:t.title}))]} value="" onChange={e=>{if(e.target.value)setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),e.target.value]}))}} style={{flex:1,fontSize:12,padding:"6px 8px"}}/>
+            <Btn theme={theme} small onClick={()=>{
+              const newId=uid("t");
+              const newTask={id:newId,title:`Task for ${form.name||"partnership"}`,owners:[curUser.id],status:"Not Started",dueDate:"",blocker:"",priority:"Medium",notes:`Created from partnership: ${form.name||""}`,linkedContent:"",project:"",updates:[]};
+              setTasks(p=>[...p,newTask]);db.saveTask(newTask);
+              setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),newId]}));
+              log("created",newTask.title,"Tasks");
+            }}><Plus size={12}/> New Task</Btn>
+          </div>
+        </div>
+
+        {/* Updates / Activity Log */}
+        {form.id&&<div>
+          <Label theme={theme}>Updates</Label>
+          <div style={{background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,maxHeight:200,overflow:"auto",marginBottom:8}}>
+            {(form.updates||[]).length===0&&<p style={{padding:"12px 14px",fontSize:12,color:theme.textMut,margin:0}}>No updates yet</p>}
+            {(form.updates||[]).map((u,i)=>(<div key={i} style={{padding:"10px 14px",borderBottom:i<(form.updates||[]).length-1?`1px solid ${theme.border}`:"none"}}>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:3}}>
+                <span style={{fontSize:12,fontWeight:600}}>{uName(u.author)}</span>
+                <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{u.time}</span>
+              </div>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{u.text}</p>
+            </div>))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Input theme={theme} value={form._newUpdate||""} onChange={e=>setForm(p=>({...p,_newUpdate:e.target.value}))} placeholder="Add an update..." style={{flex:1}}/>
+            <Btn theme={theme} small onClick={()=>{
+              if(!(form._newUpdate||"").trim()) return;
+              const upd=[...(form.updates||[]),{author:curUser.id,text:form._newUpdate.trim(),time:new Date().toLocaleDateString("en-GB")+" "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}];
+              setForm(p=>({...p,updates:upd,_newUpdate:""}));
+            }}><Plus size={12}/> Post</Btn>
+          </div>
+        </div>}
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setPartnerships(p=>p.filter(x=>x.id!==form.id));db.deletePartnership(form.id);log("deleted",form.name,"Partnerships")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const {_newUpdate,...cleanForm}=form;
+            const pid=cleanForm.id||uid("part");const pdata={...cleanForm,id:pid};
+            if(cleanForm.id){setPartnerships(p=>p.map(x=>x.id===cleanForm.id?pdata:x));log("updated",cleanForm.name,"Partnerships")}
+            else{setPartnerships(p=>[...p,pdata]);log("created",cleanForm.name,"Partnerships")}
+            db.savePartnership(pdata);
+          })}>Done</Btn>
         </div>
       </div></Modal>;
 
