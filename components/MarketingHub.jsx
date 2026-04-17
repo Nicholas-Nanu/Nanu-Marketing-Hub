@@ -10,7 +10,8 @@ import {
   List, Columns, Hash, MessageSquare, Bookmark,
   TrendingUp, ArrowUp, ArrowDown, Minus, Bell, StickyNote,
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
-  Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake
+  Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
+  Share2, FileEdit, CircleDot, BookOpen
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -499,6 +500,8 @@ export default function MarketingHub() {
   const [partnerships, setPartnerships] = useState([]);
   const [partFilter, setPartFilter] = useState("All");
   const [partStatusFilter, setPartStatusFilter] = useState("All");
+  const [wsTab, setWsTab] = useState("todos");
+  const [workspace, setWorkspace] = useState({ todos:[], notes:[], bookmarks:[], goals:[], drafts:[] });
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -555,6 +558,7 @@ export default function MarketingHub() {
     if (!curUser) return;
     db.loadNotifSettings(curUser.id).then(s => { if (s) setNotifSettings(s); });
     db.loadNotifications(curUser.id).then(n => { if (n) setNotifications(n); });
+    db.loadWorkspace(curUser.id).then(w => { if (w) setWorkspace(w); });
   }, [curUser]);
 
   // Refresh notifications from DB
@@ -583,6 +587,15 @@ export default function MarketingHub() {
   // Helper: notify multiple users
   const notifyMany = (userIds, type, title, body, link) => {
     (userIds || []).forEach(uid2 => notify(uid2, type, title, body, link));
+  };
+
+  // Workspace helper: update and persist
+  const updateWs = (key, updater) => {
+    setWorkspace(prev => {
+      const next = { ...prev, [key]: typeof updater === "function" ? updater(prev[key]) : updater };
+      db.saveWorkspace(curUser.id, next);
+      return next;
+    });
   };
 
   const theme = getTheme(dark);
@@ -631,6 +644,7 @@ export default function MarketingHub() {
     { key:"content-ops", label:"Content Ops", icon:<FileText size={18}/> },
     { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
     { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
+    { key:"workspace", label:"My Space", icon:<BookOpen size={18}/> },
     { key:"settings", label:"Settings", icon:<Bell size={18}/> },
     ...(isAdmin?[{key:"admin",label:"Admin",icon:<Settings size={18}/>}]:[]),
   ];
@@ -1434,6 +1448,177 @@ export default function MarketingHub() {
     );
 
     /* ─── SETTINGS ─── */
+    /* ─── MY SPACE ─── */
+    case "workspace": {
+      const ws = workspace;
+      const todos = ws.todos || [];
+      const wnotes = ws.notes || [];
+      const bookmarks = ws.bookmarks || [];
+      const goals = ws.goals || [];
+      const drafts = ws.drafts || [];
+
+      const ShareToggle = ({item, listKey, idx}) => (
+        <button type="button" onClick={()=>updateWs(listKey, prev=>{const u=[...prev];u[idx]={...u[idx],shared:!u[idx].shared};return u})}
+          style={{background:"none",border:"none",cursor:"pointer",color:item.shared?theme.teal:theme.textMut,opacity:item.shared?1:0.4,display:"flex",alignItems:"center",gap:3,fontSize:10}}>
+          <Share2 size={11}/>{item.shared?"Shared":"Private"}
+        </button>
+      );
+
+      return (
+        <div>
+          <SectionHead theme={theme}>My Space</SectionHead>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Your private workspace. Items are only visible to you unless you mark them as shared.</p>
+
+          {/* Tabs */}
+          <div style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
+            {[["todos","To-Do List",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["goals","Goals",Target],["drafts","Drafts",FileText]].map(([k,l,Icon])=>(
+              <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon size={14}/>{l}
+                {k==="todos"&&todos.filter(t=>!t.done).length>0&&<span style={{background:wsTab===k?"#0D1B2130":theme.teal,color:wsTab===k?"#0D1B21":"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700}}>{todos.filter(t=>!t.done).length}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* ── TO-DO LIST ── */}
+          {wsTab==="todos"&&<Card theme={theme} style={{padding:18}}>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <Input theme={theme} value={form._newTodo||""} onChange={e=>setForm(p=>({...p,_newTodo:e.target.value}))} placeholder="Add a to-do..." style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter"&&(form._newTodo||"").trim()){updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,date:new Date().toISOString().split("T")[0]}]);setForm(p=>({...p,_newTodo:""}))}}}/>
+              <Btn theme={theme} small onClick={()=>{if(!(form._newTodo||"").trim())return;updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,date:new Date().toISOString().split("T")[0]}]);setForm(p=>({...p,_newTodo:""}))}}><Plus size={13}/></Btn>
+            </div>
+            {todos.filter(t=>!t.done).map((t,i)=>{const idx=todos.indexOf(t);return(
+              <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${theme.border}`}}>
+                <input type="checkbox" checked={false} onChange={()=>updateWs("todos",p=>{const u=[...p];u[idx]={...u[idx],done:true};return u})} style={{cursor:"pointer",width:16,height:16}}/>
+                <span style={{flex:1,fontSize:14}}>{t.text}</span>
+                <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{t.date}</span>
+                <ShareToggle item={t} listKey="todos" idx={idx}/>
+                <button type="button" onClick={()=>updateWs("todos",p=>p.filter(x=>x.id!==t.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={13}/></button>
+              </div>
+            )})}
+            {todos.filter(t=>t.done).length>0&&<>
+              <button type="button" onClick={()=>setForm(p=>({...p,_showWsDone:!p._showWsDone}))} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:600,color:theme.green,padding:"10px 0"}}>
+                <Check size={14}/> Done ({todos.filter(t=>t.done).length})
+                <ChevronRight size={12} style={{transform:form._showWsDone?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+              </button>
+              {form._showWsDone&&todos.filter(t=>t.done).map((t)=>{const idx=todos.indexOf(t);return(
+                <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",opacity:0.5}}>
+                  <input type="checkbox" checked={true} onChange={()=>updateWs("todos",p=>{const u=[...p];u[idx]={...u[idx],done:false};return u})} style={{cursor:"pointer",width:16,height:16}}/>
+                  <span style={{flex:1,fontSize:14,textDecoration:"line-through",color:theme.textMut}}>{t.text}</span>
+                  <button type="button" onClick={()=>updateWs("todos",p=>p.filter(x=>x.id!==t.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={13}/></button>
+                </div>
+              )})}
+            </>}
+            {todos.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No to-dos yet. Add one above.</p>}
+          </Card>}
+
+          {/* ── SCRATCHPAD ── */}
+          {wsTab==="wnotes"&&<div>
+            <Btn theme={theme} small onClick={()=>updateWs("notes",p=>[{id:uid("wn"),text:"",title:"Untitled note",shared:false,date:new Date().toISOString().split("T")[0]},...p])} style={{marginBottom:12}}><Plus size={13}/> New Note</Btn>
+            <div className="nanu-grid-notes">
+              {wnotes.map((n,idx)=>(
+                <Card key={n.id} theme={theme} style={{padding:14,position:"relative"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <input value={n.title||""} onChange={e=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,color:theme.text,outline:"none",flex:1}} placeholder="Note title..."/>
+                    <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                      <ShareToggle item={n} listKey="notes" idx={idx}/>
+                      <button type="button" onClick={()=>updateWs("notes",p=>p.filter(x=>x.id!==n.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><Trash2 size={13}/></button>
+                    </div>
+                  </div>
+                  <textarea value={n.text||""} onChange={e=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],text:e.target.value};return u})}
+                    style={{width:"100%",minHeight:100,padding:"8px 0",border:"none",background:"transparent",color:theme.textSec,fontFamily:FONT_BODY,fontSize:14,outline:"none",resize:"vertical",lineHeight:1.6}} placeholder="Start writing..."/>
+                  <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO,marginTop:4}}>{n.date}</div>
+                </Card>
+              ))}
+            </div>
+            {wnotes.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No notes yet. Click "New Note" to start.</p>}
+          </div>}
+
+          {/* ── BOOKMARKS ── */}
+          {wsTab==="bookmarks"&&<Card theme={theme} style={{padding:18}}>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <Input theme={theme} value={form._bmLabel||""} onChange={e=>setForm(p=>({...p,_bmLabel:e.target.value}))} placeholder="Label" style={{flex:1}}/>
+              <Input theme={theme} value={form._bmUrl||""} onChange={e=>setForm(p=>({...p,_bmUrl:e.target.value}))} placeholder="https://..." style={{flex:2}}/>
+              <Btn theme={theme} small onClick={()=>{if(!(form._bmLabel||"").trim()||!(form._bmUrl||"").trim())return;updateWs("bookmarks",p=>[...p,{id:uid("wbm"),label:form._bmLabel.trim(),url:form._bmUrl.trim(),shared:false}]);setForm(p=>({...p,_bmLabel:"",_bmUrl:""}))}}><Plus size={13}/></Btn>
+            </div>
+            {bookmarks.map((bm,idx)=>(
+              <div key={bm.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${theme.border}`}}>
+                <Bookmark size={13} color={theme.teal}/>
+                <a href={bm.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:14,color:theme.teal,textDecoration:"none",fontWeight:500}}>{bm.label}</a>
+                <span style={{fontSize:11,color:theme.textMut,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bm.url}</span>
+                <ShareToggle item={bm} listKey="bookmarks" idx={idx}/>
+                <button type="button" onClick={()=>updateWs("bookmarks",p=>p.filter(x=>x.id!==bm.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={13}/></button>
+              </div>
+            ))}
+            {bookmarks.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No bookmarks yet. Add your frequently used links above.</p>}
+          </Card>}
+
+          {/* ── GOALS ── */}
+          {wsTab==="goals"&&<div>
+            <Btn theme={theme} small onClick={()=>updateWs("goals",p=>[...p,{id:uid("wg"),title:"",target:"",progress:0,shared:false}])} style={{marginBottom:12}}><Plus size={13}/> New Goal</Btn>
+            <div className="nanu-grid-2col">
+              {goals.map((g,idx)=>(
+                <Card key={g.id} theme={theme} style={{padding:16}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                    <div style={{flex:1}}>
+                      <input value={g.title||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})}
+                        style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",width:"100%"}} placeholder="Goal title..."/>
+                      <input value={g.target||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],target:e.target.value};return u})}
+                        style={{background:"transparent",border:"none",fontSize:13,color:theme.textSec,outline:"none",width:"100%",marginTop:4}} placeholder="Target / description..."/>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                      <ShareToggle item={g} listKey="goals" idx={idx}/>
+                      <button type="button" onClick={()=>updateWs("goals",p=>p.filter(x=>x.id!==g.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><Trash2 size={13}/></button>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <input type="range" min="0" max="100" value={g.progress||0} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],progress:Number(e.target.value)};return u})}
+                      style={{flex:1,accentColor:theme.teal}}/>
+                    <span style={{fontFamily:FONT_MONO,fontSize:13,fontWeight:700,color:g.progress>=100?theme.green:theme.teal,minWidth:40,textAlign:"right"}}>{g.progress||0}%</span>
+                  </div>
+                  <ProgressBar value={g.progress||0} max={100} color={g.progress>=100?theme.green:theme.teal} theme={theme}/>
+                </Card>
+              ))}
+            </div>
+            {goals.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No goals yet. Click "New Goal" to start tracking.</p>}
+          </div>}
+
+          {/* ── DRAFTS ── */}
+          {wsTab==="drafts"&&<div>
+            <Btn theme={theme} small onClick={()=>updateWs("drafts",p=>[{id:uid("wd"),title:"Untitled draft",platform:"",content:"",status:"Draft",shared:false,date:new Date().toISOString().split("T")[0]},...p])} style={{marginBottom:12}}><Plus size={13}/> New Draft</Btn>
+            {drafts.map((d,idx)=>(
+              <Card key={d.id} theme={theme} style={{padding:16,marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flex:1}}>
+                    <input value={d.title||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})}
+                      style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",flex:1}} placeholder="Draft title..."/>
+                    <select value={d.platform||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],platform:e.target.value};return u})}
+                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
+                      <option value="">Platform</option>
+                      <option>LinkedIn</option><option>X / Twitter</option><option>Instagram</option><option>TikTok</option><option>Nanu App</option><option>Blog</option><option>Newsletter</option>
+                    </select>
+                    <select value={d.status||"Draft"} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],status:e.target.value};return u})}
+                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
+                      <option>Draft</option><option>Ready for Review</option><option>Approved</option><option>Published</option>
+                    </select>
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,marginLeft:8}}>
+                    <ShareToggle item={d} listKey="drafts" idx={idx}/>
+                    <button type="button" onClick={()=>updateWs("drafts",p=>p.filter(x=>x.id!==d.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><Trash2 size={13}/></button>
+                  </div>
+                </div>
+                <textarea value={d.content||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],content:e.target.value};return u})}
+                  style={{width:"100%",minHeight:120,padding:12,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontFamily:FONT_BODY,fontSize:14,outline:"none",resize:"vertical",lineHeight:1.6,borderRadius:8,boxSizing:"border-box"}} placeholder="Write your draft content here..."/>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+                  <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{d.date}</span>
+                  <span style={{fontSize:11,color:theme.textMut}}>{(d.content||"").split(/\s+/).filter(Boolean).length} words</span>
+                </div>
+              </Card>
+            ))}
+            {drafts.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No drafts yet. Click "New Draft" to start writing.</p>}
+          </div>}
+        </div>
+      );
+    }
+
     case "settings": {
       refreshNotifications();
       return (
