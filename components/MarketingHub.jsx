@@ -1552,6 +1552,9 @@ export default function MarketingHub() {
       const bookmarks = ws.bookmarks || [];
       const goals = ws.goals || [];
       const drafts = ws.drafts || [];
+      const weeklyFocus = ws.weeklyFocus || [];
+      const pinnedItems = ws.pinned || [];
+      const todayStr2 = new Date().toISOString().split("T")[0];
 
       const ShareToggle = ({item, listKey, idx}) => (
         <button type="button" onClick={()=>updateWs(listKey, prev=>{const u=[...prev];u[idx]={...u[idx],shared:!u[idx].shared};return u})}
@@ -1560,32 +1563,112 @@ export default function MarketingHub() {
         </button>
       );
 
+      // Simple markdown renderer
+      const renderMd = (text) => {
+        if (!text) return null;
+        return text.split("\n").map((line, i) => {
+          let html = line
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code style="background:rgba(31,194,194,0.15);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${theme.teal}">$1</a>`);
+          if (line.startsWith("### ")) html = `<strong style="font-size:15px">${line.slice(4)}</strong>`;
+          else if (line.startsWith("## ")) html = `<strong style="font-size:16px">${line.slice(3)}</strong>`;
+          else if (line.startsWith("# ")) html = `<strong style="font-size:18px;font-family:${FONT_DISPLAY}">${line.slice(2)}</strong>`;
+          else if (line.startsWith("- ")) html = `<span style="padding-left:12px">• ${line.slice(2)}</span>`;
+          return <div key={i} dangerouslySetInnerHTML={{__html:html}} style={{minHeight:line.trim()?undefined:8}}/>;
+        });
+      };
+
+      // My stuff counts
+      const myTaskCount = tasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(curUser.id):t.owners===curUser.id).filter(t=>t.status!=="Done").length;
+      const myProjectCount = visibleProjects.filter(p=>p.owner===curUser.id||(p.members||[]).includes(curUser.id)).length;
+      const myOutreachCount = outreach.filter(o=>o.owner===curUser.id).length;
+
+      // Personal activity from global activity
+      const myActivity = activity.filter(a=>a.user===curUser.id).slice(0, 15);
+
       return (
         <div>
           <SectionHead theme={theme}>My Space</SectionHead>
-          <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Your private workspace. Items are only visible to you unless you mark them as shared.</p>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Your private workspace. Items are only visible to you unless shared.</p>
+
+          {/* ── WEEKLY FOCUS ── */}
+          <Card theme={theme} style={{padding:16,marginBottom:16,borderLeft:`3px solid ${theme.teal}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Weekly Focus</div>
+              <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>Week of {new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+            </div>
+            {[0,1,2].map(i=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <CircleDot size={14} color={weeklyFocus[i]?theme.teal:theme.border}/>
+                <input value={(weeklyFocus[i])||""} onChange={e=>{const wf=[...weeklyFocus];wf[i]=e.target.value;updateWs("weeklyFocus",wf)}}
+                  style={{flex:1,background:"transparent",border:"none",borderBottom:`1px solid ${theme.border}`,padding:"6px 0",fontSize:14,color:theme.text,outline:"none",fontFamily:FONT_BODY}} placeholder={`Priority ${i+1}...`}/>
+              </div>
+            ))}
+          </Card>
+
+          {/* ── QUICK LINKS TO MY STUFF ── */}
+          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            {[
+              {label:"My Tasks",count:myTaskCount,color:theme.teal,section:"tasks",icon:<CheckSquare size={14}/>},
+              {label:"My Projects",count:myProjectCount,color:"#DA77F2",section:"projects",icon:<FolderKanban size={14}/>},
+              {label:"My Outreach",count:myOutreachCount,color:"#FFA94D",section:"outreach",icon:<Megaphone size={14}/>},
+            ].map(q=>(
+              <Card key={q.label} theme={theme} onClick={()=>{setSection(q.section);if(q.section==="tasks")setTaskView("mine")}} style={{padding:"12px 16px",cursor:"pointer",flex:"1 1 150px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{color:q.color}}>{q.icon}</div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600}}>{q.label}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:q.color,fontFamily:FONT_DISPLAY}}>{q.count}</div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* ── PINNED ITEMS ── */}
+          {pinnedItems.length>0&&<div style={{marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Pinned Items</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {pinnedItems.map((pin,idx)=>{
+                const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):calendar.find(c=>c.id===pin.id);
+                if(!target) return null;
+                return <div key={pin.id+pin.type} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,cursor:"pointer"}}
+                  onClick={()=>{if(pin.type==="task")openM("editTask",{...target});else if(pin.type==="project")setSection("projects");else if(pin.type==="outreach")openM("editOutreach",{...target});else openM("editCal",{...target})}}>
+                  <Pin size={11} color={theme.teal}/>
+                  <span style={{fontSize:13,fontWeight:500}}>{target.title||target.name}</span>
+                  <Badge label={pin.type} color={theme.textMut} style={{fontSize:9}}/>
+                  <button type="button" onClick={e=>{e.stopPropagation();updateWs("pinned",p=>p.filter((_,j)=>j!==idx))}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={12}/></button>
+                </div>;
+              })}
+            </div>
+          </div>}
 
           {/* Tabs */}
           <div style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
-            {[["todos","To-Do List",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["goals","Goals",Target],["drafts","Drafts",FileText]].map(([k,l,Icon])=>(
-              <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:13,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
-                <Icon size={14}/>{l}
+            {[["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
+              <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 14px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                <Icon size={13}/>{l}
                 {k==="todos"&&todos.filter(t=>!t.done).length>0&&<span style={{background:wsTab===k?"#0D1B2130":theme.teal,color:wsTab===k?"#0D1B21":"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700}}>{todos.filter(t=>!t.done).length}</span>}
               </button>
             ))}
           </div>
 
-          {/* ── TO-DO LIST ── */}
+          {/* ── TO-DO LIST (with priority & due date) ── */}
           {wsTab==="todos"&&<Card theme={theme} style={{padding:18}}>
-            <div style={{display:"flex",gap:8,marginBottom:14}}>
-              <Input theme={theme} value={form._newTodo||""} onChange={e=>setForm(p=>({...p,_newTodo:e.target.value}))} placeholder="Add a to-do..." style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter"&&(form._newTodo||"").trim()){updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,date:new Date().toISOString().split("T")[0]}]);setForm(p=>({...p,_newTodo:""}))}}}/>
-              <Btn theme={theme} small onClick={()=>{if(!(form._newTodo||"").trim())return;updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,date:new Date().toISOString().split("T")[0]}]);setForm(p=>({...p,_newTodo:""}))}}><Plus size={13}/></Btn>
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+              <Input theme={theme} value={form._newTodo||""} onChange={e=>setForm(p=>({...p,_newTodo:e.target.value}))} placeholder="Add a to-do..." style={{flex:1,minWidth:150}} onKeyDown={e=>{if(e.key==="Enter"&&(form._newTodo||"").trim()){updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,priority:form._todoPri||"Medium",dueDate:form._todoDue||"",date:todayStr2}]);setForm(p=>({...p,_newTodo:"",_todoPri:"Medium",_todoDue:""}))}}}/>
+              <select value={form._todoPri||"Medium"} onChange={e=>setForm(p=>({...p,_todoPri:e.target.value}))} style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
+                <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
+              </select>
+              <Input theme={theme} type="date" value={form._todoDue||""} onChange={e=>setForm(p=>({...p,_todoDue:e.target.value}))} style={{width:140,fontSize:12}}/>
+              <Btn theme={theme} small onClick={()=>{if(!(form._newTodo||"").trim())return;updateWs("todos",p=>[...p,{id:uid("wtd"),text:form._newTodo.trim(),done:false,shared:false,priority:form._todoPri||"Medium",dueDate:form._todoDue||"",date:todayStr2}]);setForm(p=>({...p,_newTodo:"",_todoPri:"Medium",_todoDue:""}))}}><Plus size={13}/></Btn>
             </div>
-            {todos.filter(t=>!t.done).map((t,i)=>{const idx=todos.indexOf(t);return(
-              <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${theme.border}`}}>
+            {[...todos].filter(t=>!t.done).sort((a,b)=>{const p={Urgent:0,High:1,Medium:2,Low:3};return (p[a.priority]||2)-(p[b.priority]||2)}).map((t)=>{const idx=todos.indexOf(t);const overdue=t.dueDate&&t.dueDate<todayStr2;return(
+              <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${theme.border}`}}>
                 <input type="checkbox" checked={false} onChange={()=>updateWs("todos",p=>{const u=[...p];u[idx]={...u[idx],done:true};return u})} style={{cursor:"pointer",width:16,height:16}}/>
-                <span style={{flex:1,fontSize:14}}>{t.text}</span>
-                <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{t.date}</span>
+                <div style={{width:6,height:6,borderRadius:"50%",background:TASK_PRIORITY_COLORS[t.priority]||theme.textMut,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:14,color:overdue?theme.red:theme.text}}>{t.text}</span>
+                {t.dueDate&&<span style={{fontSize:10,fontFamily:FONT_MONO,color:overdue?theme.red:theme.textMut}}>{t.dueDate}</span>}
                 <ShareToggle item={t} listKey="todos" idx={idx}/>
                 <button type="button" onClick={()=>updateWs("todos",p=>p.filter(x=>x.id!==t.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={13}/></button>
               </div>
@@ -1603,29 +1686,33 @@ export default function MarketingHub() {
                 </div>
               )})}
             </>}
-            {todos.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No to-dos yet. Add one above.</p>}
+            {todos.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No to-dos yet</p>}
           </Card>}
 
-          {/* ── SCRATCHPAD ── */}
+          {/* ── SCRATCHPAD (with markdown preview) ── */}
           {wsTab==="wnotes"&&<div>
-            <Btn theme={theme} small onClick={()=>updateWs("notes",p=>[{id:uid("wn"),text:"",title:"Untitled note",shared:false,date:new Date().toISOString().split("T")[0]},...p])} style={{marginBottom:12}}><Plus size={13}/> New Note</Btn>
+            <Btn theme={theme} small onClick={()=>updateWs("notes",p=>[{id:uid("wn"),text:"",title:"Untitled note",shared:false,date:todayStr2,previewMode:false},...p])} style={{marginBottom:12}}><Plus size={13}/> New Note</Btn>
             <div className="nanu-grid-notes">
               {wnotes.map((n,idx)=>(
-                <Card key={n.id} theme={theme} style={{padding:14,position:"relative"}}>
+                <Card key={n.id} theme={theme} style={{padding:14}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                     <input value={n.title||""} onChange={e=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,color:theme.text,outline:"none",flex:1}} placeholder="Note title..."/>
                     <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                      <button type="button" onClick={()=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],previewMode:!u[idx].previewMode};return u})} style={{background:"none",border:"none",cursor:"pointer",color:n.previewMode?theme.teal:theme.textMut,fontSize:10,fontWeight:600}}>{n.previewMode?"Edit":"Preview"}</button>
                       <ShareToggle item={n} listKey="notes" idx={idx}/>
                       <button type="button" onClick={()=>updateWs("notes",p=>p.filter(x=>x.id!==n.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><Trash2 size={13}/></button>
                     </div>
                   </div>
-                  <textarea value={n.text||""} onChange={e=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],text:e.target.value};return u})}
-                    style={{width:"100%",minHeight:100,padding:"8px 0",border:"none",background:"transparent",color:theme.textSec,fontFamily:FONT_BODY,fontSize:14,outline:"none",resize:"vertical",lineHeight:1.6}} placeholder="Start writing..."/>
-                  <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO,marginTop:4}}>{n.date}</div>
+                  {n.previewMode
+                    ?<div style={{minHeight:100,padding:"8px 0",fontSize:14,color:theme.textSec,lineHeight:1.7}}>{renderMd(n.text)}</div>
+                    :<textarea value={n.text||""} onChange={e=>updateWs("notes",p=>{const u=[...p];u[idx]={...u[idx],text:e.target.value};return u})}
+                      style={{width:"100%",minHeight:100,padding:"8px 0",border:"none",background:"transparent",color:theme.textSec,fontFamily:FONT_MONO,fontSize:13,outline:"none",resize:"vertical",lineHeight:1.6}} placeholder="Supports **bold**, *italic*, `code`, [links](url), # headers, - lists"/>
+                  }
+                  <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO,marginTop:4}}>{n.date} · {(n.text||"").split(/\s+/).filter(Boolean).length} words</div>
                 </Card>
               ))}
             </div>
-            {wnotes.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No notes yet. Click "New Note" to start.</p>}
+            {wnotes.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No notes yet</p>}
           </div>}
 
           {/* ── BOOKMARKS ── */}
@@ -1644,7 +1731,7 @@ export default function MarketingHub() {
                 <button type="button" onClick={()=>updateWs("bookmarks",p=>p.filter(x=>x.id!==bm.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><X size={13}/></button>
               </div>
             ))}
-            {bookmarks.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No bookmarks yet. Add your frequently used links above.</p>}
+            {bookmarks.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No bookmarks yet</p>}
           </Card>}
 
           {/* ── GOALS ── */}
@@ -1655,10 +1742,8 @@ export default function MarketingHub() {
                 <Card key={g.id} theme={theme} style={{padding:16}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                     <div style={{flex:1}}>
-                      <input value={g.title||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})}
-                        style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",width:"100%"}} placeholder="Goal title..."/>
-                      <input value={g.target||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],target:e.target.value};return u})}
-                        style={{background:"transparent",border:"none",fontSize:13,color:theme.textSec,outline:"none",width:"100%",marginTop:4}} placeholder="Target / description..."/>
+                      <input value={g.title||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",width:"100%"}} placeholder="Goal title..."/>
+                      <input value={g.target||""} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],target:e.target.value};return u})} style={{background:"transparent",border:"none",fontSize:13,color:theme.textSec,outline:"none",width:"100%",marginTop:4}} placeholder="Target / description..."/>
                     </div>
                     <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
                       <ShareToggle item={g} listKey="goals" idx={idx}/>
@@ -1666,37 +1751,40 @@ export default function MarketingHub() {
                     </div>
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <input type="range" min="0" max="100" value={g.progress||0} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],progress:Number(e.target.value)};return u})}
-                      style={{flex:1,accentColor:theme.teal}}/>
+                    <input type="range" min="0" max="100" value={g.progress||0} onChange={e=>updateWs("goals",p=>{const u=[...p];u[idx]={...u[idx],progress:Number(e.target.value)};return u})} style={{flex:1,accentColor:theme.teal}}/>
                     <span style={{fontFamily:FONT_MONO,fontSize:13,fontWeight:700,color:g.progress>=100?theme.green:theme.teal,minWidth:40,textAlign:"right"}}>{g.progress||0}%</span>
                   </div>
                   <ProgressBar value={g.progress||0} max={100} color={g.progress>=100?theme.green:theme.teal} theme={theme}/>
                 </Card>
               ))}
             </div>
-            {goals.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No goals yet. Click "New Goal" to start tracking.</p>}
+            {goals.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No goals yet</p>}
           </div>}
 
-          {/* ── DRAFTS ── */}
+          {/* ── DRAFTS (with Send to Calendar) ── */}
           {wsTab==="drafts"&&<div>
-            <Btn theme={theme} small onClick={()=>updateWs("drafts",p=>[{id:uid("wd"),title:"Untitled draft",platform:"",content:"",status:"Draft",shared:false,date:new Date().toISOString().split("T")[0]},...p])} style={{marginBottom:12}}><Plus size={13}/> New Draft</Btn>
+            <Btn theme={theme} small onClick={()=>updateWs("drafts",p=>[{id:uid("wd"),title:"Untitled draft",platform:"",content:"",status:"Draft",shared:false,date:todayStr2},...p])} style={{marginBottom:12}}><Plus size={13}/> New Draft</Btn>
             {drafts.map((d,idx)=>(
               <Card key={d.id} theme={theme} style={{padding:16,marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <div style={{display:"flex",gap:8,alignItems:"center",flex:1}}>
-                    <input value={d.title||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})}
-                      style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",flex:1}} placeholder="Draft title..."/>
-                    <select value={d.platform||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],platform:e.target.value};return u})}
-                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
+                    <input value={d.title||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],title:e.target.value};return u})} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,color:theme.text,outline:"none",flex:1}} placeholder="Draft title..."/>
+                    <select value={d.platform||""} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],platform:e.target.value};return u})} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
                       <option value="">Platform</option>
-                      <option>LinkedIn</option><option>X / Twitter</option><option>Instagram</option><option>TikTok</option><option>Nanu App</option><option>Blog</option><option>Newsletter</option>
+                      {PLATFORMS.map(p=><option key={p}>{p}</option>)}
+                      <option>Blog</option><option>Newsletter</option>
                     </select>
-                    <select value={d.status||"Draft"} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],status:e.target.value};return u})}
-                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
+                    <select value={d.status||"Draft"} onChange={e=>updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],status:e.target.value};return u})} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontSize:12}}>
                       <option>Draft</option><option>Ready for Review</option><option>Approved</option><option>Published</option>
                     </select>
                   </div>
                   <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,marginLeft:8}}>
+                    {d.platform&&d.content&&<Btn theme={theme} small onClick={()=>{
+                      const newCal={id:uid("c"),title:d.title||"Draft content",platform:d.platform||PLATFORMS[0],status:"Idea",owner:curUser.id,dueDate:"",publishTime:"",caption:d.content,assetLink:"",campaign:""};
+                      setCalendar(p=>[...p,newCal]);db.saveCalendarItem(newCal);
+                      log("created",newCal.title,"Calendar");
+                      updateWs("drafts",p=>{const u=[...p];u[idx]={...u[idx],status:"Published"};return u});
+                    }}><Send size={11}/> To Calendar</Btn>}
                     <ShareToggle item={d} listKey="drafts" idx={idx}/>
                     <button type="button" onClick={()=>updateWs("drafts",p=>p.filter(x=>x.id!==d.id))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",opacity:0.4}}><Trash2 size={13}/></button>
                   </div>
@@ -1709,8 +1797,23 @@ export default function MarketingHub() {
                 </div>
               </Card>
             ))}
-            {drafts.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No drafts yet. Click "New Draft" to start writing.</p>}
+            {drafts.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No drafts yet</p>}
           </div>}
+
+          {/* ── PERSONAL ACTIVITY LOG ── */}
+          {wsTab==="myactivity"&&<Card theme={theme} style={{padding:18}}>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:14}}>My Recent Activity</div>
+            {myActivity.length===0&&<p style={{fontSize:13,color:theme.textMut}}>No activity recorded yet</p>}
+            {myActivity.map((a,i)=>(
+              <div key={a.id||i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 0",borderBottom:i<myActivity.length-1?`1px solid ${theme.border}`:"none"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:theme.teal,flexShrink:0,marginTop:6}}/>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:13}}><strong>{a.action}</strong> — {a.target}</span>
+                  <div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{a.section} · {new Date(a.time).toLocaleDateString("en-GB")} {new Date(a.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</div>
+                </div>
+              </div>
+            ))}
+          </Card>}
         </div>
       );
     }
