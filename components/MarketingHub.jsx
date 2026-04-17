@@ -72,6 +72,16 @@ const TASK_STATUS_COLORS = { "Not Started": "#748FFC", "In Progress": "#FFA94D",
 const TASK_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 const TASK_PRIORITY_COLORS = { Low: "#748FFC", Medium: "#FFA94D", High: "#FF6B6B", Urgent: "#FF6B6B" };
 const PLATFORMS = ["LinkedIn", "X / Twitter", "Instagram", "TikTok", "Facebook", "YouTube", "Reddit", "Nanu App"];
+const PLATFORM_LIMITS = {
+  "LinkedIn": { max: 3000, warn: 2800, truncate: 150, color: "#0A66C2", bg: "#F3F6F8", textColor: "#000000", handle: "Nanu", avatar: "N" },
+  "X / Twitter": { max: 280, warn: 250, truncate: 280, color: "#000000", bg: "#FFFFFF", textColor: "#0F1419", handle: "@NanuApp", avatar: "N" },
+  "Instagram": { max: 2200, warn: 2000, truncate: 125, color: "#E4405F", bg: "#FAFAFA", textColor: "#262626", handle: "nanuapp", avatar: "N" },
+  "TikTok": { max: 2200, warn: 2000, truncate: 150, color: "#000000", bg: "#121212", textColor: "#FFFFFF", handle: "@nanuapp", avatar: "N" },
+  "Facebook": { max: 63206, warn: 500, truncate: 477, color: "#1877F2", bg: "#F0F2F5", textColor: "#050505", handle: "Nanu", avatar: "N" },
+  "YouTube": { max: 5000, warn: 4800, truncate: 100, color: "#FF0000", bg: "#FFFFFF", textColor: "#030303", handle: "Nanu", avatar: "N" },
+  "Reddit": { max: 40000, warn: 10000, truncate: 300, color: "#FF4500", bg: "#1A1A1B", textColor: "#D7DADC", handle: "u/NanuApp", avatar: "N" },
+  "Nanu App": { max: 10000, warn: 5000, truncate: 200, color: "#1FC2C2", bg: "#0D1B21", textColor: "#E2F0F0", handle: "Nanu", avatar: "N" },
+};
 const PLATFORM_COLORS = { LinkedIn: "#0A66C2", "X / Twitter": "#1DA1F2", Instagram: "#E1306C", TikTok: "#69DB7C", Facebook: "#1877F2", YouTube: "#FF0000", Reddit: "#FF4500", "Nanu App": "#1FC2C2" };
 const RESOURCE_GROUPS = ["Drives", "Social Platforms", "Design Tools", "Docs", "Forms"];
 
@@ -502,6 +512,7 @@ export default function MarketingHub() {
   const [partStatusFilter, setPartStatusFilter] = useState("All");
   const [wsTab, setWsTab] = useState("todos");
   const [workspace, setWorkspace] = useState({ todos:[], notes:[], bookmarks:[], goals:[], drafts:[] });
+  const [previewItem, setPreviewItem] = useState(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -870,7 +881,7 @@ export default function MarketingHub() {
                 }}>
                   <div style={{fontFamily:FONT_MONO,fontSize:11,color:isT(d)?theme.teal:theme.textSec,fontWeight:isT(d)?700:400,marginBottom:4}}>{d.getDate()}</div>
                   {dayItems.slice(0,2).map(item=>(
-                    <div key={item.id} onClick={()=>openM("editCal",{...item})} style={{
+                    <div key={item.id} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{
                       fontSize:10,padding:"2px 5px",marginBottom:2,borderRadius:4,
                       background:`${STATUS_COLORS[item.status]}20`,color:STATUS_COLORS[item.status],
                       cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"
@@ -891,7 +902,7 @@ export default function MarketingHub() {
                   <div style={{width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[st]}}/><span style={{fontWeight:600,fontSize:13}}>{st}</span><span style={{fontSize:11,color:theme.textMut}}>({items.length})</span>
                 </div>
                 {items.map(item=>(
-                  <Card key={item.id} theme={theme} onClick={()=>openM("editCal",{...item})} style={{padding:12,marginBottom:6,cursor:"pointer"}}>
+                  <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:12,marginBottom:6,cursor:"pointer"}}>
                     <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal} style={{marginBottom:6}}/>
                     <div style={{fontWeight:600,fontSize:13}}>{item.title}</div>
                     <div style={{fontSize:12,color:theme.textMut,marginTop:4}}>{uName(item.owner)} · {item.dueDate}</div>
@@ -914,7 +925,7 @@ export default function MarketingHub() {
             </div>
             {dayItems.length===0&&<p style={{fontSize:13,color:theme.textMut,paddingLeft:10}}>No content</p>}
             {dayItems.map(item=>(
-              <Card key={item.id} theme={theme} onClick={()=>openM("editCal",{...item})} style={{padding:10,marginBottom:4,cursor:"pointer"}}>
+              <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:10,marginBottom:4,cursor:"pointer"}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                   <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal}/>
                   <span style={{fontWeight:600,fontSize:13,flex:1}}>{item.title}</span>
@@ -928,7 +939,7 @@ export default function MarketingHub() {
         {calView==="list"&&(
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {filteredCal.sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).map(item=>(
-              <Card key={item.id} theme={theme} onClick={()=>openM("editCal",{...item})} style={{padding:12,cursor:"pointer"}}>
+              <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:12,cursor:"pointer"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                   <span style={{fontFamily:FONT_MONO,fontSize:12,color:theme.textMut,minWidth:85}}>{item.dueDate}</span>
                   <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal}/>
@@ -940,6 +951,91 @@ export default function MarketingHub() {
             ))}
           </div>
         )}
+
+        {/* Social Preview Panel */}
+        {previewItem&&(()=>{
+          const pi = previewItem;
+          const plat = PLATFORM_LIMITS[pi.platform] || PLATFORM_LIMITS["Nanu App"];
+          const caption = pi.caption || "";
+          const charCount = caption.length;
+          const overLimit = charCount > plat.max;
+          const nearLimit = charCount > plat.warn;
+          const truncated = caption.length > plat.truncate ? caption.slice(0, plat.truncate) + "..." : caption;
+          const hashtagCount = (caption.match(/#\w+/g) || []).length;
+
+          return <div style={{position:"fixed",right:0,top:0,bottom:0,width:400,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,boxShadow:theme.shadowLg,zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"16px 20px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+              <div>
+                <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Social Preview</div>
+                <div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{pi.platform} · {pi.status}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <Btn theme={theme} small onClick={()=>{openM("editCal",{...pi});setPreviewItem(null)}}><Edit3 size={12}/> Edit</Btn>
+                <button type="button" onClick={()=>setPreviewItem(null)} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><X size={18}/></button>
+              </div>
+            </div>
+            <div style={{flex:1,overflow:"auto",padding:20}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+                <Badge label={pi.platform} color={plat.color}/>
+                <Badge label={pi.status} color={STATUS_COLORS[pi.status]||theme.teal}/>
+                {pi.campaign&&<Badge label={pi.campaign} color={theme.purple}/>}
+              </div>
+              <div style={{fontSize:13,color:theme.textSec,marginBottom:4}}><strong>Title:</strong> {pi.title}</div>
+              {pi.dueDate&&<div style={{fontSize:12,color:theme.textMut,marginBottom:4}}>Due: {pi.dueDate}{pi.publishTime?` at ${pi.publishTime}`:""}</div>}
+              <div style={{fontSize:12,color:theme.textMut,marginBottom:16}}>Owner: {uName(pi.owner)}</div>
+
+              <div style={{padding:"10px 14px",background:theme.bgInput,borderRadius:8,marginBottom:16,border:`1px solid ${overLimit?theme.red:nearLimit?"#FFA94D":theme.border}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:600,color:overLimit?theme.red:nearLimit?"#FFA94D":theme.textSec}}>Character Count</span>
+                  <span style={{fontFamily:FONT_MONO,fontSize:13,fontWeight:700,color:overLimit?theme.red:nearLimit?"#FFA94D":theme.green}}>{charCount} / {plat.max}</span>
+                </div>
+                <ProgressBar value={Math.min(charCount, plat.max)} max={plat.max} color={overLimit?theme.red:nearLimit?"#FFA94D":theme.green} theme={theme}/>
+                {overLimit&&<div style={{fontSize:11,color:theme.red,marginTop:6,fontWeight:600}}>Over limit by {charCount - plat.max} characters</div>}
+                {nearLimit&&!overLimit&&<div style={{fontSize:11,color:"#FFA94D",marginTop:6}}>{plat.max - charCount} characters remaining</div>}
+                <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:theme.textMut}}>
+                  <span>Words: {caption.split(/\s+/).filter(Boolean).length}</span>
+                  <span>Hashtags: {hashtagCount}</span>
+                  <span>Feed truncates at ~{plat.truncate} chars</span>
+                </div>
+              </div>
+
+              <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Preview</div>
+              <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`}}>
+                <div style={{background:plat.color,padding:"8px 14px"}}><span style={{color:"#fff",fontSize:11,fontWeight:700,letterSpacing:".04em"}}>{pi.platform.toUpperCase()}</span></div>
+                <div style={{background:plat.bg,padding:16}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:"#1FC2C2",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:800,fontSize:16}}>N</div>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:700,color:plat.textColor}}>Nanu</div>
+                      <div style={{fontSize:12,color:plat.textColor,opacity:0.5}}>{plat.handle} · {pi.publishTime||"Scheduled"}</div>
+                    </div>
+                  </div>
+                  {caption?<>
+                    <p style={{fontSize:14,color:plat.textColor,lineHeight:1.6,margin:"0 0 12px",whiteSpace:"pre-wrap"}}>{truncated}</p>
+                    {caption.length>plat.truncate&&<span style={{fontSize:13,color:plat.color,cursor:"pointer"}}>...more</span>}
+                  </>:<p style={{fontSize:13,color:plat.textColor,opacity:0.4,fontStyle:"italic"}}>No caption yet</p>}
+                  {pi.assetLink?<a href={pi.assetLink} target="_blank" rel="noopener noreferrer" style={{display:"block",marginTop:12,padding:20,background:plat.textColor==="#FFFFFF"?"rgba(255,255,255,0.1)":"rgba(0,0,0,0.05)",borderRadius:8,textAlign:"center",color:plat.color,fontSize:12,fontWeight:600,textDecoration:"none"}}><ExternalLink size={16}/><br/>View Asset</a>
+                  :<div style={{marginTop:12,padding:24,background:plat.textColor==="#FFFFFF"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)",borderRadius:8,textAlign:"center"}}><div style={{fontSize:11,color:plat.textColor,opacity:0.3}}>Image / Video</div></div>}
+                  <div style={{display:"flex",gap:20,marginTop:14,paddingTop:10,borderTop:"1px solid rgba(128,128,128,0.15)"}}>
+                    {(pi.platform==="Reddit"?["Vote","Comment","Share"]:pi.platform==="TikTok"?["Like","Comment","Share","Save"]:pi.platform==="YouTube"?["Like","Comment","Share"]:["Like","Comment","Share"]).map(a=>(<span key={a} style={{fontSize:11,color:plat.textColor,opacity:0.4}}>{a}</span>))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{marginTop:16,padding:"12px 14px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.6}}>
+                <strong style={{color:theme.teal}}>Tips for {pi.platform}:</strong><br/>
+                {pi.platform==="LinkedIn"&&"First 2 lines visible before 'see more'. Lead with a hook. 3-5 hashtags at the end."}
+                {pi.platform==="X / Twitter"&&"280 char hard limit. Thread for longer content. 1-2 hashtags max. Questions drive replies."}
+                {pi.platform==="Instagram"&&"First line shows in feed. Line breaks and emojis help. 5-10 hashtags recommended. CTA to bio link."}
+                {pi.platform==="TikTok"&&"Caption overlays video. Short and punchy. Trending hashtags help. Hook in first 3 seconds."}
+                {pi.platform==="Facebook"&&"Longer captions work. Ask questions for comments. 477 chars before 'See more'. Native video preferred."}
+                {pi.platform==="YouTube"&&"Title is everything (under 60 chars). First 100 chars of description show in search. Use timestamps."}
+                {pi.platform==="Reddit"&&"Title drives all engagement. Factual, not promotional. Engage in comments. Check subreddit rules."}
+                {pi.platform==="Nanu App"&&"Your audience is engaged. Use structured formatting. Link to archive entries. No character pressure."}
+              </div>
+            </div>
+          </div>;
+        })()}
       </div>
     );
 
