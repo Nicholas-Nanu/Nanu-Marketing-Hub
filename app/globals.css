@@ -74,6 +74,10 @@ html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-sm
   .nanu-ws-todo-add > input, .nanu-ws-todo-add > select { width: 100% !important; min-width: 0 !important; }
   .nanu-ws-pinned { flex-direction: column; }
   .nanu-ws-pinned > div { width: 100% !important; }
+  .nanu-chat-sidebar { width: 60px !important; }
+  .nanu-chat-sidebar span:not(:first-child) { display: none !important; }
+  .nanu-chat-sidebar button { padding: 8px 0 !important; justify-content: center !important; }
+  .nanu-chat-bubble-panel { width: calc(100vw - 80px) !important; right: 12px !important; bottom: 72px !important; height: 50vh !important; }
   .nanu-notif-panel { width: calc(100vw - 80px) !important; right: -10px !important; max-height: 70vh !important; }
 }
 
@@ -93,4 +97,6 @@ html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-sm
   .nanu-ws-tabs > button { padding: 6px 10px !important; font-size: 10px !important; gap: 3px !important; }
   .nanu-ws-quicklinks > div { padding: 10px 12px !important; }
   .nanu-notif-panel { width: calc(100vw - 24px) !important; right: -40px !important; }
+  .nanu-chat-sidebar { display: none !important; }
+  .nanu-chat-bubble-panel { width: calc(100vw - 24px) !important; right: 12px !important; left: 12px !important; }
 }

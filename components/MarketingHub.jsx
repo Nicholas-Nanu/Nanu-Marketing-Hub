@@ -11,7 +11,7 @@ import {
   TrendingUp, ArrowUp, ArrowDown, Minus, Bell, StickyNote,
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
-  Share2, FileEdit, CircleDot, BookOpen
+  Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -513,6 +513,14 @@ export default function MarketingHub() {
   const [wsTab, setWsTab] = useState("todos");
   const [workspace, setWorkspace] = useState({ todos:[], notes:[], bookmarks:[], goals:[], drafts:[] });
   const [previewItem, setPreviewItem] = useState(null);
+  const [chatChannel, setChatChannel] = useState("general");
+  const [chatMessages, setChatMessages] = useState({});
+  const [chatInput, setChatInput] = useState("");
+  const [chatBubble, setChatBubble] = useState(false);
+  const [chatBubbleChannel, setChatBubbleChannel] = useState("general");
+  const [showMentions, setShowMentions] = useState(false);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const chatEndRef = useRef(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -570,7 +578,91 @@ export default function MarketingHub() {
     db.loadNotifSettings(curUser.id).then(s => { if (s) setNotifSettings(s); });
     db.loadNotifications(curUser.id).then(n => { if (n) setNotifications(n); });
     db.loadWorkspace(curUser.id).then(w => { if (w) setWorkspace(w); });
+    db.loadChatMessages().then(m => { if (m) setChatMessages(m); });
   }, [curUser]);
+
+  // Chat auto-refresh every 10 seconds
+  useEffect(() => {
+    if (!curUser) return;
+    const i = setInterval(() => db.loadChatMessages().then(m => { if (m) setChatMessages(m); }), 10000);
+    return () => clearInterval(i);
+  }, [curUser]);
+
+  // Chat channels definition
+  const CHAT_CHANNELS = [
+    { id: "general", label: "General", icon: "💬" },
+    { id: "content", label: "Content", icon: "📝" },
+    { id: "outreach", label: "Outreach", icon: "📣" },
+    { id: "dev", label: "Dev & Product", icon: "⚙️" },
+  ];
+
+  // Get DM channels from messages
+  const getDmChannels = () => {
+    const dmKeys = Object.keys(chatMessages).filter(k => k.startsWith("dm_"));
+    const userIds = new Set();
+    dmKeys.forEach(k => {
+      const parts = k.replace("dm_", "").split("_");
+      parts.forEach(id => { if (id !== curUser?.id) userIds.add(id); });
+    });
+    return [...userIds];
+  };
+
+  const getDmKey = (otherUserId) => {
+    const ids = [curUser.id, otherUserId].sort();
+    return `dm_${ids[0]}_${ids[1]}`;
+  };
+
+  const getChannelMessages = (channelId) => (chatMessages[channelId] || []);
+
+  // Send message
+  const sendChat = (channelId, text) => {
+    if (!text.trim()) return;
+    const msg = {
+      id: uid("msg"),
+      author: curUser.id,
+      text: text.trim(),
+      time: new Date().toISOString(),
+      mentions: [...(text.match(/@(\w+)/g) || [])].map(m => {
+        const name = m.slice(1).toLowerCase();
+        return users.find(u => u.name.toLowerCase().includes(name) || u.username.toLowerCase() === name)?.id;
+      }).filter(Boolean),
+      linkedEntity: null,
+    };
+    setChatMessages(prev => {
+      const next = { ...prev, [channelId]: [...(prev[channelId] || []), msg] };
+      db.saveChatMessages(next);
+      return next;
+    });
+    // Notify mentioned users
+    msg.mentions.forEach(uid2 => {
+      if (uid2 !== curUser.id) {
+        const chLabel = CHAT_CHANNELS.find(c => c.id === channelId)?.label || channelId;
+        notify(uid2, "task_updated", `${curUser.name} mentioned you in #${chLabel}`, text.slice(0, 80), "chat");
+      }
+    });
+    setChatInput("");
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  // Send message with linked entity
+  const sendChatWithLink = (channelId, text, entityType, entityId, entityName) => {
+    if (!text.trim() && !entityName) return;
+    const msg = {
+      id: uid("msg"),
+      author: curUser.id,
+      text: text.trim(),
+      time: new Date().toISOString(),
+      mentions: [],
+      linkedEntity: { type: entityType, id: entityId, name: entityName },
+    };
+    setChatMessages(prev => {
+      const next = { ...prev, [channelId]: [...(prev[channelId] || []), msg] };
+      db.saveChatMessages(next);
+      return next;
+    });
+    setChatInput("");
+    setShowLinkPicker(false);
+  };
 
   // Refresh notifications from DB
   const refreshNotifications = () => {
@@ -656,6 +748,7 @@ export default function MarketingHub() {
     { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
     { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
     { key:"workspace", label:"My Space", icon:<BookOpen size={18}/> },
+    { key:"chat", label:"Chat", icon:<MessageCircle size={18}/> },
     { key:"settings", label:"Settings", icon:<Bell size={18}/> },
     ...(isAdmin?[{key:"admin",label:"Admin",icon:<Settings size={18}/>}]:[]),
   ];
@@ -1818,6 +1911,129 @@ export default function MarketingHub() {
       );
     }
 
+    /* ─── CHAT ─── */
+    case "chat": {
+      const activeChannel = chatChannel;
+      const msgs = getChannelMessages(activeChannel);
+      const isDm = activeChannel.startsWith("dm_");
+      const dmUserId = isDm ? activeChannel.replace("dm_","").split("_").find(id=>id!==curUser.id) : null;
+
+      const renderMsg = (m) => {
+        const isMine = m.author === curUser?.id;
+        const mentionText = (m.text||"").replace(/@(\w+)/g, (match) => `<span style="color:#1FC2C2;font-weight:600">${match}</span>`);
+        return <div key={m.id} style={{display:"flex",gap:10,padding:"10px 0",alignItems:"flex-start"}}>
+          <div style={{width:32,height:32,borderRadius:"50%",background:isMine?theme.teal:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:800,fontSize:13,flexShrink:0}}>{uName(m.author).charAt(0)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <span style={{fontSize:13,fontWeight:700,color:isMine?theme.teal:theme.text}}>{uName(m.author)}</span>
+              <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{new Date(m.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>
+            </div>
+            <div style={{fontSize:14,color:theme.textSec,lineHeight:1.6,marginTop:2}} dangerouslySetInnerHTML={{__html:mentionText}}/>
+            {m.linkedEntity&&<div onClick={()=>{
+              if(m.linkedEntity.type==="task"){const t=tasks.find(x=>x.id===m.linkedEntity.id);if(t)openM("editTask",{...t})}
+              else if(m.linkedEntity.type==="project")setSection("projects");
+              else if(m.linkedEntity.type==="outreach"){const o=outreach.find(x=>x.id===m.linkedEntity.id);if(o)openM("editOutreach",{...o})}
+            }} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,cursor:"pointer",marginTop:6,fontSize:12,color:theme.teal}}>
+              <Link2 size={11}/>{m.linkedEntity.name}<Badge label={m.linkedEntity.type} color={theme.textMut} style={{fontSize:9}}/>
+            </div>}
+          </div>
+        </div>;
+      };
+
+      return (
+        <div style={{display:"flex",gap:0,height:"calc(100vh - 120px)"}}>
+          {/* Sidebar — channels + DMs */}
+          <div className="nanu-chat-sidebar" style={{width:220,flexShrink:0,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",overflow:"auto",padding:"12px 0"}}>
+            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"6px 16px",textTransform:"uppercase"}}>Channels</div>
+            {CHAT_CHANNELS.map(ch=>(
+              <button key={ch.id} type="button" onClick={()=>setChatChannel(ch.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",border:"none",background:chatChannel===ch.id?`${theme.teal}15`:"transparent",color:chatChannel===ch.id?theme.teal:theme.textSec,cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:chatChannel===ch.id?600:400,textAlign:"left",width:"100%"}}>
+                <span>{ch.icon}</span><span># {ch.label}</span>
+                {(chatMessages[ch.id]||[]).length>0&&<span style={{fontSize:10,color:theme.textMut,marginLeft:"auto"}}>{(chatMessages[ch.id]||[]).length}</span>}
+              </button>
+            ))}
+            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"16px 16px 6px",textTransform:"uppercase"}}>Direct Messages</div>
+            {users.filter(u=>u.id!==curUser.id).map(u=>{
+              const dmKey=getDmKey(u.id);
+              const dmMsgs=(chatMessages[dmKey]||[]).length;
+              return <button key={u.id} type="button" onClick={()=>setChatChannel(dmKey)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",border:"none",background:chatChannel===dmKey?`${theme.teal}15`:"transparent",color:chatChannel===dmKey?theme.teal:theme.textSec,cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:chatChannel===dmKey?600:400,textAlign:"left",width:"100%"}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:700}}>{u.name.charAt(0)}</div>
+                <span>{u.name.split(" ")[0]}</span>
+                {dmMsgs>0&&<span style={{fontSize:10,color:theme.textMut,marginLeft:"auto"}}>{dmMsgs}</span>}
+              </button>;
+            })}
+          </div>
+
+          {/* Main chat area */}
+          <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+            {/* Channel header */}
+            <div style={{padding:"12px 20px",borderBottom:`1px solid ${theme.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16}}>
+                  {isDm ? uName(dmUserId) : `# ${CHAT_CHANNELS.find(c=>c.id===activeChannel)?.label||activeChannel}`}
+                </span>
+                {!isDm&&<span style={{fontSize:12,color:theme.textMut,marginLeft:10}}>{msgs.length} messages</span>}
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div style={{flex:1,overflow:"auto",padding:"12px 20px"}}>
+              {msgs.length===0&&<div style={{textAlign:"center",padding:40}}>
+                <MessageCircle size={32} color={theme.textMut} style={{opacity:0.3,marginBottom:8}}/>
+                <p style={{fontSize:14,color:theme.textMut}}>No messages yet. Start the conversation.</p>
+              </div>}
+              {msgs.map(renderMsg)}
+              <div ref={chatEndRef}/>
+            </div>
+
+            {/* Input */}
+            <div style={{padding:"12px 20px",borderTop:`1px solid ${theme.border}`,position:"relative"}}>
+              {/* @mention dropdown */}
+              {showMentions&&<div style={{position:"absolute",bottom:"100%",left:20,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:8,padding:4,boxShadow:theme.shadowLg,maxHeight:200,overflow:"auto",width:200}}>
+                {users.map(u=>(
+                  <button key={u.id} type="button" onClick={()=>{setChatInput(prev=>prev.replace(/@\w*$/,`@${u.username} `));setShowMentions(false)}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:13,color:theme.text,borderRadius:6}}>
+                    <div style={{width:20,height:20,borderRadius:"50%",background:theme.teal,display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontSize:10,fontWeight:700}}>{u.name.charAt(0)}</div>
+                    {u.name}
+                  </button>
+                ))}
+              </div>}
+
+              {/* Link entity picker */}
+              {showLinkPicker&&<div style={{position:"absolute",bottom:"100%",left:20,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:8,padding:8,boxShadow:theme.shadowLg,maxHeight:300,overflow:"auto",width:320}}>
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"4px 8px",textTransform:"uppercase"}}>Tasks</div>
+                {tasks.slice(0,8).map(t=>(
+                  <button key={t.id} type="button" onClick={()=>sendChatWithLink(activeChannel,chatInput,"task",t.id,t.title)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}>
+                    <CheckSquare size={12} color={theme.teal}/>{t.title}
+                  </button>
+                ))}
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"8px 8px 4px",textTransform:"uppercase"}}>Projects</div>
+                {visibleProjects.slice(0,5).map(p=>(
+                  <button key={p.id} type="button" onClick={()=>sendChatWithLink(activeChannel,chatInput,"project",p.id,p.name)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}>
+                    <FolderKanban size={12} color="#DA77F2"/>{p.name}
+                  </button>
+                ))}
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"8px 8px 4px",textTransform:"uppercase"}}>Outreach</div>
+                {outreach.slice(0,5).map(o=>(
+                  <button key={o.id} type="button" onClick={()=>sendChatWithLink(activeChannel,chatInput,"outreach",o.id,o.name)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}>
+                    <Megaphone size={12} color="#FFA94D"/>{o.name}
+                  </button>
+                ))}
+                <button type="button" onClick={()=>setShowLinkPicker(false)} style={{marginTop:4,padding:"4px 8px",border:"none",background:"transparent",cursor:"pointer",fontSize:11,color:theme.textMut,width:"100%",textAlign:"center"}}>Cancel</button>
+              </div>}
+
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button type="button" onClick={()=>setShowLinkPicker(p=>!p)} style={{background:"none",border:"none",cursor:"pointer",color:showLinkPicker?theme.teal:theme.textMut,flexShrink:0}}><Link2 size={16}/></button>
+                <input value={chatInput} onChange={e=>{setChatInput(e.target.value);setShowMentions(e.target.value.match(/@\w*$/)!==null)}}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(activeChannel,chatInput)}}}
+                  placeholder={isDm?`Message ${uName(dmUserId)}...`:`Message #${CHAT_CHANNELS.find(c=>c.id===activeChannel)?.label||activeChannel}... (@ to mention)`}
+                  style={{flex:1,padding:"10px 14px",borderRadius:10,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontFamily:FONT_BODY,fontSize:14,outline:"none"}}/>
+                <Btn primary theme={theme} small onClick={()=>sendChat(activeChannel,chatInput)}><Send size={14}/></Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     case "settings": {
       refreshNotifications();
       return (
@@ -2474,6 +2690,50 @@ export default function MarketingHub() {
         <div className="nanu-main-pad">{renderSection()}</div>
       </div>
       {renderModal()}
+
+      {/* Floating Chat Bubble */}
+      {section!=="chat"&&<>
+        {chatBubble&&<div className="nanu-chat-bubble-panel" style={{position:"fixed",bottom:80,right:24,width:360,height:460,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:16,boxShadow:theme.shadowLg,zIndex:180,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* Bubble header */}
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <select value={chatBubbleChannel} onChange={e=>setChatBubbleChannel(e.target.value)} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:14,color:theme.text,cursor:"pointer",outline:"none"}}>
+              {CHAT_CHANNELS.map(ch=><option key={ch.id} value={ch.id}>{ch.icon} #{ch.label}</option>)}
+              {users.filter(u=>u.id!==curUser.id).map(u=><option key={getDmKey(u.id)} value={getDmKey(u.id)}>💬 {u.name.split(" ")[0]}</option>)}
+            </select>
+            <div style={{display:"flex",gap:6}}>
+              <button type="button" onClick={()=>{setSection("chat");setChatChannel(chatBubbleChannel);setChatBubble(false)}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><ExternalLink size={14}/></button>
+              <button type="button" onClick={()=>setChatBubble(false)} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><X size={16}/></button>
+            </div>
+          </div>
+          {/* Bubble messages */}
+          <div style={{flex:1,overflow:"auto",padding:"8px 14px"}}>
+            {(chatMessages[chatBubbleChannel]||[]).length===0&&<p style={{textAlign:"center",color:theme.textMut,fontSize:12,paddingTop:20}}>No messages</p>}
+            {(chatMessages[chatBubbleChannel]||[]).slice(-20).map(m=>{
+              const isMine=m.author===curUser?.id;
+              return <div key={m.id} style={{display:"flex",gap:8,padding:"6px 0",alignItems:"flex-start"}}>
+                <div style={{width:24,height:24,borderRadius:"50%",background:isMine?theme.teal:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:700,fontSize:10,flexShrink:0}}>{uName(m.author).charAt(0)}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11,fontWeight:600,color:isMine?theme.teal:theme.text}}>{uName(m.author)} <span style={{fontWeight:400,color:theme.textMut,fontFamily:FONT_MONO,fontSize:9}}>{new Date(m.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span></div>
+                  <div style={{fontSize:13,color:theme.textSec,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:(m.text||"").replace(/@(\w+)/g,'<span style="color:#1FC2C2;font-weight:600">@$1</span>')}}/>
+                  {m.linkedEntity&&<div style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",background:theme.bgInput,borderRadius:4,fontSize:11,color:theme.teal,marginTop:2}}><Link2 size={9}/>{m.linkedEntity.name}</div>}
+                </div>
+              </div>;
+            })}
+          </div>
+          {/* Bubble input */}
+          <div style={{padding:"8px 14px",borderTop:`1px solid ${theme.border}`,display:"flex",gap:6}}>
+            <input value={chatInput} onChange={e=>setChatInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();sendChat(chatBubbleChannel,chatInput)}}}
+              placeholder="Message..." style={{flex:1,padding:"8px 12px",borderRadius:8,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontFamily:FONT_BODY,fontSize:13,outline:"none"}}/>
+            <button type="button" onClick={()=>sendChat(chatBubbleChannel,chatInput)} style={{background:theme.teal,border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",color:"#0D1B21"}}><Send size={14}/></button>
+          </div>
+        </div>}
+
+        {/* Bubble toggle button */}
+        <button type="button" onClick={()=>setChatBubble(p=>!p)} style={{position:"fixed",bottom:24,right:24,width:52,height:52,borderRadius:"50%",background:theme.teal,border:"none",cursor:"pointer",boxShadow:"0 4px 16px rgba(31,194,194,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:180}}>
+          {chatBubble?<X size={22} color="#0D1B21"/>:<MessageCircle size={22} color="#0D1B21"/>}
+        </button>
+      </>}
     </div>
   );
 }
