@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+.nanu-hub { min-height: 100vh; }
+.nanu-sidebar { transition: width .2s; }
+.nanu-main-pad { padding: 28px; max-width: 1440px; }
+.nanu-topbar { padding: 12px 28px; }
+.nanu-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.nanu-grid-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.nanu-grid-team { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.nanu-grid-stats-top { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.nanu-grid-stats-plat { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.nanu-grid-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.nanu-grid-notes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.nanu-clocks { display: flex; gap: 8px; flex-wrap: wrap; }
+.nanu-themes { display: flex; gap: 5px; flex-wrap: wrap; }
+.nanu-keydates { display: flex; gap: 8px; flex-wrap: wrap; }
+.nanu-kanban { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+.nanu-kanban-col { min-width: 230px; flex: 0 0 230px; }
+.nanu-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.nanu-modal-inner { width: 540px; max-width: 92vw; max-height: 88vh; overflow: auto; }
+.nanu-modal-wide { width: 600px; }
+.nanu-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.nanu-tab-bar { display: flex; gap: 2px; flex-wrap: wrap; }
+.nanu-big-num { font-family: 'DM Sans', sans-serif; font-weight: 800; letter-spacing: -0.02em; }
+
+/* Tablet landscape */
+@media (max-width: 1024px) {
+  .nanu-grid-2col { grid-template-columns: 1fr; }
+  .nanu-grid-summary { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .nanu-grid-team { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .nanu-kanban-col { min-width: 200px; flex: 0 0 200px; }
+  .nanu-main-pad { padding: 20px; }
+  .nanu-topbar { padding: 10px 20px; }
+  .nanu-preview-panel { width: 360px !important; }
+}
+
+/* Tablet portrait / large phone */
+@media (max-width: 768px) {
+  .nanu-sidebar { width: 58px !important; }
+  .nanu-sidebar .nanu-sidebar-label { display: none !important; }
+  .nanu-sidebar .nanu-sidebar-header-text { display: none !important; }
+  .nanu-sidebar nav button { justify-content: center !important; padding: 9px 0 !important; }
+  .nanu-sidebar > div:last-child button { justify-content: center !important; }
+  .nanu-main-pad { padding: 16px; }
+  .nanu-topbar { padding: 10px 16px; flex-direction: column; align-items: flex-start !important; gap: 8px; }
+  .nanu-grid-2col { grid-template-columns: 1fr; }
+  .nanu-grid-summary { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .nanu-grid-team { grid-template-columns: 1fr; }
+  .nanu-grid-stats-top { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .nanu-grid-stats-plat { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .nanu-grid-ops { grid-template-columns: 1fr; }
+  .nanu-grid-notes { grid-template-columns: 1fr; }
+  .nanu-keydates { flex-direction: column; }
+  .nanu-keydates > div { flex: 1 1 auto !important; }
+  .nanu-kanban-col { min-width: 180px; flex: 0 0 180px; }
+  .nanu-cal-grid { gap: 2px; }
+  .nanu-cal-grid > div { min-height: 60px !important; padding: 4px !important; }
+  .nanu-form-row { grid-template-columns: 1fr; }
+  .nanu-section-head { flex-direction: column; align-items: flex-start !important; }
+  .nanu-big-num { font-size: 22px !important; }
+  .nanu-clock-card { min-width: 80px !important; flex: 1 1 80px !important; }
+  .nanu-clock-card .nanu-clock-time { font-size: 17px !important; }
+  /* Preview panel full width on tablet */
+  .nanu-preview-panel { width: 100% !important; left: 0 !important; border-left: none !important; }
+  /* Workspace responsive */
+  .nanu-ws-quicklinks { flex-direction: column; }
+  .nanu-ws-quicklinks > div { flex: 1 1 auto !important; }
+  .nanu-ws-tabs { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
+  .nanu-ws-tabs > button { flex-shrink: 0 !important; padding: 8px 12px !important; font-size: 11px !important; }
+  .nanu-ws-todo-add { flex-direction: column; }
+  .nanu-ws-todo-add > input, .nanu-ws-todo-add > select { width: 100% !important; min-width: 0 !important; }
+  .nanu-ws-pinned { flex-direction: column; }
+  .nanu-ws-pinned > div { width: 100% !important; }
+  .nanu-chat-layout { flex-direction: column !important; height: auto !important; min-height: calc(100vh - 120px); position: relative; }
+  .nanu-chat-sidebar { display: none !important; }
+  .nanu-chat-sidebar.nanu-chat-sidebar-open { display: flex !important; flex-direction: column !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 200 !important; width: 100% !important; padding: 56px 0 0 !important; }
+  .nanu-chat-mobile-toggle { display: flex !important; }
+  .nanu-chat-bubble-panel { width: calc(100vw - 80px) !important; right: 12px !important; bottom: 72px !important; height: 50vh !important; }
+  .nanu-notif-panel { width: calc(100vw - 80px) !important; right: -10px !important; max-height: 70vh !important; }
+}
+
+/* Small phone */
+@media (max-width: 480px) {
+  .nanu-main-pad { padding: 12px; }
+  .nanu-grid-summary { grid-template-columns: repeat(2, 1fr); }
+  .nanu-grid-stats-top { grid-template-columns: repeat(2, 1fr); }
+  .nanu-themes > div { flex: 1 1 65px !important; min-width: 65px !important; padding: 5px 6px !important; }
+  .nanu-themes > div > div:last-child { font-size: 10px !important; }
+  .nanu-kanban-col { min-width: 160px; flex: 0 0 160px; }
+  .nanu-big-num { font-size: 20px !important; }
+  /* Preview panel */
+  .nanu-preview-panel { width: 100% !important; left: 0 !important; padding: 0 !important; }
+  .nanu-preview-panel > div:last-child { padding: 14px !important; }
+  /* Workspace */
+  .nanu-ws-tabs > button { padding: 6px 10px !important; font-size: 10px !important; gap: 3px !important; }
+  .nanu-ws-quicklinks > div { padding: 10px 12px !important; }
+  .nanu-notif-panel { width: calc(100vw - 24px) !important; right: -40px !important; }
+  .nanu-chat-bubble-panel { width: calc(100vw - 24px) !important; right: 12px !important; left: 12px !important; height: 60vh !important; bottom: 68px !important; }
+}
