@@ -613,6 +613,7 @@ export default function MarketingHub() {
   ];
 
   const getDmKey = (otherUserId) => {
+    if (!curUser) return "dm_none";
     const ids = [curUser.id, otherUserId].sort();
     return `dm_${ids[0]}_${ids[1]}`;
   };
@@ -621,9 +622,10 @@ export default function MarketingHub() {
 
   // Unread count for a channel
   const getUnreadCount = (channelId) => {
+    if (!curUser) return 0;
     const lastRead = chatLastRead[channelId];
     if (!lastRead) return (chatMessages[channelId] || []).length;
-    return (chatMessages[channelId] || []).filter(m => m.time > lastRead && m.author !== curUser?.id).length;
+    return (chatMessages[channelId] || []).filter(m => m.time > lastRead && m.author !== curUser.id).length;
   };
 
   const totalUnread = [...CHAT_CHANNELS.map(c => getUnreadCount(c.id)), ...users.filter(u => u.id !== curUser?.id).map(u => getUnreadCount(getDmKey(u.id)))].reduce((a, b) => a + b, 0);
@@ -640,7 +642,7 @@ export default function MarketingHub() {
 
   // Send message
   const sendChat = (channelId, text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !curUser) return;
     const msg = {
       id: uid("msg"),
       author: curUser.id,
@@ -2042,7 +2044,7 @@ export default function MarketingHub() {
           </button>
 
           {/* Sidebar — channels + DMs */}
-          <div className="nanu-chat-sidebar" style={{width:220,flexShrink:0,borderRight:`1px solid ${theme.border}`,display:chatMobileSidebar?"flex":"flex",flexDirection:"column",overflow:"auto",padding:"12px 0"}}>
+          <div className={`nanu-chat-sidebar${chatMobileSidebar?" nanu-chat-sidebar-open":""}`} style={{width:220,flexShrink:0,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",overflow:"auto",padding:"12px 0"}}>
             <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"6px 16px",textTransform:"uppercase"}}>Channels</div>
             {CHAT_CHANNELS.map(ch=>{
               const unread=getUnreadCount(ch.id);
