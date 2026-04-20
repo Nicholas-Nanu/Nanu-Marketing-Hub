@@ -480,8 +480,9 @@ export default function MarketingHub() {
   const [sidebar, setSidebar] = useState(true);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
-  const [calView, setCalView] = useState("kanban");
-  const [calMonth, setCalMonth] = useState(new Date(2026, 2, 1));
+  const [calView, setCalView] = useState("month");
+  const [calMonth, setCalMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [calEventFilter, setCalEventFilter] = useState("All");
   const [taskView, setTaskView] = useState("all");
   const [tfProject, setTfProject] = useState("All");
   const [tfPriority, setTfPriority] = useState("All");
@@ -775,6 +776,7 @@ export default function MarketingHub() {
     { key:"dashboard", label:"Dashboard", icon:<LayoutDashboard size={18}/> },
     { key:"team", label:"Team", icon:<Users size={18}/> },
     { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
+    { key:"pallyy", label:"Content Scheduler", icon:<Columns size={18}/> },
     { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
     { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
     { key:"outreach", label:"Outreach", icon:<Megaphone size={18}/> },
@@ -961,210 +963,145 @@ export default function MarketingHub() {
     );
 
     /* ─── CALENDAR ─── */
-    case "calendar": return (
-      <div>
-        <SectionHead theme={theme} right={<>
-          <Sel theme={theme} options={[{value:"All",label:"All Statuses"},...STATUSES.map(s=>({value:s,label:s}))]} value={fStatus} onChange={e=>setFStatus(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
-          <Sel theme={theme} options={[{value:"All",label:"All Platforms"},...PLATFORMS.map(p=>({value:p,label:p}))]} value={fPlat} onChange={e=>setFPlat(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
-          <div style={{ display:"flex", background:theme.bgInput, borderRadius:8, border:`1px solid ${theme.border}`, overflow:"hidden" }}>
-            {[["month","Month"],["kanban","Kanban"],["week","Week"],["list","List"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setCalView(k)} style={{ padding:"6px 12px", border:"none", fontSize:12, background:calView===k?theme.teal:"transparent", color:calView===k?"#0D1B21":theme.textSec, cursor:"pointer", fontWeight:600 }}>{l}</button>
-            ))}
-          </div>
-          <Btn primary theme={theme} onClick={()=>openM("editCal",{platform:PLATFORMS[0],status:"Idea",owner:curUser.id,dueDate:"",publishTime:"",caption:"",assetLink:"",campaign:""})}><Plus size={14}/> Add</Btn>
-        </>}>Content Calendar</SectionHead>
-        {calView==="month"&&(()=>{
-          const y=calMonth.getFullYear(), m=calMonth.getMonth();
-          const first=new Date(y,m,1);
-          const last=new Date(y,m+1,0);
-          const startOff=first.getDay()===0?6:first.getDay()-1;
-          const totalCells=startOff+last.getDate();
-          const rows=Math.ceil(totalCells/7);
-          const cells=Array.from({length:rows*7},(_,i)=>{
-            const dayNum=i-startOff+1;
-            const d=new Date(y,m,dayNum);
-            return d;
-          });
-          const fmt=d=>d.toISOString().split("T")[0];
-          const isT=d=>fmt(d)==="2026-03-09";
-          const monthLabel=calMonth.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
-          return <div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <button onClick={()=>setCalMonth(new Date(y,m-1,1))} style={{background:"none",border:"none",color:theme.textSec,cursor:"pointer"}}><ChevronLeft size={18}/></button>
-              <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16}}>{monthLabel}</span>
-              <button onClick={()=>setCalMonth(new Date(y,m+1,1))} style={{background:"none",border:"none",color:theme.textSec,cursor:"pointer"}}><ChevronRight size={18}/></button>
-            </div>
-            <div className="nanu-cal-grid">
-              {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>(
-                <div key={d} style={{textAlign:"center",fontSize:11,color:theme.textMut,padding:"6px 0",fontWeight:600}}>{d}</div>
+    /* ─── COMPANY CALENDAR ─── */
+    case "calendar": {
+      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Meeting","Key Date"];
+      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Meeting:"#69DB7C", "Key Date":"#FF6B6B" };
+
+      // Aggregate all events into a unified list
+      const calEvents = [
+        ...tasks.filter(t=>t.dueDate).map(t=>({id:t.id,type:"Task",title:t.title,date:t.dueDate,color:CAL_TYPE_COLORS.Task,status:t.status,owner:uName(Array.isArray(t.owners)?t.owners[0]:t.owners),onClick:()=>openM("editTask",{...t})})),
+        ...visibleProjects.filter(p=>p.status==="Active").map(p=>({id:"prj_"+p.id,type:"Project",title:p.name,date:"",color:CAL_TYPE_COLORS.Project,status:p.status,owner:uName(p.owner),onClick:()=>setSection("projects")})),
+        ...partnerships.filter(p=>p.reviewDate).map(p=>({id:"part_"+p.id,type:"Partnership",title:p.name+" (Review)",date:p.reviewDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
+        ...partnerships.filter(p=>p.startDate).map(p=>({id:"parts_"+p.id,type:"Partnership",title:p.name+" (Start)",date:p.startDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
+        ...outreach.filter(o=>o.date).map(o=>({id:"out_"+o.id,type:"Outreach",title:o.name,date:o.date,color:CAL_TYPE_COLORS.Outreach,status:o.status,owner:uName(o.owner),onClick:()=>openM("editOutreach",{...o})})),
+        ...keyDates.map(d=>({id:"kd_"+d.id,type:"Key Date",title:d.title,date:d.date,color:d.color||CAL_TYPE_COLORS["Key Date"],status:"",owner:"",onClick:null})),
+        ...calendar.filter(c=>c.dueDate).map(c=>({id:"cal_"+c.id,type:"Meeting",title:c.title,date:c.dueDate,color:CAL_TYPE_COLORS.Meeting,status:c.status,owner:uName(c.owner),onClick:()=>openM("editCal",{...c})})),
+      ].filter(e=>e.date);
+
+      const filteredEvents = calEventFilter==="All" ? calEvents : calEvents.filter(e=>e.type===calEventFilter);
+      const fmt=d=>d.toISOString().split("T")[0];
+      const todayStr3=fmt(new Date());
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            <Sel theme={theme} options={CAL_EVENT_TYPES.map(t=>({value:t,label:t==="All"?"All Events":t+"s"}))} value={calEventFilter} onChange={e=>setCalEventFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+            <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+              {[["month","Month"],["week","Week"],["list","List"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setCalView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:calView===k?theme.teal:"transparent",color:calView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
               ))}
-              {cells.map((d,idx)=>{
-                const ds=fmt(d);
-                const dayItems=filteredCal.filter(c=>c.dueDate===ds);
-                const isCurMonth=d.getMonth()===m;
-                return <div key={idx} style={{
-                  minHeight:82,padding:6,borderRadius:8,
-                  background:isT(d)?`${theme.teal}10`:isCurMonth?theme.bgCard:"transparent",
-                  border:`1px solid ${isT(d)?theme.teal:isCurMonth?theme.border:"transparent"}`,
-                  opacity:isCurMonth?1:.3
-                }}>
-                  <div style={{fontFamily:FONT_MONO,fontSize:11,color:isT(d)?theme.teal:theme.textSec,fontWeight:isT(d)?700:400,marginBottom:4}}>{d.getDate()}</div>
-                  {dayItems.slice(0,2).map(item=>(
-                    <div key={item.id} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{
-                      fontSize:10,padding:"2px 5px",marginBottom:2,borderRadius:4,
-                      background:`${STATUS_COLORS[item.status]}20`,color:STATUS_COLORS[item.status],
-                      cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"
-                    }}>{item.title}</div>
-                  ))}
-                  {dayItems.length>2&&<div style={{fontSize:9,color:theme.textMut}}>+{dayItems.length-2} more</div>}
-                </div>;
-              })}
             </div>
-          </div>;
-        })()}
-        {calView==="kanban"&&(
-          <div className="nanu-kanban">
-            {STATUSES.map(st=>{
-              const items=filteredCal.filter(i=>i.status===st);
-              return <div key={st} className="nanu-kanban-col">
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[st]}}/><span style={{fontWeight:600,fontSize:13}}>{st}</span><span style={{fontSize:11,color:theme.textMut}}>({items.length})</span>
-                </div>
-                {items.map(item=>(
-                  <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:12,marginBottom:6,cursor:"pointer"}}>
-                    <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal} style={{marginBottom:6}}/>
-                    <div style={{fontWeight:600,fontSize:13}}>{item.title}</div>
-                    <div style={{fontSize:12,color:theme.textMut,marginTop:4}}>{uName(item.owner)} · {item.dueDate}</div>
-                    {item.campaign&&<Badge label={campaigns.find(c=>c.tag===item.campaign)?.name||item.campaign} color={campaigns.find(c=>c.tag===item.campaign)?.color||theme.purple} style={{marginTop:6}}/>}
-                  </Card>
-                ))}
-              </div>;
+            <Btn primary theme={theme} onClick={()=>openM("editCal",{platform:"",status:"Idea",owner:curUser.id,dueDate:"",publishTime:"",caption:"",assetLink:"",campaign:"",title:""})}><Plus size={14}/> Add Event</Btn>
+          </>}>Company Calendar</SectionHead>
+
+          {/* Legend */}
+          <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+            {Object.entries(CAL_TYPE_COLORS).map(([type,color])=>{
+              const count=calEvents.filter(e=>e.type===type).length;
+              return count>0?<div key={type} onClick={()=>setCalEventFilter(calEventFilter===type?"All":type)} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",opacity:calEventFilter!=="All"&&calEventFilter!==type?0.3:1,transition:"opacity .15s"}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:color}}/>
+                <span style={{fontSize:12,color:theme.textSec}}>{type} ({count})</span>
+              </div>:null;
             })}
           </div>
-        )}
-        {calView==="week"&&weekDates.map(dd=>{
-          const ds=dd.toISOString().split("T")[0];
-          const dayItems=filteredCal.filter(c=>c.dueDate===ds);
-          const wt=weeklyThemes.find(w=>w.day===dd.toLocaleDateString("en-GB",{weekday:"long"}));
-          const isToday=ds==="2026-03-09";
-          return <div key={ds} style={{marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-              <span style={{fontWeight:700,fontSize:14,color:isToday?theme.teal:theme.text}}>{dd.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short"})}</span>
-              {wt&&<Badge label={wt.theme} color={wt.color}/>}
-            </div>
-            {dayItems.length===0&&<p style={{fontSize:13,color:theme.textMut,paddingLeft:10}}>No content</p>}
-            {dayItems.map(item=>(
-              <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:10,marginBottom:4,cursor:"pointer"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                  <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal}/>
-                  <span style={{fontWeight:600,fontSize:13,flex:1}}>{item.title}</span>
-                  <Badge label={item.status} color={STATUS_COLORS[item.status]}/>
-                  <span style={{fontSize:12,color:theme.textMut}}>{uName(item.owner)}</span>
-                </div>
-              </Card>
-            ))}
-          </div>;
-        })}
-        {calView==="list"&&(
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {filteredCal.sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).map(item=>(
-              <Card key={item.id} theme={theme} onClick={()=>setPreviewItem(previewItem?.id===item.id?null:item)} style={{padding:12,cursor:"pointer"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                  <span style={{fontFamily:FONT_MONO,fontSize:12,color:theme.textMut,minWidth:85}}>{item.dueDate}</span>
-                  <Badge label={item.platform} color={PLATFORM_COLORS[item.platform]||theme.teal}/>
-                  <span style={{fontWeight:600,fontSize:14,flex:1}}>{item.title}</span>
-                  <Badge label={item.status} color={STATUS_COLORS[item.status]}/>
-                  <span style={{fontSize:12,color:theme.textMut}}>{uName(item.owner)}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
 
-        {/* Social Preview Panel */}
-        {previewItem&&(()=>{
-          const pi = previewItem;
-          const plat = PLATFORM_LIMITS[pi.platform] || PLATFORM_LIMITS["Nanu App"];
-          const caption = pi.caption || "";
-          const charCount = caption.length;
-          const overLimit = charCount > plat.max;
-          const nearLimit = charCount > plat.warn;
-          const truncated = caption.length > plat.truncate ? caption.slice(0, plat.truncate) + "..." : caption;
-          const hashtagCount = (caption.match(/#\w+/g) || []).length;
+          {/* Month view */}
+          {calView==="month"&&(()=>{
+            const y=calMonth.getFullYear(), m=calMonth.getMonth();
+            const first=new Date(y,m,1);
+            const last=new Date(y,m+1,0);
+            const startOff=first.getDay()===0?6:first.getDay()-1;
+            const totalCells=startOff+last.getDate();
+            const rows=Math.ceil(totalCells/7);
+            const cells=Array.from({length:rows*7},(_,i)=>{const dayNum=i-startOff+1;return new Date(y,m,dayNum)});
+            const monthLabel=calMonth.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+            return <>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                <button type="button" onClick={()=>setCalMonth(new Date(y,m-1,1))} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut}}><ChevronLeft size={20}/></button>
+                <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:18}}>{monthLabel}</span>
+                <button type="button" onClick={()=>setCalMonth(new Date(y,m+1,1))} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut}}><ChevronRight size={20}/></button>
+              </div>
+              <div className="nanu-cal-grid" style={{marginBottom:4}}>
+                {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><div key={d} style={{textAlign:"center",fontSize:11,fontWeight:600,color:theme.textMut,padding:6}}>{d}</div>)}
+              </div>
+              <div className="nanu-cal-grid">
+                {cells.map((d,i)=>{
+                  const ds=fmt(d);
+                  const isThisMonth=d.getMonth()===m;
+                  const isToday=ds===todayStr3;
+                  const dayEvents=filteredEvents.filter(e=>e.date===ds);
+                  return <div key={i} style={{minHeight:80,padding:6,background:isToday?`${theme.teal}10`:isThisMonth?theme.bgInput:"transparent",borderRadius:8,border:isToday?`1px solid ${theme.teal}`:`1px solid ${theme.border}`,opacity:isThisMonth?1:0.3}}>
+                    <div style={{fontSize:12,fontWeight:isToday?700:400,color:isToday?theme.teal:theme.textSec,marginBottom:4}}>{d.getDate()}</div>
+                    {dayEvents.slice(0,3).map(ev=>(
+                      <div key={ev.id} onClick={ev.onClick} style={{fontSize:10,padding:"2px 5px",marginBottom:2,borderRadius:4,background:`${ev.color}20`,color:ev.color,fontWeight:600,cursor:ev.onClick?"pointer":"default",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderLeft:`2px solid ${ev.color}`}}>{ev.title}</div>
+                    ))}
+                    {dayEvents.length>3&&<div style={{fontSize:9,color:theme.textMut,paddingLeft:5}}>+{dayEvents.length-3} more</div>}
+                  </div>;
+                })}
+              </div>
+            </>;
+          })()}
 
-          return <div className="nanu-preview-panel" style={{position:"fixed",right:0,top:0,bottom:0,width:400,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,boxShadow:theme.shadowLg,zIndex:150,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"16px 20px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-              <div>
-                <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Social Preview</div>
-                <div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{pi.platform} · {pi.status}</div>
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                <Btn theme={theme} small onClick={()=>{openM("editCal",{...pi});setPreviewItem(null)}}><Edit3 size={12}/> Edit</Btn>
-                <button type="button" onClick={()=>setPreviewItem(null)} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><X size={18}/></button>
-              </div>
-            </div>
-            <div style={{flex:1,overflow:"auto",padding:20}}>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-                <Badge label={pi.platform} color={plat.color}/>
-                <Badge label={pi.status} color={STATUS_COLORS[pi.status]||theme.teal}/>
-                {pi.campaign&&<Badge label={pi.campaign} color={theme.purple}/>}
-              </div>
-              <div style={{fontSize:13,color:theme.textSec,marginBottom:4}}><strong>Title:</strong> {pi.title}</div>
-              {pi.dueDate&&<div style={{fontSize:12,color:theme.textMut,marginBottom:4}}>Due: {pi.dueDate}{pi.publishTime?` at ${pi.publishTime}`:""}</div>}
-              <div style={{fontSize:12,color:theme.textMut,marginBottom:16}}>Owner: {uName(pi.owner)}</div>
-
-              <div style={{padding:"10px 14px",background:theme.bgInput,borderRadius:8,marginBottom:16,border:`1px solid ${overLimit?theme.red:nearLimit?"#FFA94D":theme.border}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                  <span style={{fontSize:12,fontWeight:600,color:overLimit?theme.red:nearLimit?"#FFA94D":theme.textSec}}>Character Count</span>
-                  <span style={{fontFamily:FONT_MONO,fontSize:13,fontWeight:700,color:overLimit?theme.red:nearLimit?"#FFA94D":theme.green}}>{charCount} / {plat.max}</span>
-                </div>
-                <ProgressBar value={Math.min(charCount, plat.max)} max={plat.max} color={overLimit?theme.red:nearLimit?"#FFA94D":theme.green} theme={theme}/>
-                {overLimit&&<div style={{fontSize:11,color:theme.red,marginTop:6,fontWeight:600}}>Over limit by {charCount - plat.max} characters</div>}
-                {nearLimit&&!overLimit&&<div style={{fontSize:11,color:"#FFA94D",marginTop:6}}>{plat.max - charCount} characters remaining</div>}
-                <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:theme.textMut}}>
-                  <span>Words: {caption.split(/\s+/).filter(Boolean).length}</span>
-                  <span>Hashtags: {hashtagCount}</span>
-                  <span>Feed truncates at ~{plat.truncate} chars</span>
-                </div>
-              </div>
-
-              <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Preview</div>
-              <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`}}>
-                <div style={{background:plat.color,padding:"8px 14px"}}><span style={{color:"#fff",fontSize:11,fontWeight:700,letterSpacing:".04em"}}>{pi.platform.toUpperCase()}</span></div>
-                <div style={{background:plat.bg,padding:16}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                    <div style={{width:36,height:36,borderRadius:"50%",background:"#1FC2C2",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:800,fontSize:16}}>N</div>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:700,color:plat.textColor}}>Nanu</div>
-                      <div style={{fontSize:12,color:plat.textColor,opacity:0.5}}>{plat.handle} · {pi.publishTime||"Scheduled"}</div>
+          {/* Week view */}
+          {calView==="week"&&(()=>{
+            const today=new Date();
+            const dayOfWeek=today.getDay()===0?6:today.getDay()-1;
+            const weekStart=new Date(today);weekStart.setDate(today.getDate()-dayOfWeek);
+            const weekDays=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);return d});
+            return <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8}}>
+              {weekDays.map(d=>{
+                const ds=fmt(d);
+                const isToday=ds===todayStr3;
+                const dayEvents=filteredEvents.filter(e=>e.date===ds);
+                return <div key={ds} style={{padding:10,background:isToday?`${theme.teal}10`:theme.bgInput,borderRadius:8,border:isToday?`1px solid ${theme.teal}`:`1px solid ${theme.border}`,minHeight:120}}>
+                  <div style={{fontSize:12,fontWeight:700,color:isToday?theme.teal:theme.textSec,marginBottom:8}}>{d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"})}</div>
+                  {dayEvents.map(ev=>(
+                    <div key={ev.id} onClick={ev.onClick} style={{fontSize:11,padding:"4px 6px",marginBottom:4,borderRadius:4,background:`${ev.color}15`,borderLeft:`2px solid ${ev.color}`,cursor:ev.onClick?"pointer":"default"}}>
+                      <div style={{fontWeight:600,color:ev.color,marginBottom:1}}>{ev.title}</div>
+                      <div style={{fontSize:10,color:theme.textMut}}>{ev.type}{ev.owner?` · ${ev.owner}`:""}</div>
                     </div>
-                  </div>
-                  {caption?<>
-                    <p style={{fontSize:14,color:plat.textColor,lineHeight:1.6,margin:"0 0 12px",whiteSpace:"pre-wrap"}}>{truncated}</p>
-                    {caption.length>plat.truncate&&<span style={{fontSize:13,color:plat.color,cursor:"pointer"}}>...more</span>}
-                  </>:<p style={{fontSize:13,color:plat.textColor,opacity:0.4,fontStyle:"italic"}}>No caption yet</p>}
-                  {pi.assetLink?<a href={pi.assetLink} target="_blank" rel="noopener noreferrer" style={{display:"block",marginTop:12,padding:20,background:plat.textColor==="#FFFFFF"?"rgba(255,255,255,0.1)":"rgba(0,0,0,0.05)",borderRadius:8,textAlign:"center",color:plat.color,fontSize:12,fontWeight:600,textDecoration:"none"}}><ExternalLink size={16}/><br/>View Asset</a>
-                  :<div style={{marginTop:12,padding:24,background:plat.textColor==="#FFFFFF"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)",borderRadius:8,textAlign:"center"}}><div style={{fontSize:11,color:plat.textColor,opacity:0.3}}>Image / Video</div></div>}
-                  <div style={{display:"flex",gap:20,marginTop:14,paddingTop:10,borderTop:"1px solid rgba(128,128,128,0.15)"}}>
-                    {(pi.platform==="Reddit"?["Vote","Comment","Share"]:pi.platform==="TikTok"?["Like","Comment","Share","Save"]:pi.platform==="YouTube"?["Like","Comment","Share"]:["Like","Comment","Share"]).map(a=>(<span key={a} style={{fontSize:11,color:plat.textColor,opacity:0.4}}>{a}</span>))}
-                  </div>
-                </div>
-              </div>
+                  ))}
+                  {dayEvents.length===0&&<div style={{fontSize:10,color:theme.textMut,opacity:0.4}}>No events</div>}
+                </div>;
+              })}
+            </div>;
+          })()}
 
-              <div style={{marginTop:16,padding:"12px 14px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.6}}>
-                <strong style={{color:theme.teal}}>Tips for {pi.platform}:</strong><br/>
-                {pi.platform==="LinkedIn"&&"First 2 lines visible before 'see more'. Lead with a hook. 3-5 hashtags at the end."}
-                {pi.platform==="X / Twitter"&&"280 char hard limit. Thread for longer content. 1-2 hashtags max. Questions drive replies."}
-                {pi.platform==="Instagram"&&"First line shows in feed. Line breaks and emojis help. 5-10 hashtags recommended. CTA to bio link."}
-                {pi.platform==="TikTok"&&"Caption overlays video. Short and punchy. Trending hashtags help. Hook in first 3 seconds."}
-                {pi.platform==="Facebook"&&"Longer captions work. Ask questions for comments. 477 chars before 'See more'. Native video preferred."}
-                {pi.platform==="YouTube"&&"Title is everything (under 60 chars). First 100 chars of description show in search. Use timestamps."}
-                {pi.platform==="Reddit"&&"Title drives all engagement. Factual, not promotional. Engage in comments. Check subreddit rules."}
-                {pi.platform==="Nanu App"&&"Your audience is engaged. Use structured formatting. Link to archive entries. No character pressure."}
-              </div>
+          {/* List view — upcoming events sorted by date */}
+          {calView==="list"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {filteredEvents.sort((a,b)=>a.date.localeCompare(b.date)).filter(e=>e.date>=todayStr3).length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:20}}>No upcoming events</p>}
+              {filteredEvents.sort((a,b)=>a.date.localeCompare(b.date)).filter(e=>e.date>=todayStr3).map(ev=>(
+                <Card key={ev.id} theme={theme} onClick={ev.onClick} style={{padding:12,cursor:ev.onClick?"pointer":"default"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:FONT_MONO,fontSize:12,color:theme.textMut,minWidth:85}}>{ev.date}</span>
+                    <div style={{width:8,height:8,borderRadius:"50%",background:ev.color}}/>
+                    <Badge label={ev.type} color={ev.color}/>
+                    <span style={{fontWeight:600,fontSize:14,flex:1}}>{ev.title}</span>
+                    {ev.status&&<Badge label={ev.status} color={theme.textMut}/>}
+                    {ev.owner&&<span style={{fontSize:12,color:theme.textMut}}>{ev.owner}</span>}
+                  </div>
+                </Card>
+              ))}
             </div>
-          </div>;
-        })()}
+          )}
+        </div>
+      );
+    }
+
+    /* ─── PALLYY / CONTENT SCHEDULER ─── */
+    case "pallyy": return (
+      <div>
+        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>window.open("https://app.pallyy.com","_blank")}><ExternalLink size={14}/> Open in New Tab</Btn>}>Content Scheduler</SectionHead>
+        <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Manage your social content scheduling directly through Pallyy. If the embed doesn't load, use the button above to open it in a new tab.</p>
+        <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`,height:"calc(100vh - 200px)",position:"relative"}}>
+          <iframe src="https://app.pallyy.com" title="Pallyy Content Scheduler" style={{width:"100%",height:"100%",border:"none"}}
+            allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"/>
+          <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"8px 16px",background:`linear-gradient(transparent, ${theme.bgCard})`,display:"flex",justifyContent:"space-between",alignItems:"center",pointerEvents:"none"}}>
+            <span style={{fontSize:10,color:theme.textMut,opacity:0.5}}>Powered by Pallyy</span>
+          </div>
+        </div>
       </div>
     );
 
