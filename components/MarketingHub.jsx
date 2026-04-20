@@ -1098,37 +1098,71 @@ export default function MarketingHub() {
 
       return (
         <div>
-          <SectionHead theme={theme} right={<>
-            <Btn theme={theme} small onClick={()=>setPallyyKey(k=>k+1)}><RefreshCw size={13}/> Refresh</Btn>
-            <Btn primary theme={theme} onClick={()=>window.open("https://app.pallyy.com","_blank")}><ExternalLink size={14}/> Open in New Tab</Btn>
-          </>}>Content Scheduler</SectionHead>
+          <SectionHead theme={theme}>Content Scheduler</SectionHead>
 
-          {/* Login credentials */}
-          <Card theme={theme} style={{padding:14,marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <Lock size={14} color={theme.teal}/>
-              <span style={{fontSize:12,fontWeight:600,color:theme.textMut}}>Pallyy Login:</span>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:12,color:theme.textSec}}>Username:</span>
-              <code style={{fontSize:12,padding:"3px 8px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,color:theme.text,fontFamily:FONT_MONO}}>socials@nanu-app.com</code>
-              <button type="button" onClick={()=>copyText("socials@nanu-app.com","user")} style={{background:"none",border:"none",cursor:"pointer",color:copiedField==="user"?theme.green:theme.textMut,display:"flex",alignItems:"center",gap:3,fontSize:11}}>
-                {copiedField==="user"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
-              </button>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:12,color:theme.textSec}}>Password:</span>
-              <code style={{fontSize:12,padding:"3px 8px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,color:theme.text,fontFamily:FONT_MONO}}>Ws!czbCykyg69yK</code>
-              <button type="button" onClick={()=>copyText("Ws!czbCykyg69yK","pass")} style={{background:"none",border:"none",cursor:"pointer",color:copiedField==="pass"?theme.green:theme.textMut,display:"flex",alignItems:"center",gap:3,fontSize:11}}>
-                {copiedField==="pass"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
-              </button>
+          {/* Hero launch card */}
+          <Card theme={theme} style={{padding:0,overflow:"hidden",marginBottom:20}}>
+            <div style={{background:"linear-gradient(135deg, #0D2A2A 0%, #0A1F1F 100%)",padding:"40px 32px",display:"flex",alignItems:"center",gap:32,flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 300px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:theme.teal,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <Columns size={22} color="#0D1B21"/>
+                  </div>
+                  <span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,color:"#fff"}}>Pallyy</span>
+                </div>
+                <p style={{fontSize:15,color:theme.textSec,lineHeight:1.6,marginBottom:20}}>Schedule posts, manage your content calendar, and track engagement across all platforms. Opens in a new tab for full functionality.</p>
+                <Btn primary theme={theme} onClick={()=>window.open("https://app.pallyy.com","_blank")} style={{padding:"12px 28px",fontSize:15}}>
+                  <ExternalLink size={16}/> Open Pallyy
+                </Btn>
+              </div>
             </div>
           </Card>
 
-          <p style={{fontSize:13,color:theme.textSec,marginBottom:12}}>If the login page doesn't respond below, click "Open in New Tab" to use Pallyy directly, or hit "Refresh" after logging in.</p>
-          <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`,height:"calc(100vh - 280px)",position:"relative"}}>
-            <iframe key={pallyyKey} src="https://app.pallyy.com" title="Pallyy Content Scheduler" style={{width:"100%",height:"100%",border:"none"}}
-              allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-popups-to-escape-sandbox allow-top-navigation"/>
+          {/* Login credentials card */}
+          <Card theme={theme} style={{padding:20,marginBottom:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+              <Lock size={16} color={theme.teal}/>
+              <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Team Login Credentials</span>
+            </div>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 240px",padding:14,background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6}}>Email</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                  <code style={{fontSize:14,color:theme.text,fontFamily:FONT_MONO}}>socials@nanu-app.com</code>
+                  <button type="button" onClick={()=>copyText("socials@nanu-app.com","user")} style={{background:copiedField==="user"?theme.green:theme.teal,border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",color:"#0D1B21",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                    {copiedField==="user"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
+                  </button>
+                </div>
+              </div>
+              <div style={{flex:"1 1 240px",padding:14,background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6}}>Password</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                  <code style={{fontSize:14,color:theme.text,fontFamily:FONT_MONO}}>Ws!czbCykyg69yK</code>
+                  <button type="button" onClick={()=>copyText("Ws!czbCykyg69yK","pass")} style={{background:copiedField==="pass"?theme.green:theme.teal,border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",color:"#0D1B21",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                    {copiedField==="pass"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p style={{fontSize:12,color:theme.textMut,marginTop:12}}>Copy credentials above, then click "Open Pallyy" to log in. This is a shared team account.</p>
+          </Card>
+
+          {/* Quick links */}
+          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+            {[
+              {label:"Scheduling",desc:"Plan and schedule posts",url:"https://app.pallyy.com/scheduling",icon:<Calendar size={18}/>},
+              {label:"Analytics",desc:"Track performance",url:"https://app.pallyy.com/analytics",icon:<BarChart3 size={18}/>},
+              {label:"Media Library",desc:"Manage images and videos",url:"https://app.pallyy.com/media",icon:<FolderOpen size={18}/>},
+            ].map(link=>(
+              <Card key={link.label} theme={theme} onClick={()=>window.open(link.url,"_blank")} style={{flex:"1 1 200px",padding:18,cursor:"pointer",display:"flex",alignItems:"flex-start",gap:14}}>
+                <div style={{color:theme.teal,marginTop:2}}>{link.icon}</div>
+                <div>
+                  <div style={{fontWeight:600,fontSize:14,marginBottom:3}}>{link.label}</div>
+                  <div style={{fontSize:12,color:theme.textMut}}>{link.desc}</div>
+                </div>
+                <ExternalLink size={12} color={theme.textMut} style={{marginLeft:"auto",flexShrink:0,marginTop:4}}/>
+              </Card>
+            ))}
           </div>
         </div>
       );
