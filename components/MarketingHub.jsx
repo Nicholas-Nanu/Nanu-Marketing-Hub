@@ -1091,19 +1091,48 @@ export default function MarketingHub() {
     }
 
     /* ─── PALLYY / CONTENT SCHEDULER ─── */
-    case "pallyy": return (
-      <div>
-        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>window.open("https://app.pallyy.com","_blank")}><ExternalLink size={14}/> Open in New Tab</Btn>}>Content Scheduler</SectionHead>
-        <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Manage your social content scheduling directly through Pallyy. If the embed doesn't load, use the button above to open it in a new tab.</p>
-        <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`,height:"calc(100vh - 200px)",position:"relative"}}>
-          <iframe src="https://app.pallyy.com" title="Pallyy Content Scheduler" style={{width:"100%",height:"100%",border:"none"}}
-            allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"/>
-          <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"8px 16px",background:`linear-gradient(transparent, ${theme.bgCard})`,display:"flex",justifyContent:"space-between",alignItems:"center",pointerEvents:"none"}}>
-            <span style={{fontSize:10,color:theme.textMut,opacity:0.5}}>Powered by Pallyy</span>
+    case "pallyy": {
+      const [pallyyKey, setPallyyKey] = useState(0);
+      const [copiedField, setCopiedField] = useState(null);
+      const copyText = (text, field) => { navigator.clipboard.writeText(text).then(() => { setCopiedField(field); setTimeout(() => setCopiedField(null), 2000); }); };
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            <Btn theme={theme} small onClick={()=>setPallyyKey(k=>k+1)}><RefreshCw size={13}/> Refresh</Btn>
+            <Btn primary theme={theme} onClick={()=>window.open("https://app.pallyy.com","_blank")}><ExternalLink size={14}/> Open in New Tab</Btn>
+          </>}>Content Scheduler</SectionHead>
+
+          {/* Login credentials */}
+          <Card theme={theme} style={{padding:14,marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <Lock size={14} color={theme.teal}/>
+              <span style={{fontSize:12,fontWeight:600,color:theme.textMut}}>Pallyy Login:</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:12,color:theme.textSec}}>Username:</span>
+              <code style={{fontSize:12,padding:"3px 8px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,color:theme.text,fontFamily:FONT_MONO}}>socials@nanu-app.com</code>
+              <button type="button" onClick={()=>copyText("socials@nanu-app.com","user")} style={{background:"none",border:"none",cursor:"pointer",color:copiedField==="user"?theme.green:theme.textMut,display:"flex",alignItems:"center",gap:3,fontSize:11}}>
+                {copiedField==="user"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
+              </button>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:12,color:theme.textSec}}>Password:</span>
+              <code style={{fontSize:12,padding:"3px 8px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,color:theme.text,fontFamily:FONT_MONO}}>Ws!czbCykyg69yK</code>
+              <button type="button" onClick={()=>copyText("Ws!czbCykyg69yK","pass")} style={{background:"none",border:"none",cursor:"pointer",color:copiedField==="pass"?theme.green:theme.textMut,display:"flex",alignItems:"center",gap:3,fontSize:11}}>
+                {copiedField==="pass"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
+              </button>
+            </div>
+          </Card>
+
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:12}}>If the login page doesn't respond below, click "Open in New Tab" to use Pallyy directly, or hit "Refresh" after logging in.</p>
+          <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${theme.border}`,height:"calc(100vh - 280px)",position:"relative"}}>
+            <iframe key={pallyyKey} src="https://app.pallyy.com" title="Pallyy Content Scheduler" style={{width:"100%",height:"100%",border:"none"}}
+              allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-popups-to-escape-sandbox allow-top-navigation"/>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
 
     /* ─── TASKS ─── */
     case "tasks": return (
