@@ -1150,9 +1150,9 @@ export default function MarketingHub() {
           {/* Quick links */}
           <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
             {[
-              {label:"Scheduling",desc:"Plan and schedule posts",url:"https://app.pallyy.com/scheduling",icon:<Calendar size={18}/>},
-              {label:"Analytics",desc:"Track performance",url:"https://app.pallyy.com/analytics",icon:<BarChart3 size={18}/>},
-              {label:"Media Library",desc:"Manage images and videos",url:"https://app.pallyy.com/media",icon:<FolderOpen size={18}/>},
+              {label:"Scheduling",desc:"Plan and schedule posts",url:"https://app.pallyy.com/dashboard/scheduling/calendar",icon:<Calendar size={18}/>},
+              {label:"Analytics",desc:"Track performance",url:"https://app.pallyy.com/dashboard/analytics/reports",icon:<BarChart3 size={18}/>},
+              {label:"Media Library",desc:"Manage images and videos",url:"https://app.pallyy.com/dashboard/media-library",icon:<FolderOpen size={18}/>},
             ].map(link=>(
               <Card key={link.label} theme={theme} onClick={()=>window.open(link.url,"_blank")} style={{flex:"1 1 200px",padding:18,cursor:"pointer",display:"flex",alignItems:"flex-start",gap:14}}>
                 <div style={{color:theme.teal,marginTop:2}}>{link.icon}</div>
