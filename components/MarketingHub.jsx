@@ -524,6 +524,8 @@ export default function MarketingHub() {
   const [chatLastRead, setChatLastRead] = useState({});
   const [replyTo, setReplyTo] = useState(null);
   const [chatMobileSidebar, setChatMobileSidebar] = useState(false);
+  const [pallyyKey, setPallyyKey] = useState(0);
+  const [copiedField, setCopiedField] = useState(null);
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const [dbLoading, setDbLoading] = useState(true);
@@ -1092,8 +1094,6 @@ export default function MarketingHub() {
 
     /* ─── PALLYY / CONTENT SCHEDULER ─── */
     case "pallyy": {
-      const [pallyyKey, setPallyyKey] = useState(0);
-      const [copiedField, setCopiedField] = useState(null);
       const copyText = (text, field) => { navigator.clipboard.writeText(text).then(() => { setCopiedField(field); setTimeout(() => setCopiedField(null), 2000); }); };
 
       return (
