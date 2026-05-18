@@ -11,7 +11,8 @@ import {
   TrendingUp, ArrowUp, ArrowDown, Minus, Bell, StickyNote,
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
-  Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign
+  Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign,
+  Heart, Award, MapPin, Smile, Activity, Users2
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -269,6 +270,33 @@ const INIT_PARTNERSHIPS = [
   { id:"part5", name:"UAP Check", description:"Collaboration with Michaël Vaillant on UAP data verification tooling.", type:"Research / Academic", status:"Contacted", owner:"u1", contactName:"Michaël Vaillant", contactEmail:"", value:"Shared verification methodology and potential data exchange.", startDate:"2026-03-10", reviewDate:"2026-05-01", linkedOutreach:"", linkedTasks:[], links:[], updates:[] },
 ];
 
+/* ═══ COMMUNITY ENGAGEMENT ═══ */
+const AMBASSADOR_STATUS = ["Applied","Onboarding","Active","Inactive","Alumni"];
+const AMBASSADOR_STATUS_COLORS = { Applied:"#748FFC", Onboarding:"#FFA94D", Active:"#69DB7C", Inactive:"#4E6A78", Alumni:"#DA77F2" };
+const CHANNEL_PLATFORMS = ["Discord","Reddit","Telegram","Facebook Group","Instagram","X / Twitter","TikTok","YouTube","Forum","Other"];
+const COMM_EVENT_TYPES = ["Meetup","AMA","Live Stream","Nanu Orbis","Workshop","Watch Party","Online Event"];
+const COMM_EVENT_STATUS = ["Planned","Confirmed","Live","Completed","Cancelled"];
+const COMM_EVENT_STATUS_COLORS = { Planned:"#748FFC", Confirmed:"#FFA94D", Live:"#69DB7C", Completed:"#4E6A78", Cancelled:"#FF6B6B" };
+const FEEDBACK_TYPES = ["Bug Report","Feature Request","General Feedback","Complaint","Praise","Question"];
+const FEEDBACK_SENTIMENT = ["Positive","Neutral","Negative"];
+const FEEDBACK_SENTIMENT_COLORS = { Positive:"#69DB7C", Neutral:"#FFA94D", Negative:"#FF6B6B" };
+const FEEDBACK_STATUS = ["New","Reviewed","In Progress","Resolved","Won't Fix"];
+
+const INIT_AMBASSADORS = [
+  { id:"amb1", name:"", email:"", platform:"", followers:0, status:"Active", joinDate:"", region:"", focus:"UAP", inviteCode:"", referrals:0, notes:"", links:[] },
+];
+const INIT_CHANNELS = [
+  { id:"ch1", name:"r/UFOs", platform:"Reddit", url:"https://reddit.com/r/UFOs", members:3200000, status:"Monitoring", priority:"High", owner:"u4", lastEngaged:"", notes:"Largest UAP community. Engage thoughtfully, avoid self-promotion." },
+  { id:"ch2", name:"r/HighStrangeness", platform:"Reddit", url:"https://reddit.com/r/HighStrangeness", members:380000, status:"Monitoring", priority:"High", owner:"u4", lastEngaged:"", notes:"Open-minded community, very aligned with Nanu's broader scope." },
+  { id:"ch3", name:"Nanu Discord", platform:"Discord", url:"", members:0, status:"Planned", priority:"High", owner:"u4", lastEngaged:"", notes:"Official Discord to launch alongside platform expansion." },
+];
+const INIT_COMM_EVENTS = [
+  { id:"ev1", title:"Nanu Orbis Monthly Briefing", type:"Nanu Orbis", date:"", time:"19:00", duration:60, status:"Planned", host:"u1", platform:"In-app live", expectedAttendees:0, actualAttendees:0, description:"Monthly Open Reality Briefing & Inquiry Session for Nanu users", recording:"", notes:"" },
+];
+const INIT_FEEDBACK = [
+  { id:"fb1", source:"In-app", user:"", contact:"", type:"Feature Request", sentiment:"Positive", text:"", date:"", status:"New", owner:"", response:"", tags:[] },
+];
+
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
    ═══════════════════════════════════════════════════════════════ */
@@ -295,7 +323,7 @@ function exportDOCX(title, items, filename) {
     rtf += "\\line ";
   });
   // Footer
-  rtf += "\\line\\cf3\\fs18 Exported from Nanu Marketing Hub \\bullet  " + new Date().toLocaleDateString("en-GB");
+  rtf += "\\line\\cf3\\fs18 Exported from Nanu Team Hub \\bullet  " + new Date().toLocaleDateString("en-GB");
   rtf += "}";
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([rtf], { type:"application/rtf" }));
@@ -417,7 +445,7 @@ const LoginScreen = ({ onLogin, users }) => {
       <div style={{ width:400, padding:44, borderRadius:20, background:"#172329", border:"1px solid #253840", boxShadow:"0 16px 64px rgba(0,0,0,.4)" }}>
         <div style={{ textAlign:"center", marginBottom:36 }}>
           <div style={{ display:"flex", justifyContent:"center", marginBottom:14 }}><NanuLogo size={52}/></div>
-          <h1 style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:800, color:"#E4EDF1", margin:"0 0 6px" }}>Marketing Hub</h1>
+          <h1 style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:800, color:"#E4EDF1", margin:"0 0 6px" }}>Team Hub</h1>
           <p style={{ fontSize:14, color:"#8AA4B0", margin:0 }}>Sign in to your team dashboard</p>
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -478,6 +506,7 @@ export default function MarketingHub() {
   const [curUser, setCurUser] = useState(null);
   const [section, setSection] = useState("dashboard");
   const [sidebar, setSidebar] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [calView, setCalView] = useState("month");
@@ -526,6 +555,11 @@ export default function MarketingHub() {
   const [chatMobileSidebar, setChatMobileSidebar] = useState(false);
   const [pallyyKey, setPallyyKey] = useState(0);
   const [copiedField, setCopiedField] = useState(null);
+  const [ambassadors, setAmbassadors] = useState([]);
+  const [commChannels, setCommChannels] = useState([]);
+  const [commEvents, setCommEvents] = useState([]);
+  const [feedback, setFeedback] = useState([]);
+  const [engagement, setEngagement] = useState({});
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const [dbLoading, setDbLoading] = useState(true);
@@ -559,6 +593,11 @@ export default function MarketingHub() {
       setProjects(data.projects);
       setOutreach(data.outreach);
       setPartnerships(data.partnerships);
+      setAmbassadors(data.ambassadors || []);
+      setCommChannels(data.commChannels || []);
+      setCommEvents(data.commEvents || []);
+      setFeedback(data.feedback || []);
+      setEngagement(data.engagement || {});
       setActivity(data.activity);
       // If users table is empty, this is a fresh DB — seed it
       if (!data.users.length) {
@@ -767,31 +806,62 @@ export default function MarketingHub() {
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1B21",fontFamily:FONT_BODY}}>
       <div style={{textAlign:"center"}}>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><NanuLogo size={52}/></div>
-        <p style={{color:"#8AA4B0",fontSize:14}}>Loading Marketing Hub…</p>
+        <p style={{color:"#8AA4B0",fontSize:14}}>Loading Team Hub…</p>
       </div>
     </div>
   );
 
   if (!curUser) return <><LoginScreen onLogin={setCurUser} users={users}/></>;
 
-  const NAV = [
-    { key:"dashboard", label:"Dashboard", icon:<LayoutDashboard size={18}/> },
-    { key:"team", label:"Team", icon:<Users size={18}/> },
-    { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
-    { key:"pallyy", label:"Content Scheduler", icon:<Columns size={18}/> },
-    { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
-    { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
-    { key:"outreach", label:"Outreach", icon:<Megaphone size={18}/> },
-    { key:"partnerships", label:"Partnerships", icon:<Handshake size={18}/> },
-    { key:"resources", label:"Resources", icon:<Link2 size={18}/> },
-    { key:"content-ops", label:"Content Ops", icon:<FileText size={18}/> },
-    { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
-    { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
-    { key:"workspace", label:"My Space", icon:<BookOpen size={18}/> },
-    { key:"chat", label:"Chat", icon:<MessageCircle size={18}/> },
-    { key:"settings", label:"Settings", icon:<Bell size={18}/> },
-    ...(isAdmin?[{key:"admin",label:"Admin",icon:<Settings size={18}/>}]:[]),
+  const NAV_GROUPS = [
+    {
+      id: "shared",
+      label: "Shared",
+      items: [
+        { key:"dashboard", label:"Dashboard", icon:<LayoutDashboard size={18}/> },
+        { key:"team", label:"Team", icon:<Users size={18}/> },
+        { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
+        { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
+        { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
+        { key:"chat", label:"Chat", icon:<MessageCircle size={18}/> },
+        { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
+        { key:"resources", label:"Resources", icon:<Link2 size={18}/> },
+        { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
+        { key:"workspace", label:"My Space", icon:<BookOpen size={18}/> },
+      ]
+    },
+    {
+      id: "marketing",
+      label: "Marketing",
+      items: [
+        { key:"pallyy", label:"Content Scheduler", icon:<Columns size={18}/> },
+        { key:"outreach", label:"Outreach", icon:<Megaphone size={18}/> },
+        { key:"partnerships", label:"Partnerships", icon:<Handshake size={18}/> },
+        { key:"content-ops", label:"Content Ops", icon:<FileText size={18}/> },
+      ]
+    },
+    {
+      id: "community",
+      label: "Community",
+      items: [
+        { key:"ambassadors", label:"Ambassadors", icon:<Award size={18}/> },
+        { key:"channels", label:"Channels", icon:<Hash size={18}/> },
+        { key:"events", label:"Events", icon:<MapPin size={18}/> },
+        { key:"feedback", label:"Feedback", icon:<Smile size={18}/> },
+        { key:"engagement", label:"Engagement", icon:<Activity size={18}/> },
+      ]
+    },
+    {
+      id: "system",
+      label: "System",
+      items: [
+        { key:"settings", label:"Settings", icon:<Bell size={18}/> },
+        ...(isAdmin?[{key:"admin",label:"Admin",icon:<Settings size={18}/>}]:[]),
+      ]
+    },
   ];
+  // Flat list for compatibility
+  const NAV = NAV_GROUPS.flatMap(g => g.items);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const overdue = tasks.filter(t=>t.status==="Overdue").length;
@@ -1502,6 +1572,258 @@ export default function MarketingHub() {
         </div>
       </div>
     );
+
+    /* ─── AMBASSADORS ─── */
+    case "ambassadors": return (
+      <div>
+        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>openM("editAmbassador",{name:"",email:"",platform:"",followers:0,status:"Applied",joinDate:new Date().toISOString().split("T")[0],region:"",focus:"UAP",inviteCode:"",referrals:0,notes:"",links:[]})}><Plus size={14}/> Add Ambassador</Btn>}>Ambassador Program</SectionHead>
+
+        {/* Summary cards */}
+        <div className="nanu-grid-summary" style={{marginBottom:18}}>
+          {AMBASSADOR_STATUS.map(s=>{
+            const count=ambassadors.filter(a=>a.status===s).length;
+            return count>0?<Card key={s} theme={theme} style={{padding:12,textAlign:"center"}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:AMBASSADOR_STATUS_COLORS[s]}}>{count}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+            </Card>:null;
+          })}
+          <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+            <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{ambassadors.reduce((n,a)=>n+(a.referrals||0),0)}</div>
+            <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Total Referrals</div>
+          </Card>
+        </div>
+
+        {/* List */}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {ambassadors.filter(a=>a.name).map(a=>(
+            <Card key={a.id} theme={theme} onClick={()=>openM("editAmbassador",{...a})} style={{padding:14,cursor:"pointer",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <div style={{width:38,height:38,borderRadius:"50%",background:AMBASSADOR_STATUS_COLORS[a.status]||theme.teal,display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:700,fontSize:14,flexShrink:0}}>{a.name.charAt(0)}</div>
+              <div style={{flex:"1 1 200px"}}>
+                <div style={{fontWeight:700,fontSize:14}}>{a.name}</div>
+                <div style={{fontSize:12,color:theme.textMut}}>{a.platform} · {a.region||"—"} · {a.focus}</div>
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:700,fontSize:14,color:theme.teal}}>{a.followers?.toLocaleString()||0}</div>
+                  <div style={{fontSize:10,color:theme.textMut}}>followers</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{a.referrals||0}</div>
+                  <div style={{fontSize:10,color:theme.textMut}}>referrals</div>
+                </div>
+                {a.inviteCode&&<code style={{fontSize:11,padding:"3px 8px",background:theme.bgInput,borderRadius:6,color:theme.teal,fontFamily:FONT_MONO}}>{a.inviteCode}</code>}
+                <Badge label={a.status} color={AMBASSADOR_STATUS_COLORS[a.status]}/>
+              </div>
+            </Card>
+          ))}
+          {ambassadors.filter(a=>a.name).length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No ambassadors yet. Click "Add Ambassador" to start tracking your program.</p>}
+        </div>
+      </div>
+    );
+
+    /* ─── CHANNELS ─── */
+    case "channels": return (
+      <div>
+        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>openM("editChannel",{name:"",platform:CHANNEL_PLATFORMS[0],url:"",members:0,status:"Monitoring",priority:"Medium",owner:curUser.id,lastEngaged:"",notes:""})}><Plus size={14}/> Add Channel</Btn>}>Community Channels</SectionHead>
+        <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Communities and platforms relevant to Nanu — track engagement, contacts, and outreach status.</p>
+
+        {/* Grouped by platform */}
+        {CHANNEL_PLATFORMS.filter(p=>commChannels.some(c=>c.platform===p)).map(plat=>(
+          <div key={plat} style={{marginBottom:20}}>
+            <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{plat}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {commChannels.filter(c=>c.platform===plat).map(c=>(
+                <Card key={c.id} theme={theme} onClick={()=>openM("editChannel",{...c})} style={{padding:14,cursor:"pointer",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <div style={{flex:"1 1 200px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                      <span style={{fontWeight:700,fontSize:14}}>{c.name}</span>
+                      {c.url&&<a href={c.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:theme.teal}}><ExternalLink size={12}/></a>}
+                    </div>
+                    {c.notes&&<p style={{fontSize:12,color:theme.textMut,margin:0,lineHeight:1.4}}>{c.notes}</p>}
+                  </div>
+                  <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontWeight:700,fontSize:14,color:theme.teal}}>{c.members?.toLocaleString()||0}</div>
+                      <div style={{fontSize:10,color:theme.textMut}}>members</div>
+                    </div>
+                    <Badge label={c.priority||"Medium"} color={c.priority==="High"?theme.red:c.priority==="Low"?theme.textMut:theme.yellow}/>
+                    <Badge label={c.status} color={c.status==="Active"?theme.green:c.status==="Planned"?theme.yellow:theme.textMut}/>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+        {commChannels.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No channels tracked yet. Click "Add Channel" to start.</p>}
+      </div>
+    );
+
+    /* ─── COMMUNITY EVENTS ─── */
+    case "events": return (
+      <div>
+        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>openM("editCommEvent",{title:"",type:COMM_EVENT_TYPES[0],date:"",time:"",duration:60,status:"Planned",host:curUser.id,platform:"",expectedAttendees:0,actualAttendees:0,description:"",recording:"",notes:""})}><Plus size={14}/> Add Event</Btn>}>Community Events</SectionHead>
+
+        {/* Upcoming */}
+        <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Upcoming</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+          {commEvents.filter(e=>e.title&&(!e.date||e.date>=new Date().toISOString().split("T")[0])&&e.status!=="Completed"&&e.status!=="Cancelled").sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(ev=>(
+            <Card key={ev.id} theme={theme} onClick={()=>openM("editCommEvent",{...ev})} style={{padding:16,cursor:"pointer"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16}}>{ev.title}</div>
+                  <div style={{display:"flex",gap:10,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>
+                    <Badge label={ev.type} color={theme.teal}/>
+                    <Badge label={ev.status} color={COMM_EVENT_STATUS_COLORS[ev.status]}/>
+                    {ev.date&&<span style={{fontSize:12,color:theme.textMut}}>{ev.date} {ev.time&&`at ${ev.time}`} · {ev.duration}min</span>}
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:18,fontWeight:800,color:theme.teal,fontFamily:FONT_DISPLAY}}>{ev.expectedAttendees||0}</div>
+                  <div style={{fontSize:10,color:theme.textMut}}>expected</div>
+                </div>
+              </div>
+              {ev.description&&<p style={{fontSize:13,color:theme.textSec,margin:"8px 0 0",lineHeight:1.5}}>{ev.description}</p>}
+              {ev.platform&&<div style={{fontSize:11,color:theme.textMut,marginTop:6}}>📍 {ev.platform} · Host: {uName(ev.host)}</div>}
+            </Card>
+          ))}
+          {commEvents.filter(e=>e.title&&(!e.date||e.date>=new Date().toISOString().split("T")[0])&&e.status!=="Completed"&&e.status!=="Cancelled").length===0&&<p style={{fontSize:13,color:theme.textMut,padding:16}}>No upcoming events</p>}
+        </div>
+
+        {/* Past */}
+        <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Past Events</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {commEvents.filter(e=>e.title&&(e.status==="Completed"||(e.date&&e.date<new Date().toISOString().split("T")[0]))).sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,10).map(ev=>(
+            <Card key={ev.id} theme={theme} onClick={()=>openM("editCommEvent",{...ev})} style={{padding:12,cursor:"pointer",opacity:0.7,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <Badge label={ev.type} color={theme.textMut}/>
+              <span style={{fontSize:13,fontWeight:600,flex:1}}>{ev.title}</span>
+              <span style={{fontSize:12,color:theme.textMut}}>{ev.date}</span>
+              {ev.actualAttendees>0&&<span style={{fontSize:12,fontWeight:700,color:theme.teal}}>{ev.actualAttendees} attended</span>}
+              {ev.recording&&<a href={ev.recording} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:theme.teal,fontSize:11}}>Recording</a>}
+            </Card>
+          ))}
+          {commEvents.filter(e=>e.title&&(e.status==="Completed"||(e.date&&e.date<new Date().toISOString().split("T")[0]))).length===0&&<p style={{fontSize:13,color:theme.textMut,padding:16}}>No past events yet</p>}
+        </div>
+      </div>
+    );
+
+    /* ─── FEEDBACK ─── */
+    case "feedback": return (
+      <div>
+        <SectionHead theme={theme} right={<Btn primary theme={theme} onClick={()=>openM("editFeedback",{source:"In-app",user:"",contact:"",type:FEEDBACK_TYPES[0],sentiment:"Neutral",text:"",date:new Date().toISOString().split("T")[0],status:"New",owner:curUser.id,response:"",tags:[]})}><Plus size={14}/> Log Feedback</Btn>}>Community Feedback</SectionHead>
+
+        {/* Sentiment summary */}
+        <div className="nanu-grid-summary" style={{marginBottom:18}}>
+          {FEEDBACK_SENTIMENT.map(s=>{
+            const count=feedback.filter(f=>f.sentiment===s).length;
+            return <Card key={s} theme={theme} style={{padding:12,textAlign:"center"}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:FEEDBACK_SENTIMENT_COLORS[s]}}>{count}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+            </Card>;
+          })}
+          <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+            <div className="nanu-big-num" style={{fontSize:22,color:theme.yellow}}>{feedback.filter(f=>f.status==="New"||f.status==="Reviewed").length}</div>
+            <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Open</div>
+          </Card>
+        </div>
+
+        {/* Feedback list */}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {feedback.filter(f=>f.text).sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(f=>(
+            <Card key={f.id} theme={theme} onClick={()=>openM("editFeedback",{...f})} style={{padding:14,cursor:"pointer",borderLeft:`3px solid ${FEEDBACK_SENTIMENT_COLORS[f.sentiment]}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  <Badge label={f.type} color={theme.teal}/>
+                  <Badge label={f.sentiment} color={FEEDBACK_SENTIMENT_COLORS[f.sentiment]}/>
+                  <Badge label={f.status} color={f.status==="Resolved"?theme.green:f.status==="New"?theme.yellow:theme.textMut}/>
+                  <span style={{fontSize:11,color:theme.textMut}}>{f.source}</span>
+                </div>
+                <span style={{fontSize:11,color:theme.textMut,fontFamily:FONT_MONO}}>{f.date}</span>
+              </div>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.5}}>{f.text}</p>
+              {(f.user||f.contact)&&<div style={{fontSize:11,color:theme.textMut,marginTop:6}}>{f.user&&`From: ${f.user}`}{f.user&&f.contact&&" · "}{f.contact}</div>}
+            </Card>
+          ))}
+          {feedback.filter(f=>f.text).length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No feedback logged yet. Click "Log Feedback" to start.</p>}
+        </div>
+      </div>
+    );
+
+    /* ─── ENGAGEMENT METRICS ─── */
+    case "engagement": {
+      const wk = engagement.weekly || { dau:0,wau:0,mau:0,newSignups:0,reports:0,comments:0,reactions:0 };
+      const prev = engagement.previous || {};
+      const delta = (cur, p) => p ? Math.round(((cur-p)/p)*100) : 0;
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editEngagement",{...wk})}><Edit3 size={14}/> Update Weekly Metrics</Btn>}>Engagement Metrics</SectionHead>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>In-app engagement and community health metrics. Update weekly.</p>
+
+          {/* Main metrics */}
+          <div className="nanu-grid-summary" style={{marginBottom:20}}>
+            {[
+              {label:"Daily Active",key:"dau",color:theme.teal},
+              {label:"Weekly Active",key:"wau",color:"#748FFC"},
+              {label:"Monthly Active",key:"mau",color:"#DA77F2"},
+              {label:"New Signups",key:"newSignups",color:"#69DB7C"},
+            ].map(m=>{
+              const d=delta(wk[m.key]||0,prev[m.key]||0);
+              return <Card key={m.key} theme={theme} style={{padding:16}}>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase",marginBottom:4}}>{m.label}</div>
+                <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:28,color:m.color,lineHeight:1}}>{(wk[m.key]||0).toLocaleString()}</div>
+                {prev[m.key]&&<div style={{fontSize:11,marginTop:4,color:d>=0?theme.green:theme.red}}>{d>=0?"↑":"↓"} {Math.abs(d)}% vs last</div>}
+              </Card>;
+            })}
+          </div>
+
+          <div className="nanu-grid-summary" style={{marginBottom:20}}>
+            {[
+              {label:"Reports Submitted",key:"reports",color:"#FFA94D",icon:<FileText size={14}/>},
+              {label:"Comments Posted",key:"comments",color:"#82F9F6",icon:<MessageSquare size={14}/>},
+              {label:"Reactions Given",key:"reactions",color:"#FF6B6B",icon:<Heart size={14}/>},
+              {label:"Credibility Votes",key:"votes",color:"#69DB7C",icon:<Check size={14}/>},
+            ].map(m=>(
+              <Card key={m.key} theme={theme} style={{padding:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,color:m.color}}>{m.icon}<span style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase"}}>{m.label}</span></div>
+                <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,color:theme.text}}>{(wk[m.key]||0).toLocaleString()}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Top categories engagement */}
+          <Card theme={theme} style={{padding:18,marginBottom:16}}>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:12}}>Engagement by Category</div>
+            {[
+              {cat:"UAP / UFO",color:"#1FC2C2"},
+              {cat:"NHI",color:"#0EA5E9"},
+              {cat:"Cryptids",color:"#16A34A"},
+              {cat:"Paranormal",color:"#9333EA"},
+              {cat:"Consciousness",color:"#EC4899"},
+              {cat:"Myths & History",color:"#F59E0B"},
+              {cat:"Ritual / Occult",color:"#DC2626"},
+              {cat:"Natural Phenomena",color:"#10B981"},
+              {cat:"Other / Fortean",color:"#6B7280"},
+            ].map(c=>{
+              const val = (engagement.categories||{})[c.cat] || 0;
+              const max = Math.max(1, ...Object.values(engagement.categories||{}));
+              const pct = (val/max)*100;
+              return <div key={c.cat} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span style={{color:theme.text}}>{c.cat}</span>
+                  <span style={{fontFamily:FONT_MONO,color:c.color,fontWeight:700}}>{val.toLocaleString()}</span>
+                </div>
+                <div style={{height:6,background:theme.bgInput,borderRadius:3,overflow:"hidden"}}>
+                  <div style={{width:`${pct}%`,height:"100%",background:c.color,borderRadius:3,transition:"width .4s"}}/>
+                </div>
+              </div>;
+            })}
+          </Card>
+
+          {/* Period note */}
+          <div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:8}}>Metrics for week ending {engagement.weekEnding||"—"}. Update via the button above to track week-over-week changes.</div>
+        </div>
+      );
+    }
 
     /* ─── RESOURCES ─── */
     case "resources": return (
@@ -2660,6 +2982,116 @@ export default function MarketingHub() {
         </div>
       </div></Modal>;
 
+      /* ─── AMBASSADOR MODAL ─── */
+      case "editAmbassador": return <Modal theme={theme} title={form.id?"Edit Ambassador":"New Ambassador"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div><div><Label theme={theme}>Email</Label><Input theme={theme} value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="ambassador@example.com"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Primary Platform</Label><Input theme={theme} value={form.platform||""} onChange={e=>setForm(p=>({...p,platform:e.target.value}))} placeholder="YouTube, Reddit, Instagram..."/></div><div><Label theme={theme}>Followers</Label><Input theme={theme} type="number" value={form.followers||0} onChange={e=>setForm(p=>({...p,followers:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={AMBASSADOR_STATUS} value={form.status||"Applied"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Join Date</Label><Input theme={theme} type="date" value={form.joinDate||""} onChange={e=>setForm(p=>({...p,joinDate:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Region / Country</Label><Input theme={theme} value={form.region||""} onChange={e=>setForm(p=>({...p,region:e.target.value}))} placeholder="UK, US, Brazil..."/></div><div><Label theme={theme}>Content Focus</Label><Sel theme={theme} options={["UAP","NHI","Cryptids","Paranormal","Consciousness","Myths & History","Ritual / Occult","Natural Phenomena","Fortean","General"]} value={form.focus||"UAP"} onChange={e=>setForm(p=>({...p,focus:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Invite Code</Label><Input theme={theme} value={form.inviteCode||""} onChange={e=>setForm(p=>({...p,inviteCode:e.target.value}))} placeholder="UNIQUE-CODE"/></div><div><Label theme={theme}>Referrals</Label><Input theme={theme} type="number" value={form.referrals||0} onChange={e=>setForm(p=>({...p,referrals:Number(e.target.value)}))}/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Background, goals, agreements..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setAmbassadors(p=>p.filter(x=>x.id!==form.id));db.deleteAmbassador(form.id);log("deleted",form.name,"Ambassadors")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const aid=form.id||uid("amb");const adata={...form,id:aid};
+            if(form.id){setAmbassadors(p=>p.map(x=>x.id===form.id?adata:x));log("updated",form.name,"Ambassadors")}
+            else{setAmbassadors(p=>[...p,adata]);log("created",form.name,"Ambassadors")}
+            db.saveAmbassador(adata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── CHANNEL MODAL ─── */
+      case "editChannel": return <Modal theme={theme} title={form.id?"Edit Channel":"New Channel"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Channel Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="r/UFOs, Nanu Discord..."/></div><div><Label theme={theme}>Platform</Label><Sel theme={theme} options={CHANNEL_PLATFORMS} value={form.platform||CHANNEL_PLATFORMS[0]} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="https://..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Members / Audience</Label><Input theme={theme} type="number" value={form.members||0} onChange={e=>setForm(p=>({...p,members:Number(e.target.value)}))}/></div><div><Label theme={theme}>Last Engaged</Label><Input theme={theme} type="date" value={form.lastEngaged||""} onChange={e=>setForm(p=>({...p,lastEngaged:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Monitoring","Active","Engaging","Paused","Planned"]} value={form.status||"Monitoring"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={["High","Medium","Low"]} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Engagement strategy, contacts, rules..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCommChannels(p=>p.filter(x=>x.id!==form.id));db.deleteCommChannel(form.id);log("deleted",form.name,"Channels")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const cid=form.id||uid("ch");const cdata={...form,id:cid};
+            if(form.id){setCommChannels(p=>p.map(x=>x.id===form.id?cdata:x));log("updated",form.name,"Channels")}
+            else{setCommChannels(p=>[...p,cdata]);log("created",form.name,"Channels")}
+            db.saveCommChannel(cdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── COMMUNITY EVENT MODAL ─── */
+      case "editCommEvent": return <Modal theme={theme} title={form.id?"Edit Event":"New Community Event"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Event title..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={COMM_EVENT_TYPES} value={form.type||COMM_EVENT_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={COMM_EVENT_STATUS} value={form.status||"Planned"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>Time</Label><Input theme={theme} type="time" value={form.time||""} onChange={e=>setForm(p=>({...p,time:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Duration (min)</Label><Input theme={theme} type="number" value={form.duration||60} onChange={e=>setForm(p=>({...p,duration:Number(e.target.value)}))}/></div><div><Label theme={theme}>Host</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.host||""} onChange={e=>setForm(p=>({...p,host:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Platform / Location</Label><Input theme={theme} value={form.platform||""} onChange={e=>setForm(p=>({...p,platform:e.target.value}))} placeholder="In-app, Zoom, Discord, London..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Expected Attendees</Label><Input theme={theme} type="number" value={form.expectedAttendees||0} onChange={e=>setForm(p=>({...p,expectedAttendees:Number(e.target.value)}))}/></div><div><Label theme={theme}>Actual Attendees</Label><Input theme={theme} type="number" value={form.actualAttendees||0} onChange={e=>setForm(p=>({...p,actualAttendees:Number(e.target.value)}))}/></div></div>
+        <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What's the event about?"/></div>
+        <div><Label theme={theme}>Recording / Replay Link</Label><Input theme={theme} value={form.recording||""} onChange={e=>setForm(p=>({...p,recording:e.target.value}))} placeholder="https://..."/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCommEvents(p=>p.filter(x=>x.id!==form.id));db.deleteCommEvent(form.id);log("deleted",form.title,"Events")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const eid=form.id||uid("ev");const edata={...form,id:eid};
+            if(form.id){setCommEvents(p=>p.map(x=>x.id===form.id?edata:x));log("updated",form.title,"Events")}
+            else{setCommEvents(p=>[...p,edata]);log("created",form.title,"Events")}
+            db.saveCommEvent(edata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── FEEDBACK MODAL ─── */
+      case "editFeedback": return <Modal theme={theme} title={form.id?"Edit Feedback":"Log Feedback"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Source</Label><Sel theme={theme} options={["In-app","Email","Social","Discord","Reddit","Survey","Other"]} value={form.source||"In-app"} onChange={e=>setForm(p=>({...p,source:e.target.value}))}/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>User / Reporter</Label><Input theme={theme} value={form.user||""} onChange={e=>setForm(p=>({...p,user:e.target.value}))} placeholder="Username or name"/></div><div><Label theme={theme}>Contact</Label><Input theme={theme} value={form.contact||""} onChange={e=>setForm(p=>({...p,contact:e.target.value}))} placeholder="email / handle (optional)"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={FEEDBACK_TYPES} value={form.type||FEEDBACK_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Sentiment</Label><Sel theme={theme} options={FEEDBACK_SENTIMENT} value={form.sentiment||"Neutral"} onChange={e=>setForm(p=>({...p,sentiment:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Feedback Text</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))} placeholder="What did they say?"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FEEDBACK_STATUS} value={form.status||"New"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...users.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Response / Action Taken</Label><Textarea theme={theme} value={form.response||""} onChange={e=>setForm(p=>({...p,response:e.target.value}))} placeholder="Internal notes on follow-up"/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFeedback(p=>p.filter(x=>x.id!==form.id));db.deleteFeedback(form.id);log("deleted","feedback","Feedback")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const fid=form.id||uid("fb");const fdata={...form,id:fid};
+            if(form.id){setFeedback(p=>p.map(x=>x.id===form.id?fdata:x));log("updated","feedback","Feedback")}
+            else{setFeedback(p=>[...p,fdata]);log("created","feedback","Feedback")}
+            db.saveFeedback(fdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ENGAGEMENT METRICS MODAL ─── */
+      case "editEngagement": return <Modal theme={theme} title="Update Weekly Metrics" onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <p style={{fontSize:12,color:theme.textSec,marginBottom:4}}>Enter the latest weekly metrics. The previous week's numbers will be auto-saved for week-over-week comparison.</p>
+        <div><Label theme={theme}>Week Ending</Label><Input theme={theme} type="date" value={form.weekEnding||""} onChange={e=>setForm(p=>({...p,weekEnding:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Daily Active Users</Label><Input theme={theme} type="number" value={form.dau||0} onChange={e=>setForm(p=>({...p,dau:Number(e.target.value)}))}/></div><div><Label theme={theme}>Weekly Active Users</Label><Input theme={theme} type="number" value={form.wau||0} onChange={e=>setForm(p=>({...p,wau:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Monthly Active Users</Label><Input theme={theme} type="number" value={form.mau||0} onChange={e=>setForm(p=>({...p,mau:Number(e.target.value)}))}/></div><div><Label theme={theme}>New Signups</Label><Input theme={theme} type="number" value={form.newSignups||0} onChange={e=>setForm(p=>({...p,newSignups:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Reports Submitted</Label><Input theme={theme} type="number" value={form.reports||0} onChange={e=>setForm(p=>({...p,reports:Number(e.target.value)}))}/></div><div><Label theme={theme}>Comments Posted</Label><Input theme={theme} type="number" value={form.comments||0} onChange={e=>setForm(p=>({...p,comments:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Reactions Given</Label><Input theme={theme} type="number" value={form.reactions||0} onChange={e=>setForm(p=>({...p,reactions:Number(e.target.value)}))}/></div><div><Label theme={theme}>Credibility Votes</Label><Input theme={theme} type="number" value={form.votes||0} onChange={e=>setForm(p=>({...p,votes:Number(e.target.value)}))}/></div></div>
+        <Label theme={theme}>Engagement by Category (reports + comments)</Label>
+        {["UAP / UFO","NHI","Cryptids","Paranormal","Consciousness","Myths & History","Ritual / Occult","Natural Phenomena","Other / Fortean"].map(cat=>(
+          <div key={cat} style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{flex:1,fontSize:13}}>{cat}</span>
+            <Input theme={theme} type="number" value={(form._cats||{})[cat]||0} onChange={e=>setForm(p=>({...p,_cats:{...(p._cats||{}),[cat]:Number(e.target.value)}}))} style={{width:120}}/>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const {_cats,...metrics}=form;
+            const newEng={previous:engagement.weekly||{},weekly:metrics,weekEnding:metrics.weekEnding,categories:_cats||engagement.categories||{}};
+            setEngagement(newEng);
+            db.saveEngagement(newEng);
+            log("updated","weekly metrics","Engagement");
+          })}>Save</Btn>
+        </div>
+      </div></Modal>;
+
       case "editSocials": return <Modal theme={theme} title="Edit My Socials" onClose={closeM}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:8}}>Add your social profile links so the team can find you.</p>
         {[["linkedin","LinkedIn"],["x","X / Twitter"],["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"]].map(([key,label])=>(
@@ -2689,15 +3121,24 @@ export default function MarketingHub() {
         <div style={{padding:sidebar?"18px 16px":"18px 10px",borderBottom:`1px solid ${theme.border}`}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <NanuLogo size={34}/>
-            {sidebar&&<div className="nanu-sidebar-header-text"><div style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:theme.teal}}>NANU</div><div style={{fontSize:11,color:theme.textMut}}>Marketing Hub</div></div>}
+            {sidebar&&<div className="nanu-sidebar-header-text"><div style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:theme.teal}}>NANU</div><div style={{fontSize:11,color:theme.textMut}}>Team Hub</div></div>}
           </div>
         </div>
-        <nav style={{flex:1,padding:"10px 6px"}}>
-          {NAV.map(n=>(
-            <button key={n.key} onClick={()=>setSection(n.key)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",padding:sidebar?"9px 12px":"9px 0",borderRadius:8,border:"none",cursor:"pointer",marginBottom:1,background:section===n.key?`${theme.teal}12`:"transparent",color:section===n.key?theme.teal:theme.textSec,fontFamily:FONT_BODY,fontWeight:500,fontSize:14,transition:"all .15s",justifyContent:sidebar?"flex-start":"center"}}>{n.icon}{sidebar&&<span className="nanu-sidebar-label">{n.label}</span>}
-              {n.key==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:theme.red,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{overdue}</span>}
-            </button>
-          ))}
+        <nav style={{flex:1,padding:"10px 6px",overflow:"auto"}}>
+          {NAV_GROUPS.map(group=>{
+            const isCollapsed = collapsedGroups[group.id];
+            return <div key={group.id} style={{marginBottom:8}}>
+              {sidebar && <button type="button" onClick={()=>setCollapsedGroups(p=>({...p,[group.id]:!p[group.id]}))} style={{display:"flex",alignItems:"center",gap:6,width:"100%",padding:"6px 12px",border:"none",background:"transparent",cursor:"pointer",fontSize:10,fontWeight:700,color:theme.textMut,textTransform:"uppercase",letterSpacing:".08em",justifyContent:"space-between"}}>
+                <span>{group.label}</span>
+                <ChevronRight size={11} style={{transform:isCollapsed?"none":"rotate(90deg)",transition:"transform .15s"}}/>
+              </button>}
+              {(!sidebar || !isCollapsed) && group.items.map(n=>(
+                <button key={n.key} onClick={()=>setSection(n.key)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",padding:sidebar?"9px 12px":"9px 0",borderRadius:8,border:"none",cursor:"pointer",marginBottom:1,background:section===n.key?`${theme.teal}12`:"transparent",color:section===n.key?theme.teal:theme.textSec,fontFamily:FONT_BODY,fontWeight:500,fontSize:14,transition:"all .15s",justifyContent:sidebar?"flex-start":"center"}}>{n.icon}{sidebar&&<span className="nanu-sidebar-label">{n.label}</span>}
+                  {n.key==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:theme.red,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{overdue}</span>}
+                </button>
+              ))}
+            </div>;
+          })}
         </nav>
         <div style={{padding:"10px 6px",borderTop:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",gap:1}}>
           <button onClick={()=>setSidebar(!sidebar)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 12px",borderRadius:8,border:"none",background:"transparent",color:theme.textMut,cursor:"pointer",fontSize:12,justifyContent:sidebar?"flex-start":"center"}}>{sidebar?<ChevronLeft size={16}/>:<ChevronRight size={16}/>}{sidebar&&<span className="nanu-sidebar-label">Collapse</span>}</button>
