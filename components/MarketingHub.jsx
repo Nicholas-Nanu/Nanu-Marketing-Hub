@@ -514,6 +514,9 @@ export default function MarketingHub() {
   const [calEventFilter, setCalEventFilter] = useState("All");
   const [calPersonFilter, setCalPersonFilter] = useState("mine");
   const [taskView, setTaskView] = useState("mine");
+  const [masterGroupBy, setMasterGroupBy] = useState("member");
+  const [bulkSelected, setBulkSelected] = useState([]);
+  const [bulkReassignTo, setBulkReassignTo] = useState("");
   const [tfProject, setTfProject] = useState("All");
   const [tfPriority, setTfPriority] = useState("All");
   const [tfStatus, setTfStatus] = useState("All");
@@ -636,16 +639,32 @@ export default function MarketingHub() {
     return () => clearInterval(i);
   }, [curUser]);
 
-  // Mark channel as read when switching to it
+  // Mark the active channel as read — on switch AND as new messages arrive while viewing it.
+  // Only marks read while the user is actually on the chat section (not just has it selected).
   useEffect(() => {
-    if (!curUser || !chatChannel) return;
+    if (!curUser || !chatChannel || section !== "chat") return;
+    const latest = (chatMessages[chatChannel] || []).reduce((max, m) => m.time > max ? m.time : max, "");
     const now = new Date().toISOString();
+    const stamp = latest && latest > now ? latest : now;
     setChatLastRead(prev => {
-      const next = { ...prev, [chatChannel]: now };
+      if (prev[chatChannel] === stamp) return prev; // no change, avoid loop
+      const next = { ...prev, [chatChannel]: stamp };
       db.saveChatLastRead(curUser.id, next);
       return next;
     });
-  }, [chatChannel, curUser]);
+  }, [chatChannel, curUser, section, chatMessages]);
+
+  // Also mark the bubble's channel read while the bubble is open
+  useEffect(() => {
+    if (!curUser || !chatBubble || !chatBubbleChannel) return;
+    const now = new Date().toISOString();
+    setChatLastRead(prev => {
+      if (prev[chatBubbleChannel] === now) return prev;
+      const next = { ...prev, [chatBubbleChannel]: now };
+      db.saveChatLastRead(curUser.id, next);
+      return next;
+    });
+  }, [chatBubbleChannel, chatBubble, curUser, chatMessages]);
 
   // Chat channels definition
   const CHAT_CHANNELS = [
@@ -788,6 +807,16 @@ export default function MarketingHub() {
       return exists ? prev.filter(p => !(p.type === type && p.id === id)) : [...(prev || []), { type, id }];
     });
   };
+
+  // Department mapping for the master task view (based on role)
+  const DEPT_BY_ROLE = {
+    "Admin": "Leadership",
+    "Marketing Lead": "Marketing",
+    "Content Creator": "Marketing",
+    "Social Media Manager": "Community",
+    "Community Lead": "Community",
+  };
+  const userDept = (uid2) => { const u = users.find(x => x.id === uid2); return u ? (DEPT_BY_ROLE[u.role] || "Other") : "Unassigned"; };
 
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
@@ -1283,8 +1312,8 @@ export default function MarketingHub() {
         {/* Filters */}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
           <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
-            {[["mine","My Tasks"],["all","All Tasks"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setTaskView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:taskView===k?theme.teal:"transparent",color:taskView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+            {[["mine","My Tasks"],["all","All Tasks"],...(isAdmin?[["master","Master"]]:[])].map(([k,l])=>(
+              <button key={k} onClick={()=>setTaskView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:taskView===k?theme.teal:"transparent",color:taskView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l==="Master"?<span style={{display:"flex",alignItems:"center",gap:4}}><Lock size={11}/>{l}</span>:l}</button>
             ))}
           </div>
           <Sel theme={theme} options={[{value:"All",label:"All Projects"},...visibleProjects.map(p=>({value:p.id,label:p.name}))]} value={tfProject} onChange={e=>setTfProject(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
@@ -1294,6 +1323,131 @@ export default function MarketingHub() {
           <Sel theme={theme} options={[{value:"All",label:"All Dates"},{value:"Overdue",label:"Overdue"},{value:"This Week",label:"This Week"},{value:"Upcoming",label:"Upcoming"}]} value={tfDue} onChange={e=>setTfDue(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
           {(tfProject!=="All"||tfPriority!=="All"||tfStatus!=="All"||tfPerson!=="All"||tfDue!=="All")&&<button onClick={()=>{setTfProject("All");setTfPriority("All");setTfStatus("All");setTfPerson("All");setTfDue("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear filters</button>}
         </div>
+
+        {taskView==="master"&&isAdmin ? (()=>{
+          // Master admin view — uses filteredTasks (respects the filter bar) minus Done unless filtered
+          const mTasks = filteredTasks;
+          const activeTasks = mTasks.filter(t=>t.status!=="Done");
+          const toggleBulk = (id) => setBulkSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]);
+          const doBulkReassign = () => {
+            if(!bulkReassignTo||bulkSelected.length===0) return;
+            bulkSelected.forEach(tid=>{
+              const t = tasks.find(x=>x.id===tid); if(!t) return;
+              const updated = {...t, owners:[bulkReassignTo]};
+              setTasks(prev=>prev.map(x=>x.id===tid?updated:x));
+              db.saveTask(updated);
+            });
+            log("reassigned",`${bulkSelected.length} task(s) to ${uName(bulkReassignTo)}`,"Tasks");
+            setBulkSelected([]); setBulkReassignTo("");
+          };
+          const quickUpdate = (t, field, value) => {
+            const updated = {...t,[field]:value};
+            setTasks(prev=>prev.map(x=>x.id===t.id?updated:x));
+            db.saveTask(updated);
+          };
+          // Build groups
+          let groups = [];
+          if(masterGroupBy==="member"){
+            groups = users.map(u=>({key:u.id,label:u.name,sub:userDept(u.id),tasks:activeTasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(u.id):t.owners===u.id)}));
+            const unassigned = activeTasks.filter(t=>!t.owners||(Array.isArray(t.owners)&&t.owners.length===0));
+            if(unassigned.length) groups.push({key:"_unassigned",label:"Unassigned",sub:"",tasks:unassigned});
+          } else if(masterGroupBy==="department"){
+            const depts = ["Leadership","Marketing","Community","Other"];
+            groups = depts.map(d=>({key:d,label:d,sub:"",tasks:activeTasks.filter(t=>{const o=Array.isArray(t.owners)?t.owners[0]:t.owners;return userDept(o)===d})}));
+          } else if(masterGroupBy==="project"){
+            groups = visibleProjects.map(p=>({key:p.id,label:p.name,sub:"",color:p.color,tasks:activeTasks.filter(t=>t.project===p.id)}));
+            const noProj = activeTasks.filter(t=>!t.project);
+            if(noProj.length) groups.push({key:"_noproj",label:"No Project",sub:"",tasks:noProj});
+          } else { // status
+            groups = TASK_STATUSES.filter(s=>s!=="Done").map(s=>({key:s,label:s,sub:"",color:TASK_STATUS_COLORS[s],tasks:activeTasks.filter(t=>t.status===s)}));
+          }
+          groups = groups.filter(g=>g.tasks.length>0);
+
+          return <div>
+            {/* Workload summary */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Team Workload</div>
+              <div className="nanu-grid-summary">
+                {users.map(u=>{
+                  const ut = activeTasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(u.id):t.owners===u.id);
+                  const od = ut.filter(t=>isOverdue(t)).length;
+                  const overloaded = ut.length>=6;
+                  return <Card key={u.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${overloaded?theme.red:od>0?theme.orange:theme.teal}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontWeight:700,fontSize:13}}>{u.name.split(" ")[0]}</span>
+                      {overloaded&&<span title="Overloaded" style={{fontSize:9,fontWeight:700,color:theme.red,background:`${theme.red}1a`,padding:"1px 6px",borderRadius:8}}>OVERLOADED</span>}
+                    </div>
+                    <div style={{display:"flex",gap:12,alignItems:"baseline"}}>
+                      <div><span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,color:theme.text}}>{ut.length}</span><span style={{fontSize:10,color:theme.textMut,marginLeft:3}}>active</span></div>
+                      {od>0&&<div><span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:18,color:theme.red}}>{od}</span><span style={{fontSize:10,color:theme.textMut,marginLeft:3}}>overdue</span></div>}
+                    </div>
+                    <div style={{fontSize:10,color:theme.textMut,marginTop:3}}>{userDept(u.id)}</div>
+                  </Card>;
+                })}
+              </div>
+            </div>
+
+            {/* Group-by switcher + export */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+                {[["member","By Member"],["department","By Department"],["project","By Project"],["status","By Status"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setMasterGroupBy(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:masterGroupBy===k?theme.teal:"transparent",color:masterGroupBy===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+                ))}
+              </div>
+              <Btn theme={theme} small onClick={()=>{
+                const rows=[["Title","Status","Priority","Due Date","Owner","Department","Project","Overdue","Blocker","Notes"]];
+                mTasks.forEach(t=>{const o=Array.isArray(t.owners)?t.owners[0]:t.owners;rows.push([t.title,t.status,t.priority||"",t.dueDate||"",uNames(t.owners),userDept(o),visibleProjects.find(p=>p.id===t.project)?.name||"",isOverdue(t)?"YES":"",t.blocker||"",t.notes||""])});
+                exportCSV(rows,`nanu-team-tasks-${new Date().toISOString().slice(0,10)}.csv`);
+              }}><Download size={13}/> Team Report</Btn>
+            </div>
+
+            {/* Bulk action bar */}
+            {bulkSelected.length>0&&<Card theme={theme} style={{padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",borderLeft:`3px solid ${theme.teal}`}}>
+              <span style={{fontSize:13,fontWeight:600}}>{bulkSelected.length} selected</span>
+              <span style={{fontSize:12,color:theme.textMut}}>Reassign to:</span>
+              <Sel theme={theme} options={[{value:"",label:"Choose person..."},...users.map(u=>({value:u.id,label:u.name}))]} value={bulkReassignTo} onChange={e=>setBulkReassignTo(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+              <Btn primary theme={theme} small onClick={doBulkReassign} disabled={!bulkReassignTo}>Reassign</Btn>
+              <button onClick={()=>{setBulkSelected([]);setBulkReassignTo("")}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>
+            </Card>}
+
+            {/* Grouped task board */}
+            {groups.map(g=>{
+              const gOverdue = g.tasks.filter(t=>isOverdue(t)).length;
+              return <div key={g.key} style={{marginBottom:20}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  {g.color&&<div style={{width:10,height:10,borderRadius:"50%",background:g.color}}/>}
+                  <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>{g.label}</span>
+                  {g.sub&&<span style={{fontSize:11,color:theme.textMut}}>· {g.sub}</span>}
+                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{g.tasks.length}</span>
+                  {gOverdue>0&&<span style={{fontSize:11,color:theme.red,fontWeight:600}}>{gOverdue} overdue</span>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {g.tasks.map(t=>{
+                    const ov=isOverdue(t);
+                    const selected=bulkSelected.includes(t.id);
+                    return <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,background:selected?`${theme.teal}12`:theme.bgCard,border:`1px solid ${selected?theme.teal:theme.border}`,flexWrap:"wrap"}}>
+                      <input type="checkbox" checked={selected} onChange={()=>toggleBulk(t.id)} style={{cursor:"pointer",accentColor:theme.teal,width:15,height:15,flexShrink:0}}/>
+                      {ov&&<AlertTriangle size={13} color={theme.red}/>}
+                      <span onClick={()=>openM("editTask",{...t})} style={{fontWeight:500,fontSize:13,flex:"1 1 160px",cursor:"pointer",minWidth:0}}>{t.title}</span>
+                      {masterGroupBy!=="project"&&t.project&&<Badge label={visibleProjects.find(p=>p.id===t.project)?.name||""} color={visibleProjects.find(p=>p.id===t.project)?.color||theme.textMut}/>}
+                      {masterGroupBy!=="member"&&<span style={{fontSize:11,color:theme.textMut,minWidth:60}}>{uNames(t.owners)}</span>}
+                      {/* Inline priority */}
+                      <select value={t.priority||"Medium"} onChange={e=>quickUpdate(t,"priority",e.target.value)} style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:TASK_PRIORITY_COLORS[t.priority]||theme.text,cursor:"pointer",fontWeight:600}}>
+                        {TASK_PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}
+                      </select>
+                      {/* Inline status */}
+                      <select value={t.status} onChange={e=>quickUpdate(t,"status",e.target.value)} style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:TASK_STATUS_COLORS[t.status]||theme.text,cursor:"pointer",fontWeight:600}}>
+                        {TASK_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <span style={{fontFamily:FONT_MONO,fontSize:11,color:ov?theme.red:theme.textMut,minWidth:78}}>{t.dueDate||"—"}</span>
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })}
+            {groups.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No tasks match the current filters.</p>}
+          </div>;
+        })() : <>
         {sortedTasks.filter(t=>t.status!=="Done").map((t)=>{
           const hl=["Overdue","Blocked","Needs Approval"].includes(t.status);
           const proj = projects.find((p)=>p.id===t.project);
@@ -1334,6 +1488,7 @@ export default function MarketingHub() {
             })}
           </div>
         )}
+        </>}
       </div>
     );
 
