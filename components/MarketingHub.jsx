@@ -12,7 +12,7 @@ import {
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
   Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign,
-  Heart, Award, MapPin, Smile, Activity, Users2
+  Heart, Award, MapPin, Smile, Activity, Users2, Repeat
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -297,6 +297,30 @@ const INIT_FEEDBACK = [
   { id:"fb1", source:"In-app", user:"", contact:"", type:"Feature Request", sentiment:"Positive", text:"", date:"", status:"New", owner:"", response:"", tags:[] },
 ];
 
+/* ═══ RESPONSIBILITIES ═══ */
+const RESP_CADENCES = ["Daily","Weekly","Fortnightly","Monthly","Quarterly","Continuous"];
+const RESP_CADENCE_DAYS = { Daily:1, Weekly:7, Fortnightly:14, Monthly:30, Quarterly:91, Continuous:0 };
+const RESP_CADENCE_COLORS = { Daily:"#FF6B6B", Weekly:"#1FC2C2", Fortnightly:"#22B8CF", Monthly:"#748FFC", Quarterly:"#DA77F2", Continuous:"#69DB7C" };
+const RESP_AREAS = ["Content","Community","Marketing","Product","Operations","Partnerships","Finance","Leadership","Other"];
+const RESP_STATUS = ["Active","Paused"];
+
+// Advance a date string by a cadence interval
+function advanceDate(dateStr, cadence) {
+  if (!dateStr || cadence === "Continuous") return "";
+  const d = new Date(dateStr + "T00:00:00");
+  const days = RESP_CADENCE_DAYS[cadence] || 0;
+  if (cadence === "Monthly") d.setMonth(d.getMonth() + 1);
+  else if (cadence === "Quarterly") d.setMonth(d.getMonth() + 3);
+  else d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+const INIT_RESPONSIBILITIES = [
+  { id:"resp1", title:"Run Nanu Live (Thursday livestream)", description:"Host and prep the weekly Thursday livestream.", owner:"u3", area:"Content", cadence:"Weekly", status:"Active", anchorDate:"", nextDue:"", lastDone:"", color:"#1FC2C2", linkedTasks:[], notes:"" },
+  { id:"resp2", title:"Monitor & engage r/UFOs and r/HighStrangeness", description:"Daily community engagement, thoughtful replies, no self-promo.", owner:"u4", area:"Community", cadence:"Daily", status:"Active", anchorDate:"", nextDue:"", lastDone:"", color:"#FF6B6B", linkedTasks:[], notes:"" },
+  { id:"resp3", title:"Ambassador programme check-ins", description:"Review ambassador activity, send playbook updates.", owner:"u5", area:"Community", cadence:"Weekly", status:"Active", anchorDate:"", nextDue:"", lastDone:"", color:"#1FC2C2", linkedTasks:[], notes:"" },
+];
+
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
    ═══════════════════════════════════════════════════════════════ */
@@ -564,6 +588,7 @@ export default function MarketingHub() {
   const [commEvents, setCommEvents] = useState([]);
   const [feedback, setFeedback] = useState([]);
   const [engagement, setEngagement] = useState({});
+  const [responsibilities, setResponsibilities] = useState([]);
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const [dbLoading, setDbLoading] = useState(true);
@@ -602,6 +627,7 @@ export default function MarketingHub() {
       setCommEvents(data.commEvents || []);
       setFeedback(data.feedback || []);
       setEngagement(data.engagement || {});
+      setResponsibilities(data.responsibilities || []);
       setActivity(data.activity);
       // If users table is empty, this is a fresh DB — seed it
       if (!data.users.length) {
@@ -818,6 +844,23 @@ export default function MarketingHub() {
   };
   const userDept = (uid2) => { const u = users.find(x => x.id === uid2); return u ? (DEPT_BY_ROLE[u.role] || "Other") : "Unassigned"; };
 
+  // Responsibility helpers
+  const respNextDue = (r) => {
+    if (r.cadence === "Continuous") return "";
+    if (r.nextDue) return r.nextDue;
+    if (r.lastDone) return advanceDate(r.lastDone, r.cadence);
+    return r.anchorDate || "";
+  };
+  const respIsDue = (r) => { const nd = respNextDue(r); return r.status === "Active" && nd && nd <= todayStr; };
+  const markRespDone = (r) => {
+    const today = new Date().toISOString().split("T")[0];
+    const next = r.cadence === "Continuous" ? "" : advanceDate(today, r.cadence);
+    const updated = { ...r, lastDone: today, nextDue: next };
+    setResponsibilities(prev => prev.map(x => x.id === r.id ? updated : x));
+    db.saveResponsibility(updated);
+    log("completed cycle for", r.title, "Responsibilities");
+  };
+
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
   const uName = (id) => users.find(u=>u.id===id)?.name || "Unknown";
@@ -861,6 +904,7 @@ export default function MarketingHub() {
         { key:"team", label:"Team", icon:<Users size={18}/> },
         { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
         { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
+        { key:"responsibilities", label:"Responsibilities", icon:<Repeat size={18}/> },
         { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
         { key:"chat", label:"Chat", icon:<MessageCircle size={18}/> },
         { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
@@ -1036,6 +1080,21 @@ export default function MarketingHub() {
             ))}
           </Card>
         </div>
+        {/* My responsibilities due this week */}
+        {(()=>{
+          const wkEnd=(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().split("T")[0]})();
+          const mine=responsibilities.filter(r=>r.owner===curUser.id&&r.status==="Active"&&r.cadence!=="Continuous"&&respNextDue(r)&&respNextDue(r)<=wkEnd).sort((a,b)=>(respNextDue(a)||"").localeCompare(respNextDue(b)||""));
+          return mine.length>0&&<Card theme={theme} style={{marginTop:16,borderLeft:`3px solid ${theme.yellow}`}}>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Repeat size={15} color={theme.yellow}/> My Responsibilities This Week</div>
+            {mine.map(r=>{const nd=respNextDue(r);const due=respIsDue(r);return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${theme.borderLight}`}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:RESP_CADENCE_COLORS[r.cadence],flexShrink:0}}/>
+              <span onClick={()=>setSection("responsibilities")} style={{fontSize:13,flex:1,cursor:"pointer"}}>{r.title}</span>
+              <Badge label={r.cadence} color={RESP_CADENCE_COLORS[r.cadence]}/>
+              <span style={{fontFamily:FONT_MONO,fontSize:11,color:due?theme.orange:theme.textMut}}>{nd}</span>
+              <Btn theme={theme} small onClick={()=>markRespDone(r)}><Check size={12}/> Done</Btn>
+            </div>})}
+          </Card>;
+        })()}
         {/* Activity */}
         <Card theme={theme}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:15, marginBottom:10 }}>Recent Activity</div>
@@ -1066,6 +1125,17 @@ export default function MarketingHub() {
                 <Badge label={u.role} color={ROLE_COLORS[u.role]||theme.teal}/><Badge label={u.tzLabel} color={TZ_OPTIONS.find(t=>t.label===u.tzLabel)?.color||theme.teal}/>
               </div>
               <p style={{ fontSize:13, color:theme.textMut, marginTop:10, lineHeight:1.5 }}>{u.resp}</p>
+              {(()=>{const ur=responsibilities.filter(r=>r.owner===u.id&&r.status==="Active");return ur.length>0&&<div style={{marginTop:10,borderTop:`1px solid ${theme.border}`,paddingTop:10}}>
+                <div style={{fontSize:10,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6,display:"flex",alignItems:"center",gap:4}}><Repeat size={11}/> Ongoing ({ur.length})</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {ur.slice(0,4).map(r=>(<div key={r.id} onClick={()=>{setSection("responsibilities")}} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:RESP_CADENCE_COLORS[r.cadence],flexShrink:0}}/>
+                    <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:theme.textSec}}>{r.title}</span>
+                    <span style={{fontSize:10,color:theme.textMut}}>{r.cadence}</span>
+                  </div>))}
+                  {ur.length>4&&<span style={{fontSize:10,color:theme.textMut}}>+{ur.length-4} more</span>}
+                </div>
+              </div>})()}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8, flexWrap:"wrap" }}>
                 <span style={{ fontFamily:FONT_MONO, fontSize:11, color:theme.textMut }}>@{u.username}</span>
                 {u.socials && Object.entries(u.socials).filter(([_,v])=>v).map(([k,v])=>(
@@ -1084,8 +1154,26 @@ export default function MarketingHub() {
     /* ─── CALENDAR ─── */
     /* ─── COMPANY CALENDAR ─── */
     case "calendar": {
-      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Event","Meeting","Key Date"];
-      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Event:"#69DB7C", Meeting:"#22B8CF", "Key Date":"#FF6B6B" };
+      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Event","Responsibility","Meeting","Key Date"];
+      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Event:"#69DB7C", Responsibility:"#FFD43B", Meeting:"#22B8CF", "Key Date":"#FF6B6B" };
+
+      // Project recurring responsibility occurrences across a forward window (next ~120 days)
+      const projectResp = () => {
+        const out = [];
+        const horizon = new Date(); horizon.setDate(horizon.getDate() + 120);
+        const horizonStr = horizon.toISOString().split("T")[0];
+        responsibilities.filter(r=>r.status==="Active"&&r.cadence!=="Continuous").forEach(r=>{
+          let d = respNextDue(r);
+          if(!d) return;
+          let guard = 0;
+          while(d && d <= horizonStr && guard < 60){
+            out.push({id:`resp_${r.id}_${d}`,type:"Responsibility",title:r.title,date:d,color:RESP_CADENCE_COLORS[r.cadence]||"#FFD43B",status:r.cadence,ownerId:r.owner,owner:uName(r.owner),onClick:()=>openM("editResponsibility",{...r})});
+            d = advanceDate(d, r.cadence);
+            guard++;
+          }
+        });
+        return out;
+      };
 
       // Aggregate all events into a unified list
       const calEvents = [
@@ -1095,6 +1183,7 @@ export default function MarketingHub() {
         ...partnerships.filter(p=>p.startDate).map(p=>({id:"parts_"+p.id,type:"Partnership",title:p.name+" (Start)",date:p.startDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,ownerId:p.owner,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
         ...outreach.filter(o=>o.date).map(o=>({id:"out_"+o.id,type:"Outreach",title:o.name,date:o.date,color:CAL_TYPE_COLORS.Outreach,status:o.status,ownerId:o.owner,owner:uName(o.owner),onClick:()=>openM("editOutreach",{...o})})),
         ...commEvents.filter(e=>e.date).map(e=>({id:"cev_"+e.id,type:"Event",title:e.title,date:e.date,color:"#69DB7C",status:e.status,ownerId:e.host,owner:uName(e.host),onClick:()=>openM("editCommEvent",{...e})})),
+        ...projectResp(),
         ...keyDates.map(d=>({id:"kd_"+d.id,type:"Key Date",title:d.title,date:d.date,color:d.color||CAL_TYPE_COLORS["Key Date"],status:"",ownerId:"",owner:"",onClick:null})),
         ...calendar.filter(c=>c.dueDate).map(c=>({id:"cal_"+c.id,type:"Meeting",title:c.title,date:c.dueDate,color:CAL_TYPE_COLORS.Meeting,status:c.status,ownerId:c.owner,owner:uName(c.owner),onClick:()=>openM("editCal",{...c})})),
       ].filter(e=>e.date);
@@ -1371,6 +1460,7 @@ export default function MarketingHub() {
                 {users.map(u=>{
                   const ut = activeTasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(u.id):t.owners===u.id);
                   const od = ut.filter(t=>isOverdue(t)).length;
+                  const resp = responsibilities.filter(r=>r.owner===u.id&&r.status==="Active").length;
                   const overloaded = ut.length>=6;
                   return <Card key={u.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${overloaded?theme.red:od>0?theme.orange:theme.teal}`}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
@@ -1380,6 +1470,7 @@ export default function MarketingHub() {
                     <div style={{display:"flex",gap:12,alignItems:"baseline"}}>
                       <div><span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,color:theme.text}}>{ut.length}</span><span style={{fontSize:10,color:theme.textMut,marginLeft:3}}>active</span></div>
                       {od>0&&<div><span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:18,color:theme.red}}>{od}</span><span style={{fontSize:10,color:theme.textMut,marginLeft:3}}>overdue</span></div>}
+                      {resp>0&&<div><span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:18,color:theme.yellow}}>{resp}</span><span style={{fontSize:10,color:theme.textMut,marginLeft:3}}>ongoing</span></div>}
                     </div>
                     <div style={{fontSize:10,color:theme.textMut,marginTop:3}}>{userDept(u.id)}</div>
                   </Card>;
@@ -1491,6 +1582,70 @@ export default function MarketingHub() {
         </>}
       </div>
     );
+
+    /* ─── RESPONSIBILITIES ─── */
+    case "responsibilities": {
+      const newResp = () => openM("editResponsibility",{title:"",description:"",owner:curUser.id,area:"Content",cadence:"Weekly",status:"Active",anchorDate:new Date().toISOString().split("T")[0],nextDue:new Date().toISOString().split("T")[0],lastDone:"",color:theme.teal,linkedTasks:[],notes:""});
+      const active = responsibilities.filter(r=>r.status==="Active");
+      const dueNow = active.filter(respIsDue);
+      const grouped = [...users.map(u=>({key:u.id,label:u.name,items:responsibilities.filter(r=>r.owner===u.id)})), {key:"_un",label:"Unassigned",items:responsibilities.filter(r=>!r.owner||!users.some(u=>u.id===r.owner))}].filter(g=>g.items.length>0);
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            <Btn theme={theme} small onClick={()=>{
+              const rows=[["Responsibility","Owner","Area","Cadence","Status","Next Due","Last Done","Notes"]];
+              responsibilities.forEach(r=>rows.push([r.title,uName(r.owner),r.area||"",r.cadence,r.status,respNextDue(r),r.lastDone||"",r.notes||""]));
+              exportCSV(rows,`nanu-responsibilities-${new Date().toISOString().slice(0,10)}.csv`);
+            }}><Download size={13}/> CSV</Btn>
+            <Btn primary theme={theme} onClick={newResp}><Plus size={14}/> Add Responsibility</Btn>
+          </>}>Responsibilities</SectionHead>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16}}>Ongoing duties the team looks after — recurring or continuous. Mark each cycle done to roll the next due date forward.</p>
+
+          {/* Summary */}
+          <div className="nanu-grid-summary" style={{marginBottom:18}}>
+            <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{active.length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Active</div>
+            </Card>
+            <Card theme={theme} style={{padding:12,textAlign:"center",borderLeft:dueNow.length>0?`3px solid ${theme.orange}`:undefined}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:dueNow.length>0?theme.orange:theme.textMut}}>{dueNow.length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Due Now</div>
+            </Card>
+            <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.textMut}}>{responsibilities.filter(r=>r.status==="Paused").length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Paused</div>
+            </Card>
+          </div>
+
+          {/* Grouped by owner */}
+          {grouped.map(g=>(
+            <div key={g.key} style={{marginBottom:20}}>
+              <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{g.label} <span style={{color:theme.textMut}}>· {g.items.length}</span></div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {g.items.map(r=>{
+                  const nd=respNextDue(r); const due=respIsDue(r);
+                  return <Card key={r.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${RESP_CADENCE_COLORS[r.cadence]||theme.teal}`,opacity:r.status==="Paused"?0.6:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span onClick={()=>openM("editResponsibility",{...r})} style={{fontWeight:700,fontSize:14,flex:"1 1 200px",cursor:"pointer",minWidth:0}}>{r.title}</span>
+                      <Badge label={r.cadence} color={RESP_CADENCE_COLORS[r.cadence]}/>
+                      {r.area&&<Badge label={r.area} color={theme.textMut}/>}
+                      {r.status==="Paused"&&<Badge label="Paused" color={theme.textMut}/>}
+                      {r.cadence!=="Continuous"&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:due?theme.orange:theme.textMut}}>{due?"Due ":"Next "}{nd||"—"}</span>}
+                      {r.status==="Active"&&r.cadence!=="Continuous"&&<Btn theme={theme} small onClick={()=>markRespDone(r)}><Check size={12}/> Done</Btn>}
+                      <button type="button" title={isPinned("responsibility",r.id)?"Unpin":"Pin to My Space"} onClick={()=>togglePin("responsibility",r.id)} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("responsibility",r.id)?theme.teal:theme.textMut,opacity:isPinned("responsibility",r.id)?1:0.4}}><Pin size={13}/></button>
+                    </div>
+                    {r.description&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{r.description}</p>}
+                    {(r.linkedTasks||[]).length>0&&<div style={{fontSize:11,color:theme.textMut,marginTop:6}}>{r.linkedTasks.length} linked task(s)</div>}
+                  </Card>;
+                })}
+              </div>
+            </div>
+          ))}
+          {responsibilities.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No responsibilities yet. Click "Add Responsibility" to start.</p>}
+        </div>
+      );
+    }
 
     /* ─── PROJECTS ─── */
     case "projects": return (
@@ -2258,15 +2413,31 @@ export default function MarketingHub() {
             ))}
           </div>
 
+          {/* ── MY RESPONSIBILITIES ── */}
+          {(()=>{const mine=responsibilities.filter(r=>r.owner===curUser.id&&r.status==="Active");return mine.length>0&&<div style={{marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase",display:"flex",alignItems:"center",gap:5}}><Repeat size={12}/> My Responsibilities</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {mine.sort((a,b)=>(respNextDue(a)||"9999").localeCompare(respNextDue(b)||"9999")).map(r=>{
+                const nd=respNextDue(r);const due=respIsDue(r);
+                return <Card key={r.id} theme={theme} style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",borderLeft:`3px solid ${RESP_CADENCE_COLORS[r.cadence]}`}}>
+                  <span onClick={()=>setSection("responsibilities")} style={{fontWeight:600,fontSize:13,flex:"1 1 160px",cursor:"pointer",minWidth:0}}>{r.title}</span>
+                  <Badge label={r.cadence} color={RESP_CADENCE_COLORS[r.cadence]}/>
+                  {r.cadence!=="Continuous"&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:due?theme.orange:theme.textMut}}>{due?"Due ":"Next "}{nd||"—"}</span>}
+                  {r.cadence!=="Continuous"&&<Btn theme={theme} small onClick={()=>markRespDone(r)}><Check size={12}/> Done</Btn>}
+                </Card>;
+              })}
+            </div>
+          </div>})()}
+
           {/* ── PINNED ITEMS ── */}
           {pinnedItems.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Pinned Items</div>
             <div className="nanu-ws-pinned" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {pinnedItems.map((pin,idx)=>{
-                const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):pin.type==="partnership"?partnerships.find(p=>p.id===pin.id):calendar.find(c=>c.id===pin.id);
+                const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):pin.type==="partnership"?partnerships.find(p=>p.id===pin.id):pin.type==="responsibility"?responsibilities.find(r=>r.id===pin.id):calendar.find(c=>c.id===pin.id);
                 if(!target) return null;
                 return <div key={pin.id+pin.type} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,cursor:"pointer"}}
-                  onClick={()=>{if(pin.type==="task")openM("editTask",{...target});else if(pin.type==="project")setSection("projects");else if(pin.type==="outreach")openM("editOutreach",{...target});else if(pin.type==="partnership")openM("editPartnership",{...target});else openM("editCal",{...target})}}>
+                  onClick={()=>{if(pin.type==="task")openM("editTask",{...target});else if(pin.type==="project")setSection("projects");else if(pin.type==="outreach")openM("editOutreach",{...target});else if(pin.type==="partnership")openM("editPartnership",{...target});else if(pin.type==="responsibility")openM("editResponsibility",{...target});else openM("editCal",{...target})}}>
                   <Pin size={11} color={theme.teal}/>
                   <span style={{fontSize:13,fontWeight:500}}>{target.title||target.name}</span>
                   <Badge label={pin.type} color={theme.textMut} style={{fontSize:9}}/>
@@ -3375,6 +3546,35 @@ export default function MarketingHub() {
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const cid=form.id||uid("ct");const cdata={...form,id:cid,shared:form.shared||false};
             updateWs("contacts",p=>form.id?p.map(x=>x.id===form.id?cdata:x):[...p,cdata]);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── RESPONSIBILITY MODAL ─── */
+      case "editResponsibility": return <Modal theme={theme} title={form.id?"Edit Responsibility":"New Responsibility"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Run the weekly livestream"/></div>
+        <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What this involves..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Area</Label><Sel theme={theme} options={RESP_AREAS} value={form.area||"Content"} onChange={e=>setForm(p=>({...p,area:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Cadence</Label><Sel theme={theme} options={RESP_CADENCES} value={form.cadence||"Weekly"} onChange={e=>setForm(p=>({...p,cadence:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={RESP_STATUS} value={form.status||"Active"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        {form.cadence!=="Continuous"&&<div className="nanu-form-row"><div><Label theme={theme}>Next Due</Label><Input theme={theme} type="date" value={form.nextDue||""} onChange={e=>setForm(p=>({...p,nextDue:e.target.value}))}/></div><div><Label theme={theme}>Last Done</Label><Input theme={theme} type="date" value={form.lastDone||""} onChange={e=>setForm(p=>({...p,lastDone:e.target.value}))}/></div></div>}
+        <div>
+          <Label theme={theme}>Linked Tasks</Label>
+          <Sel theme={theme} options={[{value:"",label:"Link an existing task..."},...tasks.filter(t=>t.status!=="Done"&&!(form.linkedTasks||[]).includes(t.id)).map(t=>({value:t.id,label:t.title}))]} value="" onChange={e=>{if(e.target.value)setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),e.target.value]}))}}/>
+          {(form.linkedTasks||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+            {(form.linkedTasks||[]).map(tid=>{const t=tasks.find(x=>x.id===tid);return t?<span key={tid} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 8px",background:theme.bgInput,borderRadius:6,color:theme.textSec}}>{t.title}<button type="button" onClick={()=>setForm(p=>({...p,linkedTasks:p.linkedTasks.filter(x=>x!==tid)}))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",padding:0}}><X size={11}/></button></span>:null})}
+          </div>}
+          <Btn theme={theme} small onClick={()=>{const today=new Date().toISOString().split("T")[0];const nt={id:uid("t"),title:form.title||"Responsibility task",owners:[form.owner||curUser.id],status:"Not Started",priority:"Medium",dueDate:respNextDue(form)||today,blocker:"",notes:`Generated from responsibility: ${form.title}`,linkedContent:"",project:"",updates:[]};setTasks(prev=>[...prev,nt]);db.saveTask(nt);setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),nt.id]}));log("created",nt.title,"Tasks")}} style={{marginTop:8}}><Plus size={12}/> Generate Task for This Cycle</Btn>
+        </div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setResponsibilities(p=>p.filter(x=>x.id!==form.id));db.deleteResponsibility(form.id);log("deleted",form.title,"Responsibilities")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const rid=form.id||uid("resp");
+            const rdata={...form,id:rid,color:RESP_CADENCE_COLORS[form.cadence]||theme.teal};
+            if(form.id){setResponsibilities(p=>p.map(x=>x.id===form.id?rdata:x));log("updated",form.title,"Responsibilities")}
+            else{setResponsibilities(p=>[...p,rdata]);log("created",form.title,"Responsibilities")}
+            db.saveResponsibility(rdata);
           })}>Done</Btn>
         </div>
       </div></Modal>;
