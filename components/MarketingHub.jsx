@@ -780,6 +780,15 @@ export default function MarketingHub() {
     });
   };
 
+  // Pin/unpin an entity to My Space
+  const isPinned = (type, id) => (workspace.pinned || []).some(p => p.type === type && p.id === id);
+  const togglePin = (type, id) => {
+    updateWs("pinned", prev => {
+      const exists = (prev || []).some(p => p.type === type && p.id === id);
+      return exists ? prev.filter(p => !(p.type === type && p.id === id)) : [...(prev || []), { type, id }];
+    });
+  };
+
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
   const uName = (id) => users.find(u=>u.id===id)?.name || "Unknown";
@@ -865,10 +874,13 @@ export default function MarketingHub() {
   const NAV = NAV_GROUPS.flatMap(g => g.items);
 
   const todayStr = new Date().toISOString().split("T")[0];
-  const overdue = tasks.filter(t=>t.status==="Overdue").length;
+  // A task is overdue if its due date has passed and it isn't done
+  const isOverdue = (t) => t.dueDate && t.dueDate < todayStr && t.status !== "Done";
+  const overdue = tasks.filter(isOverdue).length;
   const approvals = [...tasks.filter(t=>t.status==="Needs Approval"),...calendar.filter(c=>c.status==="Needs Approval")];
   const todayItems = calendar.filter(i=>i.dueDate===todayStr);
-  const alertTasks = tasks.filter(t=>["Overdue","Blocked","Needs Approval"].includes(t.status)||t.blocker);
+  // Priority alerts: overdue (by date), explicitly blocked, needs approval, or has a blocker note — and not done
+  const alertTasks = tasks.filter(t=>t.status!=="Done"&&(isOverdue(t)||["Blocked","Needs Approval"].includes(t.status)||t.blocker));
   const filteredCal = calendar.filter(c=>(fStatus==="All"||c.status===fStatus)&&(fPlat==="All"||c.platform===fPlat));
 
   // Project visibility: private projects only visible to owner, members, and admin
@@ -969,13 +981,18 @@ export default function MarketingHub() {
           <Card theme={theme} style={{ borderLeft:`3px solid ${theme.red}` }}>
             <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:15, color:theme.red, marginBottom:10 }}>Priority Alerts</div>
             {alertTasks.length===0&&<p style={{fontSize:13,color:theme.textMut}}>All clear</p>}
-            {alertTasks.map(t=>(
-              <div key={t.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0" }}>
-                <AlertTriangle size={13} color={TASK_STATUS_COLORS[t.status]}/>
-                <span style={{ fontSize:13, flex:1 }}>{t.title}</span>
-                <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
-              </div>
-            ))}
+            {alertTasks.map(t=>{
+              const reason = isOverdue(t) ? "Overdue" : t.status==="Blocked" ? "Blocked" : t.status==="Needs Approval" ? "Needs Approval" : t.blocker ? "Has blocker" : t.status;
+              const rColor = isOverdue(t) ? theme.red : TASK_STATUS_COLORS[t.status] || theme.orange;
+              return <div key={t.id} onClick={()=>openM("editTask",{...t})} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", cursor:"pointer", borderBottom:`1px solid ${theme.border}` }}>
+                <AlertTriangle size={13} color={rColor}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <span style={{ fontSize:13 }}>{t.title}</span>
+                  {t.dueDate&&<span style={{fontSize:11,color:isOverdue(t)?theme.red:theme.textMut,marginLeft:6,fontFamily:FONT_MONO}}>{t.dueDate}</span>}
+                </div>
+                <Badge label={reason} color={rColor}/>
+              </div>;
+            })}
           </Card>
           <Card theme={theme}>
             <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:15, marginBottom:10 }}>Today's Schedule</div>
@@ -1289,6 +1306,7 @@ export default function MarketingHub() {
               <Badge label={t.status} color={TASK_STATUS_COLORS[t.status]}/>
               <span style={{fontSize:12,color:theme.textMut}}>{uNames(t.owners)}</span>
               <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{t.dueDate}</span>
+              <button type="button" title={isPinned("task",t.id)?"Unpin from My Space":"Pin to My Space"} onClick={e=>{e.stopPropagation();togglePin("task",t.id)}} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("task",t.id)?theme.teal:theme.textMut,opacity:isPinned("task",t.id)?1:0.4,padding:0}}><Pin size={14}/></button>
             </div>
             {t.notes&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{t.notes}</p>}
             {t.blocker&&<p style={{fontSize:12,color:theme.red,margin:"4px 0 0"}}>Blocker: {t.blocker}</p>}
@@ -1450,7 +1468,10 @@ export default function MarketingHub() {
               </div>
               {items.map((item)=>(
                 <Card key={item.id} theme={theme} onClick={()=>openM("editOutreach",{...item})} style={{padding:12,marginBottom:6,cursor:"pointer"}}>
-                  <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{item.name}</div>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
+                    <div style={{fontWeight:600,fontSize:13,marginBottom:4,flex:1}}>{item.name}</div>
+                    <button type="button" title={isPinned("outreach",item.id)?"Unpin from My Space":"Pin to My Space"} onClick={e=>{e.stopPropagation();togglePin("outreach",item.id)}} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("outreach",item.id)?theme.teal:theme.textMut,opacity:isPinned("outreach",item.id)?1:0.4,padding:0,flexShrink:0}}><Pin size={13}/></button>
+                  </div>
                   <Badge label={item.type} color={item.type==="Community"?theme.teal:item.type==="Influencer"?theme.purple:item.type==="Content Creator"?theme.orange:"#748FFC"} style={{marginBottom:6}}/>
                   <div style={{fontSize:12,color:theme.textSec,marginTop:4}}>{item.platform}</div>
                   <div style={{fontSize:11,color:theme.textMut,marginTop:4}}>{uName(item.owner)}{item.date?` · ${item.date}`:""}</div>
@@ -1512,6 +1533,7 @@ export default function MarketingHub() {
                   <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
                     <Badge label={part.type} color={PARTNERSHIP_TYPE_COLORS[part.type]||theme.teal}/>
                     <Badge label={part.status} color={PARTNERSHIP_STATUS_COLORS[part.status]}/>
+                    <button type="button" title={isPinned("partnership",part.id)?"Unpin from My Space":"Pin to My Space"} onClick={()=>togglePin("partnership",part.id)} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("partnership",part.id)?theme.teal:theme.textMut,opacity:isPinned("partnership",part.id)?1:0.4}}><Pin size={14}/></button>
                     <button type="button" onClick={()=>openM("editPartnership",{...part})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={14}/></button>
                   </div>
                 </div>
@@ -2086,10 +2108,10 @@ export default function MarketingHub() {
             <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase"}}>Pinned Items</div>
             <div className="nanu-ws-pinned" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {pinnedItems.map((pin,idx)=>{
-                const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):calendar.find(c=>c.id===pin.id);
+                const target = pin.type==="task"?tasks.find(t=>t.id===pin.id):pin.type==="project"?visibleProjects.find(p=>p.id===pin.id):pin.type==="outreach"?outreach.find(o=>o.id===pin.id):pin.type==="partnership"?partnerships.find(p=>p.id===pin.id):calendar.find(c=>c.id===pin.id);
                 if(!target) return null;
                 return <div key={pin.id+pin.type} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,cursor:"pointer"}}
-                  onClick={()=>{if(pin.type==="task")openM("editTask",{...target});else if(pin.type==="project")setSection("projects");else if(pin.type==="outreach")openM("editOutreach",{...target});else openM("editCal",{...target})}}>
+                  onClick={()=>{if(pin.type==="task")openM("editTask",{...target});else if(pin.type==="project")setSection("projects");else if(pin.type==="outreach")openM("editOutreach",{...target});else if(pin.type==="partnership")openM("editPartnership",{...target});else openM("editCal",{...target})}}>
                   <Pin size={11} color={theme.teal}/>
                   <span style={{fontSize:13,fontWeight:500}}>{target.title||target.name}</span>
                   <Badge label={pin.type} color={theme.textMut} style={{fontSize:9}}/>
@@ -2194,7 +2216,36 @@ export default function MarketingHub() {
           {wsTab==="contacts"&&<div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <Input theme={theme} value={form._contactSearch||""} onChange={e=>setForm(p=>({...p,_contactSearch:e.target.value}))} placeholder="Search contacts..." style={{flex:"1 1 200px",maxWidth:300}}/>
-              <Btn primary theme={theme} small onClick={()=>openM("editContact",{name:"",company:"",role:"",email:"",phone:"",category:"Press",notes:"",links:[]})}><Plus size={13}/> Add Contact</Btn>
+              <div style={{display:"flex",gap:6}}>
+                {contacts.length>0&&<>
+                  <Btn theme={theme} small onClick={()=>{
+                    const rows=[["Name","Role","Company","Email","Phone","Category","Notes"],...contacts.map(c=>[c.name||"",c.role||"",c.company||"",c.email||"",c.phone||"",c.category||"",c.notes||""])];
+                    exportCSV(rows,`nanu-contacts-${new Date().toISOString().split("T")[0]}.csv`);
+                  }}><Download size={12}/> CSV</Btn>
+                  <Btn theme={theme} small onClick={()=>{
+                    const vcards=contacts.map(c=>{
+                      const n=(c.name||"").split(" ");
+                      const last=n.length>1?n.slice(1).join(" "):"";
+                      const first=n[0]||"";
+                      let v="BEGIN:VCARD\nVERSION:3.0\n";
+                      v+=`N:${last};${first};;;\nFN:${c.name||""}\n`;
+                      if(c.company)v+=`ORG:${c.company}\n`;
+                      if(c.role)v+=`TITLE:${c.role}\n`;
+                      if(c.email)v+=`EMAIL;TYPE=WORK:${c.email}\n`;
+                      if(c.phone)v+=`TEL;TYPE=WORK:${c.phone}\n`;
+                      if(c.notes)v+=`NOTE:${c.notes.replace(/\n/g," ")}\n`;
+                      (c.links||[]).forEach(l=>{if(l.url)v+=`URL:${l.url}\n`});
+                      v+="END:VCARD";
+                      return v;
+                    }).join("\n");
+                    const a=document.createElement("a");
+                    a.href=URL.createObjectURL(new Blob([vcards],{type:"text/vcard"}));
+                    a.download=`nanu-contacts-${new Date().toISOString().split("T")[0]}.vcf`;
+                    a.click();
+                  }}><Download size={12}/> vCard</Btn>
+                </>}
+                <Btn primary theme={theme} small onClick={()=>openM("editContact",{name:"",company:"",role:"",email:"",phone:"",category:"Press",notes:"",links:[]})}><Plus size={13}/> Add Contact</Btn>
+              </div>
             </div>
             {(()=>{
               const q=(form._contactSearch||"").toLowerCase();
