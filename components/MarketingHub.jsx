@@ -512,7 +512,8 @@ export default function MarketingHub() {
   const [calView, setCalView] = useState("month");
   const [calMonth, setCalMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [calEventFilter, setCalEventFilter] = useState("All");
-  const [taskView, setTaskView] = useState("all");
+  const [calPersonFilter, setCalPersonFilter] = useState("mine");
+  const [taskView, setTaskView] = useState("mine");
   const [tfProject, setTfProject] = useState("All");
   const [tfPriority, setTfPriority] = useState("All");
   const [tfStatus, setTfStatus] = useState("All");
@@ -951,13 +952,13 @@ export default function MarketingHub() {
         {/* Summary Cards */}
         <div className="nanu-grid-summary">
           {[
-            {l:"Today's Content",v:todayItems.length,c:theme.teal,s:"calendar"},
-            {l:"Active Tasks",v:tasks.filter(t=>t.status==="In Progress").length,c:theme.orange,s:"tasks"},
-            {l:"Awaiting Approval",v:approvals.length,c:theme.yellow,s:"tasks"},
+            {l:"My Open Tasks",v:tasks.filter(t=>(Array.isArray(t.owners)?t.owners.includes(curUser.id):t.owners===curUser.id)&&t.status!=="Done").length,c:theme.teal,s:"tasks",tv:"mine"},
+            {l:"Active Tasks",v:tasks.filter(t=>t.status==="In Progress").length,c:theme.orange,s:"tasks",tv:"all"},
+            {l:"Awaiting Approval",v:approvals.length,c:theme.yellow,s:"tasks",tv:"all"},
             {l:"Total Followers",v:stats.totals.followers.toLocaleString(),c:theme.green,s:"stats"},
             {l:"Nanu Users",v:stats.weeklyGrowth.at(-1).users,c:theme.tealLt,s:"stats"},
           ].map((c,i)=>(
-            <Card key={i} theme={theme} onClick={()=>setSection(c.s)} style={{ padding:14, textAlign:"center", cursor:"pointer" }}>
+            <Card key={i} theme={theme} onClick={()=>{setSection(c.s);if(c.tv)setTaskView(c.tv)}} style={{ padding:14, textAlign:"center", cursor:"pointer" }}>
               <div className="nanu-big-num" style={{ fontSize:28, color:c.c }}>{c.v}</div>
               <div style={{ fontSize:11, color:theme.textMut, fontWeight:600, marginTop:3 }}>{c.l}</div>
             </Card>
@@ -1037,27 +1038,30 @@ export default function MarketingHub() {
     /* ─── CALENDAR ─── */
     /* ─── COMPANY CALENDAR ─── */
     case "calendar": {
-      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Meeting","Key Date"];
-      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Meeting:"#69DB7C", "Key Date":"#FF6B6B" };
+      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Event","Meeting","Key Date"];
+      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Event:"#69DB7C", Meeting:"#22B8CF", "Key Date":"#FF6B6B" };
 
       // Aggregate all events into a unified list
       const calEvents = [
-        ...tasks.filter(t=>t.dueDate).map(t=>({id:t.id,type:"Task",title:t.title,date:t.dueDate,color:CAL_TYPE_COLORS.Task,status:t.status,owner:uName(Array.isArray(t.owners)?t.owners[0]:t.owners),onClick:()=>openM("editTask",{...t})})),
-        ...visibleProjects.filter(p=>p.status==="Active").map(p=>({id:"prj_"+p.id,type:"Project",title:p.name,date:"",color:CAL_TYPE_COLORS.Project,status:p.status,owner:uName(p.owner),onClick:()=>setSection("projects")})),
-        ...partnerships.filter(p=>p.reviewDate).map(p=>({id:"part_"+p.id,type:"Partnership",title:p.name+" (Review)",date:p.reviewDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
-        ...partnerships.filter(p=>p.startDate).map(p=>({id:"parts_"+p.id,type:"Partnership",title:p.name+" (Start)",date:p.startDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
-        ...outreach.filter(o=>o.date).map(o=>({id:"out_"+o.id,type:"Outreach",title:o.name,date:o.date,color:CAL_TYPE_COLORS.Outreach,status:o.status,owner:uName(o.owner),onClick:()=>openM("editOutreach",{...o})})),
-        ...keyDates.map(d=>({id:"kd_"+d.id,type:"Key Date",title:d.title,date:d.date,color:d.color||CAL_TYPE_COLORS["Key Date"],status:"",owner:"",onClick:null})),
-        ...calendar.filter(c=>c.dueDate).map(c=>({id:"cal_"+c.id,type:"Meeting",title:c.title,date:c.dueDate,color:CAL_TYPE_COLORS.Meeting,status:c.status,owner:uName(c.owner),onClick:()=>openM("editCal",{...c})})),
+        ...tasks.filter(t=>t.dueDate).map(t=>({id:t.id,type:"Task",title:t.title,date:t.dueDate,color:CAL_TYPE_COLORS.Task,status:t.status,ownerId:Array.isArray(t.owners)?t.owners[0]:t.owners,owner:uName(Array.isArray(t.owners)?t.owners[0]:t.owners),onClick:()=>openM("editTask",{...t})})),
+        ...visibleProjects.filter(p=>p.status==="Active").map(p=>({id:"prj_"+p.id,type:"Project",title:p.name,date:"",color:CAL_TYPE_COLORS.Project,status:p.status,ownerId:p.owner,owner:uName(p.owner),onClick:()=>setSection("projects")})),
+        ...partnerships.filter(p=>p.reviewDate).map(p=>({id:"part_"+p.id,type:"Partnership",title:p.name+" (Review)",date:p.reviewDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,ownerId:p.owner,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
+        ...partnerships.filter(p=>p.startDate).map(p=>({id:"parts_"+p.id,type:"Partnership",title:p.name+" (Start)",date:p.startDate,color:CAL_TYPE_COLORS.Partnership,status:p.status,ownerId:p.owner,owner:uName(p.owner),onClick:()=>openM("editPartnership",{...p})})),
+        ...outreach.filter(o=>o.date).map(o=>({id:"out_"+o.id,type:"Outreach",title:o.name,date:o.date,color:CAL_TYPE_COLORS.Outreach,status:o.status,ownerId:o.owner,owner:uName(o.owner),onClick:()=>openM("editOutreach",{...o})})),
+        ...commEvents.filter(e=>e.date).map(e=>({id:"cev_"+e.id,type:"Event",title:e.title,date:e.date,color:"#69DB7C",status:e.status,ownerId:e.host,owner:uName(e.host),onClick:()=>openM("editCommEvent",{...e})})),
+        ...keyDates.map(d=>({id:"kd_"+d.id,type:"Key Date",title:d.title,date:d.date,color:d.color||CAL_TYPE_COLORS["Key Date"],status:"",ownerId:"",owner:"",onClick:null})),
+        ...calendar.filter(c=>c.dueDate).map(c=>({id:"cal_"+c.id,type:"Meeting",title:c.title,date:c.dueDate,color:CAL_TYPE_COLORS.Meeting,status:c.status,ownerId:c.owner,owner:uName(c.owner),onClick:()=>openM("editCal",{...c})})),
       ].filter(e=>e.date);
 
-      const filteredEvents = calEventFilter==="All" ? calEvents : calEvents.filter(e=>e.type===calEventFilter);
+      const personFiltered = calPersonFilter==="all" ? calEvents : calPersonFilter==="mine" ? calEvents.filter(e=>e.ownerId===curUser.id||e.type==="Key Date") : calEvents.filter(e=>e.ownerId===calPersonFilter);
+      const filteredEvents = calEventFilter==="All" ? personFiltered : personFiltered.filter(e=>e.type===calEventFilter);
       const fmt=d=>d.toISOString().split("T")[0];
       const todayStr3=fmt(new Date());
 
       return (
         <div>
           <SectionHead theme={theme} right={<>
+            <Sel theme={theme} options={[{value:"mine",label:"My Calendar"},{value:"all",label:"All Team"},...users.map(u=>({value:u.id,label:u.name}))]} value={calPersonFilter} onChange={e=>setCalPersonFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
             <Sel theme={theme} options={CAL_EVENT_TYPES.map(t=>({value:t,label:t==="All"?"All Events":t+"s"}))} value={calEventFilter} onChange={e=>setCalEventFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
             <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
               {[["month","Month"],["week","Week"],["list","List"]].map(([k,l])=>(
@@ -1262,7 +1266,7 @@ export default function MarketingHub() {
         {/* Filters */}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
           <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
-            {[["all","All Tasks"],["mine","My Tasks"]].map(([k,l])=>(
+            {[["mine","My Tasks"],["all","All Tasks"]].map(([k,l])=>(
               <button key={k} onClick={()=>setTaskView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:taskView===k?theme.teal:"transparent",color:taskView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
             ))}
           </div>
@@ -2003,6 +2007,7 @@ export default function MarketingHub() {
       const bookmarks = ws.bookmarks || [];
       const goals = ws.goals || [];
       const drafts = ws.drafts || [];
+      const contacts = ws.contacts || [];
       const weeklyFocus = ws.weeklyFocus || [];
       const pinnedItems = ws.pinned || [];
       const todayStr2 = new Date().toISOString().split("T")[0];
@@ -2096,7 +2101,7 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
-            {[["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
+            {[["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["contacts","Address Book",Users2],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
               <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 14px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 <Icon size={13}/>{l}
                 {k==="todos"&&todos.filter(t=>!t.done).length>0&&<span style={{background:wsTab===k?"#0D1B2130":theme.teal,color:wsTab===k?"#0D1B21":"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700}}>{todos.filter(t=>!t.done).length}</span>}
@@ -2184,6 +2189,55 @@ export default function MarketingHub() {
             ))}
             {bookmarks.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No bookmarks yet</p>}
           </Card>}
+
+          {/* ── ADDRESS BOOK ── */}
+          {wsTab==="contacts"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <Input theme={theme} value={form._contactSearch||""} onChange={e=>setForm(p=>({...p,_contactSearch:e.target.value}))} placeholder="Search contacts..." style={{flex:"1 1 200px",maxWidth:300}}/>
+              <Btn primary theme={theme} small onClick={()=>openM("editContact",{name:"",company:"",role:"",email:"",phone:"",category:"Press",notes:"",links:[]})}><Plus size={13}/> Add Contact</Btn>
+            </div>
+            {(()=>{
+              const q=(form._contactSearch||"").toLowerCase();
+              const filtered=contacts.filter(c=>!q||c.name?.toLowerCase().includes(q)||c.company?.toLowerCase().includes(q)||c.email?.toLowerCase().includes(q)||c.role?.toLowerCase().includes(q));
+              const cats=[...new Set(filtered.map(c=>c.category||"Other"))].sort();
+              return <>
+                {cats.map(cat=>(
+                  <div key={cat} style={{marginBottom:18}}>
+                    <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{cat}</div>
+                    <div className="nanu-grid-2col">
+                      {filtered.filter(c=>(c.category||"Other")===cat).map((c,idx)=>{
+                        const realIdx=contacts.indexOf(c);
+                        return <Card key={c.id} theme={theme} style={{padding:14}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                            <div style={{display:"flex",gap:10,alignItems:"center",flex:1,minWidth:0}}>
+                              <div style={{width:36,height:36,borderRadius:"50%",background:theme.teal,display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:700,fontSize:14,flexShrink:0}}>{(c.name||"?").charAt(0).toUpperCase()}</div>
+                              <div style={{minWidth:0}}>
+                                <div style={{fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                                {(c.role||c.company)&&<div style={{fontSize:12,color:theme.textMut,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role}{c.role&&c.company?" · ":""}{c.company}</div>}
+                              </div>
+                            </div>
+                            <div style={{display:"flex",gap:4,flexShrink:0}}>
+                              <ShareToggle item={c} listKey="contacts" idx={realIdx}/>
+                              <button type="button" onClick={()=>openM("editContact",{...c})} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><Edit3 size={13}/></button>
+                            </div>
+                          </div>
+                          {(c.email||c.phone)&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4}}>
+                            {c.email&&<a href={`mailto:${c.email}`} style={{fontSize:12,color:theme.teal,textDecoration:"none",display:"flex",alignItems:"center",gap:6}}><Send size={11}/>{c.email}</a>}
+                            {c.phone&&<a href={`tel:${c.phone}`} style={{fontSize:12,color:theme.textSec,textDecoration:"none",display:"flex",alignItems:"center",gap:6}}><MessageCircle size={11}/>{c.phone}</a>}
+                          </div>}
+                          {c.links&&c.links.length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                            {c.links.map((l,i)=>(<a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:theme.teal,textDecoration:"none",padding:"2px 8px",background:theme.bgInput,borderRadius:6,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={9}/>{l.label}</a>))}
+                          </div>}
+                          {c.notes&&<p style={{fontSize:12,color:theme.textMut,marginTop:8,lineHeight:1.4}}>{c.notes}</p>}
+                        </Card>;
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {filtered.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>{contacts.length===0?'No contacts yet. Click "Add Contact" to build your address book.':"No contacts match your search."}</p>}
+              </>;
+            })()}
+          </div>}
 
           {/* ── GOALS ── */}
           {wsTab==="goals"&&<div>
@@ -3089,6 +3143,33 @@ export default function MarketingHub() {
             db.saveEngagement(newEng);
             log("updated","weekly metrics","Engagement");
           })}>Save</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ADDRESS BOOK CONTACT MODAL ─── */
+      case "editContact": return <Modal theme={theme} title={form.id?"Edit Contact":"New Contact"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Full name"/></div><div><Label theme={theme}>Category</Label><Sel theme={theme} options={["Press","Podcast","Creator","Researcher","Partner","Investor","Vendor","Community","Other"]} value={form.category||"Press"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Role / Title</Label><Input theme={theme} value={form.role||""} onChange={e=>setForm(p=>({...p,role:e.target.value}))} placeholder="Editor, Host, Founder..."/></div><div><Label theme={theme}>Company / Org</Label><Input theme={theme} value={form.company||""} onChange={e=>setForm(p=>({...p,company:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Email</Label><Input theme={theme} value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="email@example.com"/></div><div><Label theme={theme}>Phone</Label><Input theme={theme} value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="+44..."/></div></div>
+        <div>
+          <Label theme={theme}>Links</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(form.links||[]).map((link,i)=>(<div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+              <Input theme={theme} value={link.label} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,label:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="Label" style={{flex:1}}/>
+              <Input theme={theme} value={link.url} onChange={e=>{const u=[...(form.links||[])];u[i]={...link,url:e.target.value};setForm(p=>({...p,links:u}))}} placeholder="https://..." style={{flex:2}}/>
+              <button type="button" onClick={()=>{const u=[...(form.links||[])];u.splice(i,1);setForm(p=>({...p,links:u}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={14}/></button>
+            </div>))}
+            <Btn theme={theme} small onClick={()=>setForm(p=>({...p,links:[...(p.links||[]),{label:"",url:""}]}))}><Plus size={12}/> Add Link</Btn>
+          </div>
+        </div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="How you met, context, follow-ups..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{updateWs("contacts",p=>p.filter(x=>x.id!==form.id))})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const cid=form.id||uid("ct");const cdata={...form,id:cid,shared:form.shared||false};
+            updateWs("contacts",p=>form.id?p.map(x=>x.id===form.id?cdata:x):[...p,cdata]);
+          })}>Done</Btn>
         </div>
       </div></Modal>;
 
