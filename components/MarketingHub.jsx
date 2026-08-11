@@ -12,7 +12,7 @@ import {
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
   Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign,
-  Heart, Award, MapPin, Smile, Activity, Users2, Repeat
+  Heart, Award, MapPin, Smile, Activity, Users2, Repeat, Briefcase, TrendingUp, Flag
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -56,8 +56,8 @@ const getTheme = (dark) => ({
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════════════════ */
-const ROLES = ["Admin", "Marketing Lead", "Content Creator", "Designer", "Social Media Manager"];
-const ROLE_COLORS = { Admin: "#FF6B6B", "Marketing Lead": "#FFA94D", "Content Creator": "#82F9F6", Designer: "#DA77F2", "Social Media Manager": "#748FFC" };
+const ROLES = ["Admin", "Executive", "Marketing Lead", "Content Creator", "Designer", "Social Media Manager"];
+const ROLE_COLORS = { Admin: "#FF6B6B", Executive: "#FFD43B", "Marketing Lead": "#FFA94D", "Content Creator": "#82F9F6", Designer: "#DA77F2", "Social Media Manager": "#748FFC" };
 const TZ_OPTIONS = [
   { label: "London", tz: "Europe/London", color: "#1FC2C2" },
   { label: "New York", tz: "America/New_York", color: "#69DB7C" },
@@ -320,6 +320,16 @@ const INIT_RESPONSIBILITIES = [
   { id:"resp2", title:"Monitor & engage r/UFOs and r/HighStrangeness", description:"Daily community engagement, thoughtful replies, no self-promo.", owner:"u4", area:"Community", cadence:"Daily", status:"Active", anchorDate:"", nextDue:"", lastDone:"", color:"#FF6B6B", linkedTasks:[], notes:"" },
   { id:"resp3", title:"Ambassador programme check-ins", description:"Review ambassador activity, send playbook updates.", owner:"u5", area:"Community", cadence:"Weekly", status:"Active", anchorDate:"", nextDue:"", lastDone:"", color:"#1FC2C2", linkedTasks:[], notes:"" },
 ];
+
+/* ═══ BUSINESS (Admin + Executive only) ═══ */
+const INVESTOR_STAGES = ["Researching","Intro Needed","Contacted","Meeting Booked","In Diligence","Term Sheet","Committed","Passed"];
+const INVESTOR_STAGE_COLORS = { Researching:"#4E6A78", "Intro Needed":"#748FFC", Contacted:"#22B8CF", "Meeting Booked":"#FFA94D", "In Diligence":"#DA77F2", "Term Sheet":"#FFD43B", Committed:"#69DB7C", Passed:"#FF6B6B" };
+const INVESTOR_TYPES = ["Angel","Pre-Seed Fund","Seed Fund","VC","Strategic / Corporate","Accelerator","Grant","Other"];
+const BOARD_UPDATE_STATUS = ["Draft","In Review","Sent"];
+const BOARD_UPDATE_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Sent:"#69DB7C" };
+const INITIATIVE_STATUS = ["Not Started","On Track","At Risk","Off Track","Achieved","Dropped"];
+const INITIATIVE_STATUS_COLORS = { "Not Started":"#4E6A78", "On Track":"#69DB7C", "At Risk":"#FFA94D", "Off Track":"#FF6B6B", Achieved:"#1FC2C2", Dropped:"#6B7280" };
+const INITIATIVE_HORIZONS = ["This Quarter","Next Quarter","This Year","Long Term"];
 
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
@@ -589,6 +599,11 @@ export default function MarketingHub() {
   const [feedback, setFeedback] = useState([]);
   const [engagement, setEngagement] = useState({});
   const [responsibilities, setResponsibilities] = useState([]);
+  const [bizMetrics, setBizMetrics] = useState({});
+  const [investors, setInvestors] = useState([]);
+  const [boardUpdates, setBoardUpdates] = useState([]);
+  const [initiatives, setInitiatives] = useState([]);
+  const [bizTab, setBizTab] = useState("metrics");
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const [dbLoading, setDbLoading] = useState(true);
@@ -628,6 +643,10 @@ export default function MarketingHub() {
       setFeedback(data.feedback || []);
       setEngagement(data.engagement || {});
       setResponsibilities(data.responsibilities || []);
+      setBizMetrics(data.bizMetrics || {});
+      setInvestors(data.investors || []);
+      setBoardUpdates(data.boardUpdates || []);
+      setInitiatives(data.initiatives || []);
       setActivity(data.activity);
       // If users table is empty, this is a fresh DB — seed it
       if (!data.users.length) {
@@ -837,6 +856,7 @@ export default function MarketingHub() {
   // Department mapping for the master task view (based on role)
   const DEPT_BY_ROLE = {
     "Admin": "Leadership",
+    "Executive": "Leadership",
     "Marketing Lead": "Marketing",
     "Content Creator": "Marketing",
     "Social Media Manager": "Community",
@@ -863,6 +883,8 @@ export default function MarketingHub() {
 
   const theme = getTheme(dark);
   const isAdmin = curUser?.role === "Admin";
+  const isExec = curUser?.role === "Executive";
+  const canSeeBusiness = isAdmin || isExec;
   const uName = (id) => users.find(u=>u.id===id)?.name || "Unknown";
   const uNames = (ids) => {
     if (!ids) return "Unassigned";
@@ -880,7 +902,13 @@ export default function MarketingHub() {
 
   // Universal save handler - wraps logic in try/catch so closeM always fires
   const doSave = (fn) => {
-    try { fn(); } catch(err) { console.error("Save error:", err); }
+    try {
+      const r = fn();
+      // If the save fn returns a promise that rejects or yields a supabase error, surface it
+      if (r && typeof r.then === "function") {
+        r.then(res => { if (res && res.error) console.error("Save persisted with error:", res.error); }).catch(err => console.error("Save error:", err));
+      }
+    } catch(err) { console.error("Save error:", err); }
     closeM();
   };
 
@@ -934,6 +962,13 @@ export default function MarketingHub() {
         { key:"engagement", label:"Engagement", icon:<Activity size={18}/> },
       ]
     },
+    ...(canSeeBusiness?[{
+      id: "business",
+      label: "Business",
+      items: [
+        { key:"business", label:"Business", icon:<Briefcase size={18}/> },
+      ]
+    }]:[]),
     {
       id: "system",
       label: "System",
@@ -1627,12 +1662,13 @@ export default function MarketingHub() {
                   const nd=respNextDue(r); const due=respIsDue(r);
                   return <Card key={r.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${RESP_CADENCE_COLORS[r.cadence]||theme.teal}`,opacity:r.status==="Paused"?0.6:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      <span onClick={()=>openM("editResponsibility",{...r})} style={{fontWeight:700,fontSize:14,flex:"1 1 200px",cursor:"pointer",minWidth:0}}>{r.title}</span>
+                      <span onClick={()=>openM("editResponsibility",{...r})} style={{fontWeight:700,fontSize:14,flex:"1 1 200px",cursor:"pointer",minWidth:0,color:r.title?theme.text:theme.textMut,fontStyle:r.title?"normal":"italic"}}>{r.title||"Untitled responsibility"}</span>
                       <Badge label={r.cadence} color={RESP_CADENCE_COLORS[r.cadence]}/>
                       {r.area&&<Badge label={r.area} color={theme.textMut}/>}
                       {r.status==="Paused"&&<Badge label="Paused" color={theme.textMut}/>}
                       {r.cadence!=="Continuous"&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:due?theme.orange:theme.textMut}}>{due?"Due ":"Next "}{nd||"—"}</span>}
                       {r.status==="Active"&&r.cadence!=="Continuous"&&<Btn theme={theme} small onClick={()=>markRespDone(r)}><Check size={12}/> Done</Btn>}
+                      <Btn theme={theme} small onClick={()=>openM("editResponsibility",{...r})}><Edit3 size={12}/> Edit</Btn>
                       <button type="button" title={isPinned("responsibility",r.id)?"Unpin":"Pin to My Space"} onClick={()=>togglePin("responsibility",r.id)} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("responsibility",r.id)?theme.teal:theme.textMut,opacity:isPinned("responsibility",r.id)?1:0.4}}><Pin size={13}/></button>
                     </div>
                     {r.description&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{r.description}</p>}
@@ -2157,6 +2193,254 @@ export default function MarketingHub() {
 
           {/* Period note */}
           <div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:8}}>Metrics for week ending {engagement.weekEnding||"—"}. Update via the button above to track week-over-week changes.</div>
+        </div>
+      );
+    }
+
+    /* ─── BUSINESS (Admin + Executive only) ─── */
+    case "business": {
+      if (!canSeeBusiness) return (
+        <div>
+          <SectionHead theme={theme}>Business</SectionHead>
+          <Card theme={theme} style={{padding:32,textAlign:"center"}}>
+            <Lock size={28} color={theme.textMut} style={{marginBottom:10}}/>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>Restricted</div>
+            <p style={{fontSize:13,color:theme.textMut}}>This section is only available to Admin and Executive roles.</p>
+          </Card>
+        </div>
+      );
+
+      const m = bizMetrics.current || {};
+      const mPrev = bizMetrics.previous || {};
+      const fmtMoney = (v) => v || v === 0 ? "£" + Number(v).toLocaleString() : "—";
+      const delta = (cur, pr) => pr ? Math.round(((cur - pr) / pr) * 100) : null;
+      const runwayMonths = m.burn > 0 ? Math.floor((m.cash || 0) / m.burn) : null;
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<Badge label="Admin & Executive" color={theme.yellow}/>}>Business</SectionHead>
+
+          {/* Tabs */}
+          <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
+            {[["metrics","Metrics & KPIs",TrendingUp],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag]].map(([k,l,Icon])=>(
+              <button key={k} onClick={()=>setBizTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:bizTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:bizTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
+                <Icon size={14}/>{l}
+              </button>
+            ))}
+          </div>
+
+          {/* ── METRICS & KPIs ── */}
+          {bizTab==="metrics"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0}}>Company health at a glance. Update monthly to track movement.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editBizMetrics",{...m,periodLabel:bizMetrics.periodLabel||""})}><Edit3 size={13}/> Update Metrics</Btn>
+            </div>
+
+            {/* Runway highlight */}
+            <Card theme={theme} style={{padding:20,marginBottom:16,borderLeft:`3px solid ${runwayMonths!==null&&runwayMonths<6?theme.red:runwayMonths!==null&&runwayMonths<12?theme.orange:theme.green}`}}>
+              <div style={{display:"flex",alignItems:"baseline",gap:16,flexWrap:"wrap"}}>
+                <div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em"}}>Runway</div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:36,color:runwayMonths!==null&&runwayMonths<6?theme.red:theme.teal,lineHeight:1.1}}>{runwayMonths!==null?`${runwayMonths} mo`:"—"}</div>
+                </div>
+                <div style={{fontSize:12,color:theme.textMut,lineHeight:1.6}}>
+                  {fmtMoney(m.cash)} cash ÷ {fmtMoney(m.burn)}/mo net burn
+                  {runwayMonths!==null&&runwayMonths<6&&<div style={{color:theme.red,fontWeight:600,marginTop:2}}>Under 6 months — raise or cut burn</div>}
+                </div>
+              </div>
+            </Card>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {[
+                {label:"Cash in Bank",key:"cash",money:true,color:theme.teal},
+                {label:"Monthly Net Burn",key:"burn",money:true,color:theme.orange},
+                {label:"MRR",key:"mrr",money:true,color:theme.green},
+                {label:"Headcount",key:"headcount",money:false,color:"#748FFC"},
+              ].map(k=>{
+                const d=delta(m[k.key]||0,mPrev[k.key]||0);
+                return <Card key={k.key} theme={theme} style={{padding:16}}>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase",marginBottom:4}}>{k.label}</div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:24,color:k.color,lineHeight:1}}>{k.money?fmtMoney(m[k.key]):(m[k.key]??"—")}</div>
+                  {d!==null&&<div style={{fontSize:11,marginTop:4,color:(k.key==="burn"?d<=0:d>=0)?theme.green:theme.red}}>{d>=0?"↑":"↓"} {Math.abs(d)}% vs last</div>}
+                </Card>;
+              })}
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {[
+                {label:"Total Users",key:"users",color:theme.tealLt},
+                {label:"Monthly Active",key:"mau",color:"#DA77F2"},
+                {label:"Total Raised",key:"raised",money:true,color:theme.yellow},
+                {label:"Valuation",key:"valuation",money:true,color:"#69DB7C"},
+              ].map(k=>(
+                <Card key={k.key} theme={theme} style={{padding:14}}>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase",marginBottom:4}}>{k.label}</div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:20,color:k.color}}>{k.money?fmtMoney(m[k.key]):(m[k.key]!=null?Number(m[k.key]).toLocaleString():"—")}</div>
+                </Card>
+              ))}
+            </div>
+
+            {m.notes&&<Card theme={theme} style={{padding:16}}>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,textTransform:"uppercase",marginBottom:6}}>Context</div>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.notes}</p>
+            </Card>}
+            <div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:10}}>{bizMetrics.periodLabel?`Period: ${bizMetrics.periodLabel}`:"No period set"}</div>
+          </div>}
+
+          {/* ── INVESTORS ── */}
+          {bizTab==="investors"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0}}>Fundraising pipeline. Track every conversation from first intro to committed.</p>
+              <div style={{display:"flex",gap:6}}>
+                {investors.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Name","Firm","Type","Stage","Check Size","Owner","Contact","Next Step","Next Date","Notes"]];
+                  investors.forEach(i=>rows.push([i.name||"",i.firm||"",i.type||"",i.stage||"",i.checkSize||"",uName(i.owner),i.contactEmail||"",i.nextStep||"",i.nextDate||"",i.notes||""]));
+                  exportCSV(rows,`nanu-investor-pipeline-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editInvestor",{name:"",firm:"",type:"Angel",stage:"Researching",checkSize:"",owner:curUser.id,contactName:"",contactEmail:"",nextStep:"",nextDate:"",warmIntro:"",notes:""})}><Plus size={13}/> Add Investor</Btn>
+              </div>
+            </div>
+
+            {/* Pipeline summary */}
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{investors.filter(i=>!["Passed"].includes(i.stage)).length}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Live Conversations</div>
+              </Card>
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.yellow}}>{investors.filter(i=>["In Diligence","Term Sheet"].includes(i.stage)).length}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Advanced</div>
+              </Card>
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.green}}>{investors.filter(i=>i.stage==="Committed").length}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Committed</div>
+              </Card>
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.textMut}}>{investors.filter(i=>i.stage==="Passed").length}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Passed</div>
+              </Card>
+            </div>
+
+            {/* Grouped by stage */}
+            {INVESTOR_STAGES.filter(s=>investors.some(i=>i.stage===s)).map(stage=>(
+              <div key={stage} style={{marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:INVESTOR_STAGE_COLORS[stage]}}/>
+                  <span style={{fontSize:12,fontWeight:600,color:theme.textSec,textTransform:"uppercase",letterSpacing:".04em"}}>{stage}</span>
+                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{investors.filter(i=>i.stage===stage).length}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {investors.filter(i=>i.stage===stage).map(i=>(
+                    <Card key={i.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${INVESTOR_STAGE_COLORS[i.stage]}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <div style={{flex:"1 1 200px",minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:14}}>{i.name||"Unnamed"}{i.firm&&<span style={{fontWeight:400,color:theme.textMut}}> · {i.firm}</span>}</div>
+                          {i.contactName&&<div style={{fontSize:12,color:theme.textMut}}>{i.contactName}{i.contactEmail?` · ${i.contactEmail}`:""}</div>}
+                        </div>
+                        {i.type&&<Badge label={i.type} color={theme.textMut}/>}
+                        {i.checkSize&&<span style={{fontFamily:FONT_MONO,fontSize:12,color:theme.green,fontWeight:700}}>{i.checkSize}</span>}
+                        <span style={{fontSize:11,color:theme.textMut}}>{uName(i.owner)}</span>
+                        <Btn theme={theme} small onClick={()=>openM("editInvestor",{...i})}><Edit3 size={12}/> Edit</Btn>
+                      </div>
+                      {(i.nextStep||i.nextDate)&&<div style={{fontSize:12,color:theme.textSec,marginTop:8,display:"flex",alignItems:"center",gap:6}}>
+                        <Clock size={11} color={theme.orange}/>
+                        <span>{i.nextStep||"Next step"}</span>
+                        {i.nextDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:i.nextDate<todayStr?theme.red:theme.textMut}}>{i.nextDate}</span>}
+                      </div>}
+                      {i.warmIntro&&<div style={{fontSize:11,color:theme.textMut,marginTop:4}}>Intro via: {i.warmIntro}</div>}
+                      {i.notes&&<p style={{fontSize:12,color:theme.textMut,marginTop:6,lineHeight:1.5}}>{i.notes}</p>}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {investors.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No investors tracked yet. Click "Add Investor" to build your pipeline.</p>}
+          </div>}
+
+          {/* ── BOARD UPDATES ── */}
+          {bizTab==="board"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0}}>Investor and board reporting. Draft, review, then mark sent.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editBoardUpdate",{title:"",period:"",date:new Date().toISOString().split("T")[0],status:"Draft",author:curUser.id,highlights:"",lowlights:"",asks:"",metricsSnapshot:"",link:""})}><Plus size={13}/> New Update</Btn>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {[...boardUpdates].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(b=>(
+                <Card key={b.id} theme={theme} style={{padding:16,borderLeft:`3px solid ${BOARD_UPDATE_STATUS_COLORS[b.status]}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:6}}>
+                    <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,flex:"1 1 200px"}}>{b.title||"Untitled update"}</span>
+                    <Badge label={b.status} color={BOARD_UPDATE_STATUS_COLORS[b.status]}/>
+                    {b.period&&<Badge label={b.period} color={theme.textMut}/>}
+                    <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{b.date}</span>
+                    <Btn theme={theme} small onClick={()=>openM("editBoardUpdate",{...b})}><Edit3 size={12}/> Edit</Btn>
+                  </div>
+                  {b.highlights&&<div style={{marginTop:8}}>
+                    <div style={{fontSize:10,fontWeight:700,color:theme.green,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}}>Highlights</div>
+                    <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{b.highlights}</p>
+                  </div>}
+                  {b.lowlights&&<div style={{marginTop:8}}>
+                    <div style={{fontSize:10,fontWeight:700,color:theme.orange,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}}>Challenges</div>
+                    <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{b.lowlights}</p>
+                  </div>}
+                  {b.asks&&<div style={{marginTop:8}}>
+                    <div style={{fontSize:10,fontWeight:700,color:theme.teal,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}}>Asks</div>
+                    <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{b.asks}</p>
+                  </div>}
+                  <div style={{display:"flex",gap:10,alignItems:"center",marginTop:10,fontSize:11,color:theme.textMut}}>
+                    <span>By {uName(b.author)}</span>
+                    {b.link&&<a href={b.link} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={10}/> Full document</a>}
+                  </div>
+                </Card>
+              ))}
+              {boardUpdates.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No board updates yet. Click "New Update" to draft your first.</p>}
+            </div>
+          </div>}
+
+          {/* ── STRATEGIC INITIATIVES ── */}
+          {bizTab==="initiatives"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0}}>Company-level goals and strategic bets, separate from day-to-day projects.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editInitiative",{title:"",description:"",owner:curUser.id,status:"Not Started",horizon:"This Quarter",progress:0,targetDate:"",successMetric:"",notes:""})}><Plus size={13}/> Add Initiative</Btn>
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {["On Track","At Risk","Off Track","Achieved"].map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center"}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:INITIATIVE_STATUS_COLORS[s]}}>{initiatives.filter(i=>i.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+            </div>
+
+            {INITIATIVE_HORIZONS.filter(h=>initiatives.some(i=>i.horizon===h)).map(hz=>(
+              <div key={hz} style={{marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{hz}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {initiatives.filter(i=>i.horizon===hz).map(i=>(
+                    <Card key={i.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${INITIATIVE_STATUS_COLORS[i.status]}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <span style={{fontWeight:700,fontSize:14,flex:"1 1 200px",minWidth:0}}>{i.title||"Untitled initiative"}</span>
+                        <Badge label={i.status} color={INITIATIVE_STATUS_COLORS[i.status]}/>
+                        <span style={{fontSize:11,color:theme.textMut}}>{uName(i.owner)}</span>
+                        {i.targetDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:i.targetDate<todayStr&&!["Achieved","Dropped"].includes(i.status)?theme.red:theme.textMut}}>{i.targetDate}</span>}
+                        <Btn theme={theme} small onClick={()=>openM("editInitiative",{...i})}><Edit3 size={12}/> Edit</Btn>
+                      </div>
+                      {i.description&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{i.description}</p>}
+                      <div style={{marginTop:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:4}}>
+                          <span style={{color:theme.textMut}}>{i.successMetric||"Progress"}</span>
+                          <span style={{color:INITIATIVE_STATUS_COLORS[i.status],fontWeight:700,fontFamily:FONT_MONO}}>{i.progress||0}%</span>
+                        </div>
+                        <div style={{height:6,background:theme.bgInput,borderRadius:3,overflow:"hidden"}}>
+                          <div style={{width:`${Math.min(100,i.progress||0)}%`,height:"100%",background:INITIATIVE_STATUS_COLORS[i.status],borderRadius:3,transition:"width .4s"}}/>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {initiatives.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No initiatives yet. Click "Add Initiative" to set company goals.</p>}
+          </div>}
         </div>
       );
     }
@@ -3571,10 +3855,105 @@ export default function MarketingHub() {
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const rid=form.id||uid("resp");
-            const rdata={...form,id:rid,color:RESP_CADENCE_COLORS[form.cadence]||theme.teal};
-            if(form.id){setResponsibilities(p=>p.map(x=>x.id===form.id?rdata:x));log("updated",form.title,"Responsibilities")}
-            else{setResponsibilities(p=>[...p,rdata]);log("created",form.title,"Responsibilities")}
+            const rdata={
+              id:rid, title:form.title||"", description:form.description||"", owner:form.owner||"",
+              area:form.area||"", cadence:form.cadence||"Weekly", status:form.status||"Active",
+              anchorDate:form.anchorDate||"", nextDue:form.cadence==="Continuous"?"":(form.nextDue||""),
+              lastDone:form.lastDone||"", color:RESP_CADENCE_COLORS[form.cadence]||theme.teal,
+              linkedTasks:form.linkedTasks||[], notes:form.notes||""
+            };
+            if(form.id){setResponsibilities(p=>p.map(x=>x.id===form.id?rdata:x));log("updated",rdata.title,"Responsibilities")}
+            else{setResponsibilities(p=>[...p,rdata]);log("created",rdata.title,"Responsibilities")}
             db.saveResponsibility(rdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── BUSINESS METRICS MODAL ─── */
+      case "editBizMetrics": return <Modal theme={theme} title="Update Company Metrics" onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <p style={{fontSize:12,color:theme.textSec,margin:0}}>The current figures are archived as "previous" so month-on-month movement is tracked automatically.</p>
+        <div><Label theme={theme}>Period Label</Label><Input theme={theme} value={form.periodLabel||""} onChange={e=>setForm(p=>({...p,periodLabel:e.target.value}))} placeholder="e.g. August 2026"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Cash in Bank (£)</Label><Input theme={theme} type="number" value={form.cash??""} onChange={e=>setForm(p=>({...p,cash:Number(e.target.value)}))}/></div><div><Label theme={theme}>Monthly Net Burn (£)</Label><Input theme={theme} type="number" value={form.burn??""} onChange={e=>setForm(p=>({...p,burn:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>MRR (£)</Label><Input theme={theme} type="number" value={form.mrr??""} onChange={e=>setForm(p=>({...p,mrr:Number(e.target.value)}))}/></div><div><Label theme={theme}>Headcount</Label><Input theme={theme} type="number" value={form.headcount??""} onChange={e=>setForm(p=>({...p,headcount:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Total Users</Label><Input theme={theme} type="number" value={form.users??""} onChange={e=>setForm(p=>({...p,users:Number(e.target.value)}))}/></div><div><Label theme={theme}>Monthly Active Users</Label><Input theme={theme} type="number" value={form.mau??""} onChange={e=>setForm(p=>({...p,mau:Number(e.target.value)}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Total Raised (£)</Label><Input theme={theme} type="number" value={form.raised??""} onChange={e=>setForm(p=>({...p,raised:Number(e.target.value)}))}/></div><div><Label theme={theme}>Valuation (£)</Label><Input theme={theme} type="number" value={form.valuation??""} onChange={e=>setForm(p=>({...p,valuation:Number(e.target.value)}))}/></div></div>
+        <div><Label theme={theme}>Context / Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Anything the numbers don't explain..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const {periodLabel,...cur}=form;
+            const next={previous:bizMetrics.current||{},current:cur,periodLabel:periodLabel||""};
+            setBizMetrics(next); db.saveBizMetrics(next); log("updated","company metrics","Business");
+          })}>Save</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── INVESTOR MODAL ─── */
+      case "editInvestor": return <Modal theme={theme} title={form.id?"Edit Investor":"New Investor"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Investor / Contact Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Person or fund name"/></div><div><Label theme={theme}>Firm</Label><Input theme={theme} value={form.firm||""} onChange={e=>setForm(p=>({...p,firm:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={INVESTOR_TYPES} value={form.type||"Angel"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Stage</Label><Sel theme={theme} options={INVESTOR_STAGES} value={form.stage||"Researching"} onChange={e=>setForm(p=>({...p,stage:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Check Size</Label><Input theme={theme} value={form.checkSize||""} onChange={e=>setForm(p=>({...p,checkSize:e.target.value}))} placeholder="e.g. £50k–£100k"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Contact Name</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))}/></div><div><Label theme={theme}>Contact Email</Label><Input theme={theme} value={form.contactEmail||""} onChange={e=>setForm(p=>({...p,contactEmail:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Warm Intro Via</Label><Input theme={theme} value={form.warmIntro||""} onChange={e=>setForm(p=>({...p,warmIntro:e.target.value}))} placeholder="Who can introduce us?"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Next Step</Label><Input theme={theme} value={form.nextStep||""} onChange={e=>setForm(p=>({...p,nextStep:e.target.value}))} placeholder="e.g. Send deck"/></div><div><Label theme={theme}>Next Step Date</Label><Input theme={theme} type="date" value={form.nextDate||""} onChange={e=>setForm(p=>({...p,nextDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Thesis fit, feedback, objections..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setInvestors(p=>p.filter(x=>x.id!==form.id));db.deleteInvestor(form.id);log("deleted",form.name,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const iid=form.id||uid("inv");
+            const idata={id:iid,name:form.name||"",firm:form.firm||"",type:form.type||"Angel",stage:form.stage||"Researching",checkSize:form.checkSize||"",owner:form.owner||"",contactName:form.contactName||"",contactEmail:form.contactEmail||"",nextStep:form.nextStep||"",nextDate:form.nextDate||"",warmIntro:form.warmIntro||"",notes:form.notes||""};
+            if(form.id){setInvestors(p=>p.map(x=>x.id===form.id?idata:x));log("updated",idata.name,"Business")}
+            else{setInvestors(p=>[...p,idata]);log("created",idata.name,"Business")}
+            db.saveInvestor(idata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── BOARD UPDATE MODAL ─── */
+      case "editBoardUpdate": return <Modal theme={theme} title={form.id?"Edit Board Update":"New Board Update"} onClose={closeM} width={640}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Q3 2026 Investor Update"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Period</Label><Input theme={theme} value={form.period||""} onChange={e=>setForm(p=>({...p,period:e.target.value}))} placeholder="e.g. Aug 2026 / Q3"/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={BOARD_UPDATE_STATUS} value={form.status||"Draft"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Author</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.author||""} onChange={e=>setForm(p=>({...p,author:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Highlights</Label><Textarea theme={theme} value={form.highlights||""} onChange={e=>setForm(p=>({...p,highlights:e.target.value}))} placeholder="What went well this period"/></div>
+        <div><Label theme={theme}>Challenges</Label><Textarea theme={theme} value={form.lowlights||""} onChange={e=>setForm(p=>({...p,lowlights:e.target.value}))} placeholder="What didn't, and what we're doing about it"/></div>
+        <div><Label theme={theme}>Asks</Label><Textarea theme={theme} value={form.asks||""} onChange={e=>setForm(p=>({...p,asks:e.target.value}))} placeholder="Intros, advice, or support needed"/></div>
+        <div><Label theme={theme}>Metrics Snapshot</Label><Textarea theme={theme} value={form.metricsSnapshot||""} onChange={e=>setForm(p=>({...p,metricsSnapshot:e.target.value}))} placeholder="Key numbers for this period"/></div>
+        <div><Label theme={theme}>Full Document Link</Label><Input theme={theme} value={form.link||""} onChange={e=>setForm(p=>({...p,link:e.target.value}))} placeholder="https://..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setBoardUpdates(p=>p.filter(x=>x.id!==form.id));db.deleteBoardUpdate(form.id);log("deleted",form.title,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const bid=form.id||uid("bu");
+            const bdata={id:bid,title:form.title||"",period:form.period||"",date:form.date||"",status:form.status||"Draft",author:form.author||"",highlights:form.highlights||"",lowlights:form.lowlights||"",asks:form.asks||"",metricsSnapshot:form.metricsSnapshot||"",link:form.link||""};
+            if(form.id){setBoardUpdates(p=>p.map(x=>x.id===form.id?bdata:x));log("updated",bdata.title,"Business")}
+            else{setBoardUpdates(p=>[...p,bdata]);log("created",bdata.title,"Business")}
+            db.saveBoardUpdate(bdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── INITIATIVE MODAL ─── */
+      case "editInitiative": return <Modal theme={theme} title={form.id?"Edit Initiative":"New Initiative"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Close pre-seed round"/></div>
+        <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Horizon</Label><Sel theme={theme} options={INITIATIVE_HORIZONS} value={form.horizon||"This Quarter"} onChange={e=>setForm(p=>({...p,horizon:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={INITIATIVE_STATUS} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Target Date</Label><Input theme={theme} type="date" value={form.targetDate||""} onChange={e=>setForm(p=>({...p,targetDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Success Metric</Label><Input theme={theme} value={form.successMetric||""} onChange={e=>setForm(p=>({...p,successMetric:e.target.value}))} placeholder="How we know it's done"/></div>
+        <div>
+          <Label theme={theme}>Progress: {form.progress||0}%</Label>
+          <input type="range" min="0" max="100" step="5" value={form.progress||0} onChange={e=>setForm(p=>({...p,progress:Number(e.target.value)}))} style={{width:"100%",accentColor:theme.teal,cursor:"pointer"}}/>
+        </div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setInitiatives(p=>p.filter(x=>x.id!==form.id));db.deleteInitiative(form.id);log("deleted",form.title,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const nid=form.id||uid("ini");
+            const ndata={id:nid,title:form.title||"",description:form.description||"",owner:form.owner||"",status:form.status||"Not Started",horizon:form.horizon||"This Quarter",progress:form.progress||0,targetDate:form.targetDate||"",successMetric:form.successMetric||"",notes:form.notes||""};
+            if(form.id){setInitiatives(p=>p.map(x=>x.id===form.id?ndata:x));log("updated",ndata.title,"Business")}
+            else{setInitiatives(p=>[...p,ndata]);log("created",ndata.title,"Business")}
+            db.saveInitiative(ndata);
           })}>Done</Btn>
         </div>
       </div></Modal>;
