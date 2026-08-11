@@ -12,7 +12,7 @@ import {
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
   Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign,
-  Heart, Award, MapPin, Smile, Activity, Users2, Repeat, Briefcase, TrendingUp, Flag
+  Heart, Award, MapPin, Smile, Activity, Users2, Repeat, Briefcase, Flag
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
