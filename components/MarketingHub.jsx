@@ -11,7 +11,7 @@ import {
   TrendingUp, ArrowUp, ArrowDown, Minus, Bell, StickyNote,
   Target, Zap, Copy, RefreshCw, FolderOpen, Star, Pin,
   Download, FolderKanban, Megaphone, Send, Linkedin, Twitter, Instagram, Youtube, Handshake,
-  Share2, FileEdit, CircleDot, BookOpen, MessageCircle, AtSign,
+  Share2, FileEdit, CircleDot, BookOpen, MessageCircle,
   Heart, Award, MapPin, Smile, Activity, Users2, Repeat, Briefcase, Flag
 } from "lucide-react";
 
@@ -331,6 +331,34 @@ const INITIATIVE_STATUS = ["Not Started","On Track","At Risk","Off Track","Achie
 const INITIATIVE_STATUS_COLORS = { "Not Started":"#4E6A78", "On Track":"#69DB7C", "At Risk":"#FFA94D", "Off Track":"#FF6B6B", Achieved:"#1FC2C2", Dropped:"#6B7280" };
 const INITIATIVE_HORIZONS = ["This Quarter","Next Quarter","This Year","Long Term"];
 
+/* ═══ BUSINESS DOCUMENTS ═══ */
+const DOC_CATEGORIES = ["Legal","Financial","Investor","Board","IP & Trademarks","HR & Contracts","Insurance","Compliance","Other"];
+const DOC_STATUS = ["Draft","In Review","Final","Signed","Expired","Archived"];
+const DOC_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Final:"#1FC2C2", Signed:"#69DB7C", Expired:"#FF6B6B", Archived:"#6B7280" };
+
+/* ═══ FOCUS GROUPS ═══ */
+const FG_ROUND_STATUS = ["Planning","Recruiting","In Progress","Analysing","Complete"];
+const FG_ROUND_STATUS_COLORS = { Planning:"#4E6A78", Recruiting:"#748FFC", "In Progress":"#FFA94D", Analysing:"#DA77F2", Complete:"#69DB7C" };
+// Traffic light system for participants
+const FG_PARTICIPANT_STATUS = ["Not Sent","Sent","Received Back","Accepted Invite"];
+const FG_STATUS_COLORS = { "Not Sent":"#FF6B6B", Sent:"#FFD43B", "Received Back":"#69DB7C", "Accepted Invite":"#4DABF7" };
+const FG_STATUS_HINT = { "Not Sent":"Red — nothing sent yet", Sent:"Yellow — invite/survey sent", "Received Back":"Green — response received", "Accepted Invite":"Blue — accepted, ready to book" };
+const FG_ASSET_TYPES = ["Survey","Invitation","Consent Form","Brief","Response","Other"];
+const FG_CHANNEL_STATUS = ["Pending","Identified","Approved","Declined"];
+const FG_CHANNEL_STATUS_COLORS = { Pending:"#FFA94D", Identified:"#748FFC", Approved:"#69DB7C", Declined:"#FF6B6B" };
+
+/* ═══ DEADLINE FADE (reusable for any time-sensitive thing) ═══ */
+function hexToRgb(h){ const s=h.replace("#",""); return [parseInt(s.slice(0,2),16),parseInt(s.slice(2,4),16),parseInt(s.slice(4,6),16)]; }
+function rgbToHex(r,g,b){ return "#"+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join(""); }
+function lerpColor(a,b,t){ const A=hexToRgb(a),B=hexToRgb(b); return rgbToHex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t); }
+// ratio: 1 = plenty of time, 0 = deadline. Fades teal -> yellow -> red.
+function deadlineColor(ratio){
+  const r=Math.max(0,Math.min(1,ratio));
+  if(r>0.5) return lerpColor("#FFD43B","#1FC2C2",(r-0.5)/0.5);
+  return lerpColor("#FF6B6B","#FFD43B",r/0.5);
+}
+function daysBetween(a,b){ return Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000); }
+
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
    ═══════════════════════════════════════════════════════════════ */
@@ -414,6 +442,53 @@ const Label = ({ children, theme }) => (
 const Card = ({ theme, children, style, onClick }) => (
   <div onClick={onClick} style={{ background:theme.bgCard, borderRadius:12, border:`1px solid ${theme.border}`, padding:18, boxShadow:theme.shadow, transition:"all .2s", cursor: onClick ? "pointer" : "default", ...style }}>{children}</div>
 );
+
+/* Reusable timeline: one cell per day, colour fades toward the deadline.
+   Past days are dimmed, today is ringed. Buckets into weeks if the span is long. */
+const DeadlineTimeline = ({ theme, startDate, endDate, label }) => {
+  if (!startDate || !endDate) return null;
+  const total = daysBetween(startDate, endDate);
+  if (total <= 0) return null;
+  const today = new Date().toISOString().split("T")[0];
+  const elapsed = daysBetween(startDate, today);
+  const remaining = daysBetween(today, endDate);
+  const bucket = total > 45 ? 7 : 1;
+  const cells = [];
+  for (let d = 0; d <= total; d += bucket) {
+    const cellDate = new Date(new Date(startDate + "T00:00:00").getTime() + d * 86400000).toISOString().split("T")[0];
+    const ratio = 1 - (d / total);
+    const past = cellDate < today;
+    const isToday = bucket === 1 ? cellDate === today : (cellDate <= today && daysBetween(cellDate, today) < bucket);
+    cells.push({ cellDate, ratio, past, isToday });
+  }
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+        <span style={{ fontSize:10, color:theme.textMut, fontWeight:600, textTransform:"uppercase", letterSpacing:".04em" }}>{label || "Timeline"}</span>
+        <span style={{ fontSize:11, fontFamily:FONT_MONO, color: remaining < 0 ? theme.red : deadlineColor(remaining / total), fontWeight:700 }}>
+          {remaining < 0 ? `${Math.abs(remaining)}d overdue` : remaining === 0 ? "Due today" : `${remaining}d left`}
+        </span>
+      </div>
+      <div style={{ display:"flex", gap:2, alignItems:"flex-end" }}>
+        {cells.map((c, i) => (
+          <div key={i} title={c.cellDate}
+            style={{
+              flex:1, height: c.isToday ? 16 : 10, borderRadius:2,
+              background: c.past ? theme.border : deadlineColor(c.ratio),
+              opacity: c.past ? 0.45 : 1,
+              outline: c.isToday ? `2px solid ${theme.text}` : "none",
+              outlineOffset: c.isToday ? 1 : 0,
+              transition:"all .3s"
+            }}/>
+        ))}
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+        <span style={{ fontSize:10, fontFamily:FONT_MONO, color:theme.textMut }}>{startDate}</span>
+        <span style={{ fontSize:10, fontFamily:FONT_MONO, color:theme.textMut }}>{endDate}</span>
+      </div>
+    </div>
+  );
+};
 
 const SectionHead = ({ theme, children, right }) => (
   <div className="nanu-section-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:10 }}>
@@ -550,8 +625,7 @@ export default function MarketingHub() {
   const [taskView, setTaskView] = useState("mine");
   const [masterGroupBy, setMasterGroupBy] = useState("member");
   const [bulkSelected, setBulkSelected] = useState([]);
-  const [bulkReassignTo, setBulkReassignTo] = useState("");
-  const [tfProject, setTfProject] = useState("All");
+  const [bulkReassignTo, setBulkReassignTo] = useState("");  const [tfProject, setTfProject] = useState("All");
   const [tfPriority, setTfPriority] = useState("All");
   const [tfStatus, setTfStatus] = useState("All");
   const [tfPerson, setTfPerson] = useState("All");
@@ -581,16 +655,6 @@ export default function MarketingHub() {
   const [wsTab, setWsTab] = useState("todos");
   const [workspace, setWorkspace] = useState({ todos:[], notes:[], bookmarks:[], goals:[], drafts:[] });
   const [previewItem, setPreviewItem] = useState(null);
-  const [chatChannel, setChatChannel] = useState("general");
-  const [chatMessages, setChatMessages] = useState({});
-  const [chatInput, setChatInput] = useState("");
-  const [chatBubble, setChatBubble] = useState(false);
-  const [chatBubbleChannel, setChatBubbleChannel] = useState("general");
-  const [showMentions, setShowMentions] = useState(false);
-  const [showLinkPicker, setShowLinkPicker] = useState(false);
-  const [chatLastRead, setChatLastRead] = useState({});
-  const [replyTo, setReplyTo] = useState(null);
-  const [chatMobileSidebar, setChatMobileSidebar] = useState(false);
   const [pallyyKey, setPallyyKey] = useState(0);
   const [copiedField, setCopiedField] = useState(null);
   const [ambassadors, setAmbassadors] = useState([]);
@@ -604,8 +668,18 @@ export default function MarketingHub() {
   const [boardUpdates, setBoardUpdates] = useState([]);
   const [initiatives, setInitiatives] = useState([]);
   const [bizTab, setBizTab] = useState("metrics");
-  const chatEndRef = useRef(null);
-  const chatInputRef = useRef(null);
+  const [bizDocs, setBizDocs] = useState([]);
+  const [fgRounds, setFgRounds] = useState([]);
+  const [fgParticipants, setFgParticipants] = useState([]);
+  const [fgAssets, setFgAssets] = useState([]);
+  const [fgChannels, setFgChannels] = useState([]);
+  const [fgActiveRound, setFgActiveRound] = useState("");
+  const [fgTab, setFgTab] = useState("participants");
+  const [fgShowContacts, setFgShowContacts] = useState(false);
+  const [fgSelected, setFgSelected] = useState([]);
+  const [fgSendStaged, setFgSendStaged] = useState(false);
+  const [fgChannelTab, setFgChannelTab] = useState("Pending");
+  const [fgDragOver, setFgDragOver] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -615,7 +689,6 @@ export default function MarketingHub() {
     taskUpdated: true,
     taskDue: true,
     projectUpdated: true,
-    weeklyRecap: true,
     inHubBell: true,
   });
 
@@ -647,6 +720,11 @@ export default function MarketingHub() {
       setInvestors(data.investors || []);
       setBoardUpdates(data.boardUpdates || []);
       setInitiatives(data.initiatives || []);
+      setBizDocs(data.bizDocs || []);
+      setFgRounds(data.fgRounds || []);
+      setFgParticipants(data.fgParticipants || []);
+      setFgAssets(data.fgAssets || []);
+      setFgChannels(data.fgChannels || []);
       setActivity(data.activity);
       // If users table is empty, this is a fresh DB — seed it
       if (!data.users.length) {
@@ -673,139 +751,7 @@ export default function MarketingHub() {
     db.loadNotifSettings(curUser.id).then(s => { if (s) setNotifSettings(s); });
     db.loadNotifications(curUser.id).then(n => { if (n) setNotifications(n); });
     db.loadWorkspace(curUser.id).then(w => { if (w) setWorkspace(w); });
-    db.loadChatMessages().then(m => { if (m) setChatMessages(m); });
-    db.loadChatLastRead(curUser.id).then(lr => { if (lr) setChatLastRead(lr); });
   }, [curUser]);
-
-  // Chat auto-refresh — 3 seconds for snappy feel
-  useEffect(() => {
-    if (!curUser) return;
-    const i = setInterval(() => db.loadChatMessages().then(m => { if (m) setChatMessages(m); }), 3000);
-    return () => clearInterval(i);
-  }, [curUser]);
-
-  // Mark the active channel as read — on switch AND as new messages arrive while viewing it.
-  // Only marks read while the user is actually on the chat section (not just has it selected).
-  useEffect(() => {
-    if (!curUser || !chatChannel || section !== "chat") return;
-    const latest = (chatMessages[chatChannel] || []).reduce((max, m) => m.time > max ? m.time : max, "");
-    const now = new Date().toISOString();
-    const stamp = latest && latest > now ? latest : now;
-    setChatLastRead(prev => {
-      if (prev[chatChannel] === stamp) return prev; // no change, avoid loop
-      const next = { ...prev, [chatChannel]: stamp };
-      db.saveChatLastRead(curUser.id, next);
-      return next;
-    });
-  }, [chatChannel, curUser, section, chatMessages]);
-
-  // Also mark the bubble's channel read while the bubble is open
-  useEffect(() => {
-    if (!curUser || !chatBubble || !chatBubbleChannel) return;
-    const now = new Date().toISOString();
-    setChatLastRead(prev => {
-      if (prev[chatBubbleChannel] === now) return prev;
-      const next = { ...prev, [chatBubbleChannel]: now };
-      db.saveChatLastRead(curUser.id, next);
-      return next;
-    });
-  }, [chatBubbleChannel, chatBubble, curUser, chatMessages]);
-
-  // Chat channels definition
-  const CHAT_CHANNELS = [
-    { id: "general", label: "General", icon: "💬", desc: "Team-wide updates and conversation" },
-    { id: "content", label: "Content", icon: "📝", desc: "Content planning, captions, and scheduling" },
-    { id: "outreach", label: "Outreach", icon: "📣", desc: "Partnerships, podcasts, and collaborations" },
-    { id: "dev", label: "Dev & Product", icon: "⚙️", desc: "Development, features, and product decisions" },
-  ];
-
-  const getDmKey = (otherUserId) => {
-    if (!curUser) return "dm_none";
-    const ids = [curUser.id, otherUserId].sort();
-    return `dm_${ids[0]}_${ids[1]}`;
-  };
-
-  const getChannelMessages = (channelId) => (chatMessages[channelId] || []);
-
-  // Unread count for a channel
-  const getUnreadCount = (channelId) => {
-    if (!curUser) return 0;
-    const lastRead = chatLastRead[channelId];
-    if (!lastRead) return (chatMessages[channelId] || []).length;
-    return (chatMessages[channelId] || []).filter(m => m.time > lastRead && m.author !== curUser.id).length;
-  };
-
-  const totalUnread = [...CHAT_CHANNELS.map(c => getUnreadCount(c.id)), ...users.filter(u => u.id !== curUser?.id).map(u => getUnreadCount(getDmKey(u.id)))].reduce((a, b) => a + b, 0);
-
-  // Date separator helper
-  const getDateLabel = (dateStr) => {
-    const d = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return "Today";
-    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  };
-
-  // Send message
-  const sendChat = (channelId, text) => {
-    if (!text.trim() || !curUser) return;
-    const msg = {
-      id: uid("msg"),
-      author: curUser.id,
-      text: text.trim(),
-      time: new Date().toISOString(),
-      mentions: [...(text.match(/@(\w+)/g) || [])].map(m => {
-        const name = m.slice(1).toLowerCase();
-        return users.find(u => u.name.toLowerCase().includes(name) || u.username.toLowerCase() === name)?.id;
-      }).filter(Boolean),
-      linkedEntity: null,
-      replyTo: replyTo ? { id: replyTo.id, author: replyTo.author, text: (replyTo.text || "").slice(0, 60) } : null,
-    };
-    setChatMessages(prev => {
-      const next = { ...prev, [channelId]: [...(prev[channelId] || []), msg] };
-      db.saveChatMessages(next);
-      return next;
-    });
-    msg.mentions.forEach(uid2 => {
-      if (uid2 !== curUser.id) {
-        const chLabel = CHAT_CHANNELS.find(c => c.id === channelId)?.label || channelId;
-        notify(uid2, "task_updated", `${curUser.name} mentioned you in #${chLabel}`, text.slice(0, 80), "chat");
-      }
-    });
-    setChatInput("");
-    setReplyTo(null);
-    setShowMentions(false);
-    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
-
-  const sendChatWithLink = (channelId, text, entityType, entityId, entityName) => {
-    if (!text.trim() && !entityName) return;
-    const msg = {
-      id: uid("msg"), author: curUser.id, text: text.trim(), time: new Date().toISOString(),
-      mentions: [], linkedEntity: { type: entityType, id: entityId, name: entityName }, replyTo: null,
-    };
-    setChatMessages(prev => {
-      const next = { ...prev, [channelId]: [...(prev[channelId] || []), msg] };
-      db.saveChatMessages(next);
-      return next;
-    });
-    setChatInput("");
-    setShowLinkPicker(false);
-  };
-
-  // Handle @mention detection in input
-  const handleChatInputChange = (e) => {
-    setChatInput(e.target.value);
-    const match = e.target.value.match(/@(\w*)$/);
-    setShowMentions(!!match);
-  };
-
-  const insertMention = (username) => {
-    setChatInput(prev => prev.replace(/@\w*$/, `@${username} `));
-    setShowMentions(false);
-    chatInputRef.current?.focus();
-  };
 
   // Refresh notifications from DB
   const refreshNotifications = () => {
@@ -934,7 +880,6 @@ export default function MarketingHub() {
         { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
         { key:"responsibilities", label:"Responsibilities", icon:<Repeat size={18}/> },
         { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
-        { key:"chat", label:"Chat", icon:<MessageCircle size={18}/> },
         { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
         { key:"resources", label:"Resources", icon:<Link2 size={18}/> },
         { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
@@ -959,6 +904,7 @@ export default function MarketingHub() {
         { key:"channels", label:"Channels", icon:<Hash size={18}/> },
         { key:"events", label:"Events", icon:<MapPin size={18}/> },
         { key:"feedback", label:"Feedback", icon:<Smile size={18}/> },
+        { key:"focusgroups", label:"Focus Groups", icon:<Users2 size={18}/> },
         { key:"engagement", label:"Engagement", icon:<Activity size={18}/> },
       ]
     },
@@ -1132,7 +1078,11 @@ export default function MarketingHub() {
         })()}
         {/* Activity */}
         <Card theme={theme}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:15, marginBottom:10 }}>Recent Activity</div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:15 }}>Recent Activity</div>
+            {isAdmin&&activity.length>0&&<button type="button" onClick={()=>openM("confirmClearActivity",{})} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><Trash2 size={12}/> Clear team activity</button>}
+          </div>
+          {activity.length===0&&<p style={{fontSize:13,color:theme.textMut,padding:6}}>No recent activity</p>}
           {activity.slice(0,8).map(a=>(
             <div key={a.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:`1px solid ${theme.borderLight}` }}>
               <Zap size={12} color={theme.teal}/>
@@ -1453,6 +1403,7 @@ export default function MarketingHub() {
           const mTasks = filteredTasks;
           const activeTasks = mTasks.filter(t=>t.status!=="Done");
           const toggleBulk = (id) => setBulkSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]);
+          const selectAllVisible = () => setBulkSelected(activeTasks.map(t=>t.id));
           const doBulkReassign = () => {
             if(!bulkReassignTo||bulkSelected.length===0) return;
             bulkSelected.forEach(tid=>{
@@ -1533,8 +1484,16 @@ export default function MarketingHub() {
               <span style={{fontSize:12,color:theme.textMut}}>Reassign to:</span>
               <Sel theme={theme} options={[{value:"",label:"Choose person..."},...users.map(u=>({value:u.id,label:u.name}))]} value={bulkReassignTo} onChange={e=>setBulkReassignTo(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
               <Btn primary theme={theme} small onClick={doBulkReassign} disabled={!bulkReassignTo}>Reassign</Btn>
+              <Btn theme={theme} danger small onClick={()=>openM("confirmBulkDeleteTasks",{count:bulkSelected.length})}><Trash2 size={12}/> Delete {bulkSelected.length}</Btn>
               <button onClick={()=>{setBulkSelected([]);setBulkReassignTo("")}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>
             </Card>}
+
+            {/* Select all */}
+            {activeTasks.length>0&&<div style={{marginBottom:10}}>
+              <button type="button" onClick={()=>bulkSelected.length===activeTasks.length?setBulkSelected([]):selectAllVisible()} style={{background:"none",border:`1px solid ${theme.border}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",color:theme.textSec,fontSize:12,fontWeight:600}}>
+                {bulkSelected.length===activeTasks.length?"Deselect all":`Select all ${activeTasks.length} visible`}
+              </button>
+            </div>}
 
             {/* Grouped task board */}
             {groups.map(g=>{
@@ -2222,7 +2181,7 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
-            {[["metrics","Metrics & KPIs",TrendingUp],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag]].map(([k,l,Icon])=>(
+            {[["metrics","Metrics & KPIs",TrendingUp],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag],["documents","Documents",FolderOpen]].map(([k,l,Icon])=>(
               <button key={k} onClick={()=>setBizTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:bizTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:bizTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
                 <Icon size={14}/>{l}
               </button>
@@ -2441,6 +2400,366 @@ export default function MarketingHub() {
             ))}
             {initiatives.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No initiatives yet. Click "Add Initiative" to set company goals.</p>}
           </div>}
+
+          {/* ── DOCUMENTS ── */}
+          {bizTab==="documents"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0}}>Key company documents. Stored in Drive — this is the index of where everything lives.</p>
+              <div style={{display:"flex",gap:6}}>
+                {bizDocs.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Title","Category","Status","Version","Owner","Effective","Expires","Confidential","Link","Notes"]];
+                  bizDocs.forEach(d=>rows.push([d.title||"",d.category||"",d.status||"",d.version||"",uName(d.owner),d.effectiveDate||"",d.expiryDate||"",d.confidential?"YES":"",d.link||"",d.notes||""]));
+                  exportCSV(rows,`nanu-documents-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editBizDoc",{title:"",category:"Legal",status:"Draft",version:"",owner:curUser.id,link:"",effectiveDate:"",expiryDate:"",confidential:false,notes:""})}><Plus size={13}/> Add Document</Btn>
+              </div>
+            </div>
+
+            {/* Expiring soon */}
+            {(()=>{
+              const soon=bizDocs.filter(d=>d.expiryDate&&d.expiryDate>=todayStr&&daysBetween(todayStr,d.expiryDate)<=60);
+              const expired=bizDocs.filter(d=>d.expiryDate&&d.expiryDate<todayStr&&d.status!=="Archived");
+              if(soon.length===0&&expired.length===0) return null;
+              return <Card theme={theme} style={{padding:14,marginBottom:16,borderLeft:`3px solid ${expired.length?theme.red:theme.orange}`}}>
+                <div style={{fontSize:11,fontWeight:700,color:expired.length?theme.red:theme.orange,textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>Needs Attention</div>
+                {expired.map(d=>(<div key={d.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,padding:"3px 0"}}>
+                  <AlertTriangle size={12} color={theme.red}/><span style={{flex:1}}>{d.title}</span><span style={{color:theme.red,fontFamily:FONT_MONO,fontSize:11}}>expired {d.expiryDate}</span>
+                </div>))}
+                {soon.map(d=>(<div key={d.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,padding:"3px 0"}}>
+                  <Clock size={12} color={theme.orange}/><span style={{flex:1}}>{d.title}</span><span style={{color:theme.orange,fontFamily:FONT_MONO,fontSize:11}}>{daysBetween(todayStr,d.expiryDate)}d left</span>
+                </div>))}
+              </Card>;
+            })()}
+
+            {/* Grouped by category */}
+            {DOC_CATEGORIES.filter(c=>bizDocs.some(d=>d.category===c)).map(cat=>(
+              <div key={cat} style={{marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{cat} <span style={{color:theme.textMut}}>· {bizDocs.filter(d=>d.category===cat).length}</span></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {bizDocs.filter(d=>d.category===cat).map(d=>(
+                    <Card key={d.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${DOC_STATUS_COLORS[d.status]||theme.border}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <div style={{flex:"1 1 200px",minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontWeight:700,fontSize:14}}>{d.title||"Untitled document"}</span>
+                            {d.confidential&&<Lock size={11} color={theme.yellow}/>}
+                          </div>
+                          {d.notes&&<div style={{fontSize:12,color:theme.textMut,marginTop:2}}>{d.notes}</div>}
+                        </div>
+                        {d.version&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>v{d.version}</span>}
+                        <Badge label={d.status} color={DOC_STATUS_COLORS[d.status]}/>
+                        <span style={{fontSize:11,color:theme.textMut}}>{uName(d.owner)}</span>
+                        {d.link&&<a href={d.link} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex",alignItems:"center",gap:3,fontSize:12}}><ExternalLink size={12}/> Open</a>}
+                        <Btn theme={theme} small onClick={()=>openM("editBizDoc",{...d})}><Edit3 size={12}/> Edit</Btn>
+                      </div>
+                      {(d.effectiveDate||d.expiryDate)&&<div style={{fontSize:11,color:theme.textMut,marginTop:6,fontFamily:FONT_MONO}}>
+                        {d.effectiveDate&&`Effective ${d.effectiveDate}`}{d.effectiveDate&&d.expiryDate&&" · "}{d.expiryDate&&<span style={{color:d.expiryDate<todayStr?theme.red:theme.textMut}}>Expires {d.expiryDate}</span>}
+                      </div>}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {bizDocs.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No documents indexed yet. Click "Add Document" to start.</p>}
+          </div>}
+        </div>
+      );
+    }
+
+    /* ─── FOCUS GROUPS ─── */
+    case "focusgroups": {
+      const rounds = fgRounds;
+      const activeRound = rounds.find(r=>r.id===fgActiveRound) || rounds[0];
+      const rid = activeRound?.id;
+      const parts = fgParticipants.filter(p=>p.roundId===rid);
+      const assets = fgAssets.filter(a=>a.roundId===rid);
+      const outbound = assets.filter(a=>a.type!=="Response");
+      const responses = assets.filter(a=>a.type==="Response");
+      const canSeeContacts = isAdmin && fgShowContacts;
+
+      const countBy = (s) => parts.filter(p=>p.status===s).length;
+      const accepted = parts.filter(p=>p.status==="Accepted Invite");
+
+      const toggleSel = (id) => setFgSelected(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+      const bulkSetStatus = (status) => {
+        fgSelected.forEach(pid=>{
+          const p = fgParticipants.find(x=>x.id===pid); if(!p) return;
+          const upd = {...p, status, ...(status==="Sent"?{invitedDate:todayStr}:{}), ...(status==="Received Back"?{respondedDate:todayStr}:{})};
+          setFgParticipants(prev=>prev.map(x=>x.id===pid?upd:x));
+          db.saveFgParticipant(upd);
+        });
+        log("updated",`${fgSelected.length} participant(s) to ${status}`,"Focus Groups");
+        setFgSelected([]); setFgSendStaged(false);
+      };
+      const addDroppedAsset = (name, url, type) => {
+        if(!rid) return;
+        const a = {id:uid("fga"),roundId:rid,name:name||"Untitled",type:type||"Survey",url:url||"",addedDate:todayStr,notes:""};
+        setFgAssets(prev=>[...prev,a]); db.saveFgAsset(a); log("added",a.name,"Focus Groups");
+      };
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            {rounds.length>0&&<Sel theme={theme} options={rounds.map(r=>({value:r.id,label:r.title||"Untitled round"}))} value={rid||""} onChange={e=>{setFgActiveRound(e.target.value);setFgSelected([]);setFgSendStaged(false)}} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>}
+            <Btn primary theme={theme} onClick={()=>openM("editFgRound",{title:"Market research for: ",objective:"",startDate:todayStr,endDate:"",status:"Planning",owner:curUser.id,targetN:0,notes:""})}><Plus size={14}/> New Round</Btn>
+          </>}>Focus Groups</SectionHead>
+
+          {!activeRound&&<Card theme={theme} style={{padding:32,textAlign:"center"}}>
+            <Users2 size={28} color={theme.textMut} style={{marginBottom:10}}/>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>No rounds yet</div>
+            <p style={{fontSize:13,color:theme.textMut}}>Create a round to start recruiting participants and tracking responses.</p>
+          </Card>}
+
+          {activeRound&&<>
+            {/* Round header — interchangeable heading + timeline */}
+            <Card theme={theme} style={{padding:20,marginBottom:16,borderLeft:`3px solid ${FG_ROUND_STATUS_COLORS[activeRound.status]}`}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"1 1 260px",minWidth:0}}>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,lineHeight:1.2}}>{activeRound.title||"Untitled round"}</div>
+                  {activeRound.objective&&<p style={{fontSize:13,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{activeRound.objective}</p>}
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <Badge label={activeRound.status} color={FG_ROUND_STATUS_COLORS[activeRound.status]}/>
+                  <span style={{fontSize:11,color:theme.textMut}}>{uName(activeRound.owner)}</span>
+                  <Btn theme={theme} small onClick={()=>openM("editFgRound",{...activeRound})}><Edit3 size={12}/> Edit</Btn>
+                </div>
+              </div>
+              <DeadlineTimeline theme={theme} startDate={activeRound.startDate} endDate={activeRound.endDate} label="Round timeline"/>
+            </Card>
+
+            {/* Traffic light summary */}
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {FG_PARTICIPANT_STATUS.map(s=>(
+                <Card key={s} theme={theme} title={FG_STATUS_HINT[s]} style={{padding:12,textAlign:"center",borderTop:`3px solid ${FG_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:FG_STATUS_COLORS[s]}}>{countBy(s)}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.text}}>{parts.length}{activeRound.targetN>0&&<span style={{fontSize:13,color:theme.textMut}}>/{activeRound.targetN}</span>}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Total Applied</div>
+              </Card>
+            </div>
+
+            {/* Tabs */}
+            <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:16,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
+              {[["participants","Participants",Users],["assets","Surveys & Sending",Send],["repository","Repository",FolderOpen],["channels","Posting Areas",Megaphone]].map(([k,l,Icon])=>(
+                <button key={k} onClick={()=>setFgTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:fgTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:fgTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
+                  <Icon size={14}/>{l}
+                </button>
+              ))}
+            </div>
+
+            {/* ── PARTICIPANTS ── */}
+            {fgTab==="participants"&&<div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  {isAdmin&&<button type="button" onClick={()=>setFgShowContacts(v=>!v)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:`1px solid ${fgShowContacts?theme.teal:theme.border}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",color:fgShowContacts?theme.teal:theme.textMut,fontSize:12,fontWeight:600}}>
+                    {fgShowContacts?<Eye size={13}/>:<EyeOff size={13}/>} Contact details {fgShowContacts?"on":"off"}
+                  </button>}
+                  {!isAdmin&&<span style={{fontSize:11,color:theme.textMut,display:"flex",alignItems:"center",gap:5}}><Lock size={11}/> Contact details are admin-only</span>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {accepted.length>0&&<Btn theme={theme} small onClick={()=>{
+                    const emails=accepted.map(p=>p.email).filter(Boolean).join(",");
+                    const subject=encodeURIComponent(`Live feedback session — ${activeRound.title||"Focus group"}`);
+                    const body=encodeURIComponent(`Hi,\n\nThank you for accepting our invitation.\n\nPlease use the link below to book your live feedback session:\n${activeRound.sessionLink||"[add a session link on the round]"}\n\nThanks,\nThe Nanu Team`);
+                    window.open(`mailto:?bcc=${emails}&subject=${subject}&body=${body}`);
+                  }}><Send size={12}/> Invite {accepted.length} accepted to sessions</Btn>}
+                  <Btn primary theme={theme} small onClick={()=>openM("editFgParticipant",{roundId:rid,name:"",email:"",phone:"",source:"",status:"Not Sent",invitedDate:"",respondedDate:"",sessionSlot:"",responseLink:"",notes:""})}><Plus size={13}/> Add Participant</Btn>
+                </div>
+              </div>
+
+              {/* Bulk bar */}
+              {fgSelected.length>0&&<Card theme={theme} style={{padding:"10px 14px",marginBottom:12,borderLeft:`3px solid ${theme.teal}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <span style={{fontSize:13,fontWeight:600}}>{fgSelected.length} selected</span>
+                  <span style={{fontSize:12,color:theme.textMut}}>Set status:</span>
+                  {FG_PARTICIPANT_STATUS.map(s=>(
+                    <button key={s} onClick={()=>bulkSetStatus(s)} style={{display:"flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${FG_STATUS_COLORS[s]}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",color:FG_STATUS_COLORS[s],fontSize:12,fontWeight:600}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:FG_STATUS_COLORS[s]}}/>{s}
+                    </button>
+                  ))}
+                  <button onClick={()=>setFgSelected([])} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>
+                </div>
+              </Card>}
+
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {parts.map(p=>{
+                  const sel=fgSelected.includes(p.id);
+                  return <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:8,background:sel?`${theme.teal}12`:theme.bgCard,border:`1px solid ${sel?theme.teal:theme.border}`,flexWrap:"wrap"}}>
+                    <input type="checkbox" checked={sel} onChange={()=>toggleSel(p.id)} style={{cursor:"pointer",accentColor:theme.teal,width:15,height:15,flexShrink:0}}/>
+                    <div title={FG_STATUS_HINT[p.status]} style={{width:12,height:12,borderRadius:"50%",background:FG_STATUS_COLORS[p.status],flexShrink:0,boxShadow:`0 0 6px ${FG_STATUS_COLORS[p.status]}66`}}/>
+                    <span style={{fontWeight:600,fontSize:13,flex:"1 1 140px",minWidth:0}}>{p.name||"Unnamed"}</span>
+                    {canSeeContacts&&<span style={{fontSize:12,color:theme.textMut,flex:"1 1 160px",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.email}{p.phone?` · ${p.phone}`:""}</span>}
+                    {!canSeeContacts&&<span style={{fontSize:11,color:theme.textMut,fontStyle:"italic",flex:"1 1 160px"}}>contact hidden</span>}
+                    {p.source&&<Badge label={p.source} color={theme.textMut}/>}
+                    {p.sessionSlot&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.tealLt}}>{p.sessionSlot}</span>}
+                    <select value={p.status} onChange={e=>{const upd={...p,status:e.target.value};setFgParticipants(prev=>prev.map(x=>x.id===p.id?upd:x));db.saveFgParticipant(upd)}}
+                      style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:FG_STATUS_COLORS[p.status],cursor:"pointer",fontWeight:700}}>
+                      {FG_PARTICIPANT_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {p.responseLink&&<a href={p.responseLink} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex"}}><ExternalLink size={12}/></a>}
+                    <Btn theme={theme} small onClick={()=>openM("editFgParticipant",{...p})}><Edit3 size={11}/></Btn>
+                  </div>;
+                })}
+                {parts.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No participants yet. Add them individually or import a list.</p>}
+              </div>
+
+              {/* Legend */}
+              <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:14,padding:"10px 14px",background:theme.bgInput,borderRadius:8}}>
+                {FG_PARTICIPANT_STATUS.map(s=>(
+                  <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:theme.textMut}}>
+                    <div style={{width:9,height:9,borderRadius:"50%",background:FG_STATUS_COLORS[s]}}/>{FG_STATUS_HINT[s]}
+                  </div>
+                ))}
+              </div>
+            </div>}
+
+            {/* ── SURVEYS & SENDING ── */}
+            {fgTab==="assets"&&<div>
+              <p style={{fontSize:13,color:theme.textSec,marginBottom:12}}>Drop in the surveys and invitations for this round, then stage a send to your selected participants.</p>
+
+              {/* Drop zone */}
+              <div
+                onDragOver={e=>{e.preventDefault();setFgDragOver(true)}}
+                onDragLeave={()=>setFgDragOver(false)}
+                onDrop={e=>{
+                  e.preventDefault(); setFgDragOver(false);
+                  const url=e.dataTransfer.getData("text/uri-list")||e.dataTransfer.getData("text/plain");
+                  const files=e.dataTransfer.files;
+                  if(url&&url.startsWith("http")) addDroppedAsset(url.split("/").pop()||"Dropped link",url,"Survey");
+                  else if(files&&files.length) Array.from(files).forEach(f=>addDroppedAsset(f.name,"","Survey"));
+                }}
+                style={{border:`2px dashed ${fgDragOver?theme.teal:theme.border}`,borderRadius:12,padding:24,textAlign:"center",marginBottom:16,background:fgDragOver?`${theme.teal}0d`:"transparent",transition:"all .15s"}}>
+                <FolderOpen size={24} color={fgDragOver?theme.teal:theme.textMut} style={{marginBottom:8}}/>
+                <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>Drop a Google Drive link here</div>
+                <p style={{fontSize:11,color:theme.textMut,margin:"0 0 10px"}}>Drag a Drive, Typeform or Google Forms link straight in. Files live in Drive — the hub stores the link.</p>
+                <Btn theme={theme} small onClick={()=>openM("editFgAsset",{roundId:rid,name:"",type:"Survey",url:"",addedDate:todayStr,notes:""})}><Plus size={12}/> Add Manually</Btn>
+              </div>
+
+              {/* Assets list */}
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
+                {outbound.map(a=>(
+                  <Card key={a.id} theme={theme} style={{padding:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <FileText size={14} color={theme.teal}/>
+                    <span style={{fontWeight:600,fontSize:13,flex:"1 1 160px",minWidth:0}}>{a.name}</span>
+                    <Badge label={a.type} color={theme.textMut}/>
+                    {a.url?<a href={a.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={11}/> Open</a>:<span style={{fontSize:11,color:theme.orange}}>no link yet</span>}
+                    <Btn theme={theme} small onClick={()=>openM("editFgAsset",{...a})}><Edit3 size={11}/></Btn>
+                  </Card>
+                ))}
+                {outbound.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:16}}>No surveys or invitations added yet.</p>}
+              </div>
+
+              {/* Mass send staging */}
+              <Card theme={theme} style={{padding:16,borderLeft:`3px solid ${theme.orange}`}}>
+                <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:6}}>Mass Send</div>
+                <p style={{fontSize:12,color:theme.textSec,marginTop:0,lineHeight:1.6}}>
+                  Select participants on the Participants tab, then stage the send here. Nothing goes out automatically — you review the list, send via your mail client, and confirm to update everyone to <strong>Sent</strong> in one action.
+                </p>
+                {!fgSendStaged&&<Btn primary theme={theme} onClick={()=>setFgSendStaged(true)} disabled={fgSelected.length===0}>
+                  <Send size={13}/> Stage send for {fgSelected.length} selected
+                </Btn>}
+                {fgSelected.length===0&&!fgSendStaged&&<div style={{fontSize:11,color:theme.textMut,marginTop:8}}>Select participants first.</div>}
+
+                {fgSendStaged&&<div style={{marginTop:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:theme.orange,textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>Review before sending</div>
+                  <div style={{background:theme.bgInput,borderRadius:8,padding:12,marginBottom:12,maxHeight:180,overflow:"auto"}}>
+                    {fgSelected.map(pid=>{const p=fgParticipants.find(x=>x.id===pid);return p?<div key={pid} style={{fontSize:12,padding:"2px 0",display:"flex",gap:8}}>
+                      <span style={{flex:1}}>{p.name}</span>
+                      <span style={{color:theme.textMut,fontFamily:FONT_MONO,fontSize:11}}>{isAdmin?p.email:"hidden"}</span>
+                    </div>:null})}
+                  </div>
+                  <div style={{fontSize:12,color:theme.textSec,marginBottom:10}}>Attaching: {outbound.map(a=>a.name).join(", ")||"no assets selected"}</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {isAdmin&&<Btn theme={theme} onClick={()=>{
+                      const emails=fgSelected.map(pid=>fgParticipants.find(x=>x.id===pid)?.email).filter(Boolean).join(",");
+                      const subject=encodeURIComponent(activeRound.title||"Invitation to take part in our research");
+                      const links=outbound.filter(a=>a.url).map(a=>`${a.name}: ${a.url}`).join("\n");
+                      const body=encodeURIComponent(`Hi,\n\nWe'd love your input on ${activeRound.title||"our research"}.\n\n${links}\n\nThank you,\nThe Nanu Team`);
+                      window.open(`mailto:?bcc=${emails}&subject=${subject}&body=${body}`);
+                    }}><Send size={13}/> Open in mail client</Btn>}
+                    <Btn theme={theme} onClick={()=>{
+                      const rows=[["Name","Email","Status"]];
+                      fgSelected.forEach(pid=>{const p=fgParticipants.find(x=>x.id===pid);if(p)rows.push([p.name||"",p.email||"",p.status])});
+                      exportCSV(rows,`focus-send-list-${new Date().toISOString().slice(0,10)}.csv`);
+                    }}><Download size={13}/> Export list</Btn>
+                    <Btn primary theme={theme} onClick={()=>bulkSetStatus("Sent")}><Check size={13}/> Confirm sent — mark all yellow</Btn>
+                    <Btn theme={theme} onClick={()=>setFgSendStaged(false)}>Cancel</Btn>
+                  </div>
+                </div>}
+              </Card>
+            </div>}
+
+            {/* ── REPOSITORY ── */}
+            {fgTab==="repository"&&<div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                <p style={{fontSize:13,color:theme.textSec,margin:0}}>Every response received back for this round, in one place.</p>
+                <Btn primary theme={theme} small onClick={()=>openM("editFgAsset",{roundId:rid,name:"",type:"Response",url:"",addedDate:todayStr,notes:""})}><Plus size={13}/> Add Response</Btn>
+              </div>
+
+              {/* Responses from participants */}
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                {parts.filter(p=>p.responseLink).map(p=>(
+                  <Card key={p.id} theme={theme} style={{padding:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{width:10,height:10,borderRadius:"50%",background:FG_STATUS_COLORS[p.status],flexShrink:0}}/>
+                    <span style={{fontWeight:600,fontSize:13,flex:"1 1 140px"}}>{p.name}</span>
+                    {p.respondedDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{p.respondedDate}</span>}
+                    <a href={p.responseLink} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={11}/> View response</a>
+                  </Card>
+                ))}
+                {responses.map(a=>(
+                  <Card key={a.id} theme={theme} style={{padding:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <FileText size={14} color={theme.green}/>
+                    <span style={{fontWeight:600,fontSize:13,flex:"1 1 160px"}}>{a.name}</span>
+                    {a.addedDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{a.addedDate}</span>}
+                    {a.url&&<a href={a.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={11}/> Open</a>}
+                    <Btn theme={theme} small onClick={()=>openM("editFgAsset",{...a})}><Edit3 size={11}/></Btn>
+                  </Card>
+                ))}
+                {parts.filter(p=>p.responseLink).length===0&&responses.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No responses received yet. Add a response link to a participant, or log one here.</p>}
+              </div>
+            </div>}
+
+            {/* ── POSTING AREAS ── */}
+            {fgTab==="channels"&&<div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                <p style={{fontSize:13,color:theme.textSec,margin:0}}>Places we're allowed to post invites and surveys. Move them from Pending to Identified to Approved.</p>
+                <Btn primary theme={theme} small onClick={()=>openM("editFgChannel",{name:"",platform:"",url:"",status:"Pending",rules:"",owner:curUser.id,notes:""})}><Plus size={13}/> Add Area</Btn>
+              </div>
+
+              <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
+                {FG_CHANNEL_STATUS.map(s=>(
+                  <button key={s} onClick={()=>setFgChannelTab(s)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",border:"none",background:"transparent",borderBottom:fgChannelTab===s?`2px solid ${FG_CHANNEL_STATUS_COLORS[s]}`:"2px solid transparent",color:fgChannelTab===s?FG_CHANNEL_STATUS_COLORS[s]:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
+                    {s}<span style={{fontSize:11,opacity:0.7}}>{fgChannels.filter(c=>c.status===s).length}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {fgChannels.filter(c=>c.status===fgChannelTab).map(c=>(
+                  <Card key={c.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${FG_CHANNEL_STATUS_COLORS[c.status]}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <div style={{flex:"1 1 200px",minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:14}}>{c.name}{c.platform&&<span style={{fontWeight:400,color:theme.textMut}}> · {c.platform}</span>}</div>
+                        {c.rules&&<div style={{fontSize:12,color:theme.orange,marginTop:3}}>Rules: {c.rules}</div>}
+                      </div>
+                      {c.url&&<a href={c.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex",alignItems:"center",gap:3,fontSize:12}}><ExternalLink size={11}/> Open</a>}
+                      <span style={{fontSize:11,color:theme.textMut}}>{uName(c.owner)}</span>
+                      <select value={c.status} onChange={e=>{const upd={...c,status:e.target.value};setFgChannels(prev=>prev.map(x=>x.id===c.id?upd:x));db.saveFgChannel(upd)}}
+                        style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:FG_CHANNEL_STATUS_COLORS[c.status],cursor:"pointer",fontWeight:700}}>
+                        {FG_CHANNEL_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <Btn theme={theme} small onClick={()=>openM("editFgChannel",{...c})}><Edit3 size={11}/></Btn>
+                    </div>
+                    {c.notes&&<p style={{fontSize:12,color:theme.textMut,margin:"6px 0 0",lineHeight:1.5}}>{c.notes}</p>}
+                  </Card>
+                ))}
+                {fgChannels.filter(c=>c.status===fgChannelTab).length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>Nothing in {fgChannelTab} yet.</p>}
+              </div>
+            </div>}
+          </>}
         </div>
       );
     }
@@ -2984,168 +3303,20 @@ export default function MarketingHub() {
       );
     }
 
-    /* ─── CHAT ─── */
-    case "chat": {
-      const activeChannel = chatChannel;
-      const msgs = getChannelMessages(activeChannel);
-      const isDm = activeChannel.startsWith("dm_");
-      const dmUserId = isDm ? activeChannel.replace("dm_","").split("_").find(id=>id!==curUser.id) : null;
-      const chInfo = CHAT_CHANNELS.find(c=>c.id===activeChannel);
-
-      // Render a single message (with grouping support)
-      const renderMsg = (m, idx, arr) => {
-        const isMine = m.author === curUser?.id;
-        const prevMsg = idx > 0 ? arr[idx-1] : null;
-        const isGrouped = prevMsg && prevMsg.author === m.author && (new Date(m.time) - new Date(prevMsg.time)) < 300000; // 5 min
-        const mentionText = (m.text||"").replace(/@(\w+)/g, '<span style="color:#1FC2C2;font-weight:600">@$1</span>');
-
-        // Date separator
-        const prevDate = prevMsg ? new Date(prevMsg.time).toDateString() : null;
-        const thisDate = new Date(m.time).toDateString();
-        const showDate = !prevMsg || prevDate !== thisDate;
-
-        return <div key={m.id}>
-          {showDate && <div style={{textAlign:"center",padding:"16px 0 8px"}}><span style={{fontSize:11,fontWeight:600,color:theme.textMut,background:theme.bgCard,padding:"4px 12px",borderRadius:20,border:`1px solid ${theme.border}`}}>{getDateLabel(m.time)}</span></div>}
-          <div style={{display:"flex",gap:10,padding:isGrouped?"2px 0":"10px 0",alignItems:"flex-start",paddingLeft:isGrouped?42:0}}>
-            {!isGrouped&&<div style={{width:32,height:32,borderRadius:"50%",background:isMine?theme.teal:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:800,fontSize:13,flexShrink:0}}>{uName(m.author).charAt(0)}</div>}
-            <div style={{flex:1,minWidth:0}}>
-              {!isGrouped&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <span style={{fontSize:13,fontWeight:700,color:isMine?theme.teal:theme.text}}>{uName(m.author)}</span>
-                <span style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{new Date(m.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>
-              </div>}
-              {m.replyTo&&<div style={{padding:"4px 10px",background:theme.bgInput,borderLeft:`2px solid ${theme.teal}`,borderRadius:"0 6px 6px 0",marginBottom:4,fontSize:12,color:theme.textMut}}>
-                <span style={{fontWeight:600}}>{uName(m.replyTo.author)}</span>: {m.replyTo.text}
-              </div>}
-              <div style={{fontSize:14,color:theme.textSec,lineHeight:1.6,marginTop:isGrouped?0:2}} dangerouslySetInnerHTML={{__html:mentionText}}/>
-              {m.linkedEntity&&<div onClick={()=>{
-                if(m.linkedEntity.type==="task"){const t=tasks.find(x=>x.id===m.linkedEntity.id);if(t)openM("editTask",{...t})}
-                else if(m.linkedEntity.type==="project")setSection("projects");
-                else if(m.linkedEntity.type==="outreach"){const o=outreach.find(x=>x.id===m.linkedEntity.id);if(o)openM("editOutreach",{...o})}
-              }} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",background:theme.bgInput,borderRadius:6,border:`1px solid ${theme.border}`,cursor:"pointer",marginTop:4,fontSize:12,color:theme.teal}}>
-                <Link2 size={11}/>{m.linkedEntity.name}<Badge label={m.linkedEntity.type} color={theme.textMut} style={{fontSize:9}}/>
-              </div>}
-              {/* Reply button */}
-              <button type="button" onClick={()=>{setReplyTo(m);chatInputRef.current?.focus()}} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut,opacity:0,fontSize:10,marginTop:2,transition:"opacity .15s"}} onMouseEnter={e=>e.target.style.opacity=1} onMouseLeave={e=>e.target.style.opacity=0}>Reply</button>
-            </div>
-          </div>
-        </div>;
-      };
-
-      // Chat input component (reused in section and bubble)
-      const chatInputBar = (channelId, inputVal, setInputVal, refEl) => (
-        <div style={{padding:"12px 16px",borderTop:`1px solid ${theme.border}`,position:"relative"}}>
-          {/* Reply indicator */}
-          {replyTo&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",marginBottom:8,background:theme.bgInput,borderRadius:8,borderLeft:`2px solid ${theme.teal}`,fontSize:12}}>
-            <span style={{color:theme.textMut}}>Replying to <strong style={{color:theme.text}}>{uName(replyTo.author)}</strong></span>
-            <span style={{flex:1,color:theme.textMut,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(replyTo.text||"").slice(0,50)}</span>
-            <button type="button" onClick={()=>setReplyTo(null)} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut}}><X size={12}/></button>
-          </div>}
-
-          {/* @mention dropdown */}
-          {showMentions&&<div style={{position:"absolute",bottom:"100%",left:16,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:8,padding:4,boxShadow:theme.shadowLg,maxHeight:200,overflow:"auto",width:200,zIndex:10}}>
-            {users.map(u=>(
-              <button key={u.id} type="button" onClick={()=>insertMention(u.username)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:13,color:theme.text,borderRadius:6}}>
-                <div style={{width:20,height:20,borderRadius:"50%",background:theme.teal,display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontSize:10,fontWeight:700}}>{u.name.charAt(0)}</div>
-                {u.name} <span style={{color:theme.textMut,fontSize:11}}>@{u.username}</span>
-              </button>
-            ))}
-          </div>}
-
-          {/* Link picker */}
-          {showLinkPicker&&<div style={{position:"absolute",bottom:"100%",left:16,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:8,padding:8,boxShadow:theme.shadowLg,maxHeight:300,overflow:"auto",width:320,zIndex:10}}>
-            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"4px 8px",textTransform:"uppercase"}}>Tasks</div>
-            {tasks.slice(0,6).map(t=>(<button key={t.id} type="button" onClick={()=>sendChatWithLink(channelId,inputVal,"task",t.id,t.title)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}><CheckSquare size={12} color={theme.teal}/>{t.title}</button>))}
-            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"8px 8px 4px",textTransform:"uppercase"}}>Projects</div>
-            {visibleProjects.slice(0,4).map(p=>(<button key={p.id} type="button" onClick={()=>sendChatWithLink(channelId,inputVal,"project",p.id,p.name)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}><FolderKanban size={12} color="#DA77F2"/>{p.name}</button>))}
-            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"8px 8px 4px",textTransform:"uppercase"}}>Outreach</div>
-            {outreach.slice(0,4).map(o=>(<button key={o.id} type="button" onClick={()=>sendChatWithLink(channelId,inputVal,"outreach",o.id,o.name)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",border:"none",background:"transparent",cursor:"pointer",width:"100%",fontFamily:FONT_BODY,fontSize:12,color:theme.text,borderRadius:4}}><Megaphone size={12} color="#FFA94D"/>{o.name}</button>))}
-            <button type="button" onClick={()=>setShowLinkPicker(false)} style={{marginTop:4,padding:"4px 8px",border:"none",background:"transparent",cursor:"pointer",fontSize:11,color:theme.textMut,width:"100%",textAlign:"center"}}>Cancel</button>
-          </div>}
-
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button type="button" onClick={()=>{setShowLinkPicker(p=>!p);setShowMentions(false)}} style={{background:"none",border:"none",cursor:"pointer",color:showLinkPicker?theme.teal:theme.textMut,flexShrink:0}}><Link2 size={16}/></button>
-            <input ref={refEl} value={inputVal} onChange={handleChatInputChange}
-              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(channelId,inputVal)}if(e.key==="Escape"){setShowMentions(false);setShowLinkPicker(false);setReplyTo(null)}}}
-              placeholder={isDm?`Message ${uName(dmUserId)}...`:`Message #${chInfo?.label||activeChannel}... (@ to mention)`}
-              style={{flex:1,padding:"10px 14px",borderRadius:10,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontFamily:FONT_BODY,fontSize:14,outline:"none"}}/>
-            <Btn primary theme={theme} small onClick={()=>sendChat(channelId,inputVal)}><Send size={14}/></Btn>
-          </div>
-        </div>
-      );
-
-      return (
-        <div className="nanu-chat-layout" style={{display:"flex",gap:0,height:"calc(100vh - 120px)"}}>
-          {/* Mobile channel toggle */}
-          <button type="button" className="nanu-chat-mobile-toggle" onClick={()=>setChatMobileSidebar(p=>!p)} style={{display:"none",position:"absolute",top:8,left:8,background:theme.teal,border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",zIndex:10,fontSize:12,fontWeight:600,color:"#0D1B21"}}>
-            {chatMobileSidebar?"Close":"Channels"}
-          </button>
-
-          {/* Sidebar — channels + DMs */}
-          <div className={`nanu-chat-sidebar${chatMobileSidebar?" nanu-chat-sidebar-open":""}`} style={{width:220,flexShrink:0,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",overflow:"auto",padding:"12px 0"}}>
-            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"6px 16px",textTransform:"uppercase"}}>Channels</div>
-            {CHAT_CHANNELS.map(ch=>{
-              const unread=getUnreadCount(ch.id);
-              return <button key={ch.id} type="button" onClick={()=>{setChatChannel(ch.id);setChatMobileSidebar(false)}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",border:"none",background:chatChannel===ch.id?`${theme.teal}15`:"transparent",color:chatChannel===ch.id?theme.teal:theme.textSec,cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:chatChannel===ch.id?600:400,textAlign:"left",width:"100%"}}>
-                <span>{ch.icon}</span><span className="nanu-chat-ch-label"># {ch.label}</span>
-                {unread>0&&<span style={{background:theme.teal,color:"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700,marginLeft:"auto"}}>{unread}</span>}
-              </button>;
-            })}
-            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,padding:"16px 16px 6px",textTransform:"uppercase"}}>Direct Messages</div>
-            {users.filter(u=>u.id!==curUser.id).map(u=>{
-              const dmKey=getDmKey(u.id);
-              const unread=getUnreadCount(dmKey);
-              return <button key={u.id} type="button" onClick={()=>{setChatChannel(dmKey);setChatMobileSidebar(false)}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",border:"none",background:chatChannel===dmKey?`${theme.teal}15`:"transparent",color:chatChannel===dmKey?theme.teal:theme.textSec,cursor:"pointer",fontFamily:FONT_BODY,fontSize:13,fontWeight:chatChannel===dmKey?600:400,textAlign:"left",width:"100%"}}>
-                <div style={{width:20,height:20,borderRadius:"50%",background:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:700}}>{u.name.charAt(0)}</div>
-                <span className="nanu-chat-ch-label">{u.name.split(" ")[0]}</span>
-                {unread>0&&<span style={{background:theme.teal,color:"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700,marginLeft:"auto"}}>{unread}</span>}
-              </button>;
-            })}
-          </div>
-
-          {/* Main chat area */}
-          <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
-            <div style={{padding:"12px 20px",borderBottom:`1px solid ${theme.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div>
-                <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16}}>
-                  {isDm ? uName(dmUserId) : `# ${chInfo?.label||activeChannel}`}
-                </span>
-                {!isDm&&chInfo?.desc&&<span style={{fontSize:12,color:theme.textMut,marginLeft:10}}>{chInfo.desc}</span>}
-              </div>
-              {msgs.length>0&&<span style={{fontSize:11,color:theme.textMut}}>{msgs.length} messages</span>}
-            </div>
-
-            <div style={{flex:1,overflow:"auto",padding:"4px 20px"}}>
-              {msgs.length===0&&<div style={{textAlign:"center",padding:40}}>
-                <MessageCircle size={32} color={theme.textMut} style={{opacity:0.3,marginBottom:8}}/>
-                <p style={{fontSize:15,fontWeight:600,color:theme.textSec,marginBottom:4}}>{isDm?`Start a conversation with ${uName(dmUserId)}`:`Welcome to #${chInfo?.label||activeChannel}`}</p>
-                <p style={{fontSize:13,color:theme.textMut}}>{isDm?"Your messages are private between you two.":(chInfo?.desc||"Send a message to get started.")}</p>
-              </div>}
-              {msgs.map((m,i)=>renderMsg(m,i,msgs))}
-              <div ref={chatEndRef}/>
-            </div>
-
-            {chatInputBar(activeChannel, chatInput, setChatInput, chatInputRef)}
-          </div>
-        </div>
-      );
-    }
-
-
     case "settings": {
       refreshNotifications();
       return (
       <div>
         <SectionHead theme={theme}>Notification Settings</SectionHead>
         <Card theme={theme} style={{maxWidth:600}}>
-          <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:16}}>Email & In-Hub Notifications</div>
-          <p style={{fontSize:13,color:theme.textSec,marginBottom:20,lineHeight:1.5}}>Choose which notifications you receive. Email notifications are sent to your registered email address. In-hub notifications appear in the bell icon.</p>
+          <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:16}}>In-Hub Notifications</div>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:20,lineHeight:1.5}}>Choose which notifications appear in the bell icon at the top of the hub.</p>
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             {[
               {key:"taskAssigned",label:"Task assigned to me",desc:"When someone assigns you to a task"},
               {key:"taskUpdated",label:"Task I'm on was updated",desc:"When a task you're assigned to gets updated or someone posts an update"},
               {key:"taskDue",label:"Task due today / overdue",desc:"Daily reminder for tasks due today or overdue"},
               {key:"projectUpdated",label:"Project I'm on was updated",desc:"When a project you're part of gets updated"},
-              {key:"weeklyRecap",label:"Weekly recap email",desc:"Monday morning summary of your tasks, projects, and team activity"},
               {key:"inHubBell",label:"In-hub notification bell",desc:"Show notifications in the bell icon at the top of the hub"},
             ].map(s=>(
               <div key={s.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
@@ -3165,10 +3336,6 @@ export default function MarketingHub() {
                 </label>
               </div>
             ))}
-          </div>
-          <div style={{marginTop:20,padding:"14px 16px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
-            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Notification email address</div>
-            <div style={{fontSize:13,color:theme.textSec}}>{curUser.email||"No email set — update in Team settings"}</div>
           </div>
         </Card>
         {/* Notification History */}
@@ -3958,6 +4125,155 @@ export default function MarketingHub() {
         </div>
       </div></Modal>;
 
+      /* ─── BUSINESS DOCUMENT MODAL ─── */
+      case "editBizDoc": return <Modal theme={theme} title={form.id?"Edit Document":"New Document"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Articles of Association"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Category</Label><Sel theme={theme} options={DOC_CATEGORIES} value={form.category||"Legal"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={DOC_STATUS} value={form.status||"Draft"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Version</Label><Input theme={theme} value={form.version||""} onChange={e=>setForm(p=>({...p,version:e.target.value}))} placeholder="e.g. 2.1"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Link (Drive, Dropbox, etc.)</Label><Input theme={theme} value={form.link||""} onChange={e=>setForm(p=>({...p,link:e.target.value}))} placeholder="https://..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Effective Date</Label><Input theme={theme} type="date" value={form.effectiveDate||""} onChange={e=>setForm(p=>({...p,effectiveDate:e.target.value}))}/></div><div><Label theme={theme}>Expiry / Review Date</Label><Input theme={theme} type="date" value={form.expiryDate||""} onChange={e=>setForm(p=>({...p,expiryDate:e.target.value}))}/></div></div>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+          <input type="checkbox" checked={!!form.confidential} onChange={e=>setForm(p=>({...p,confidential:e.target.checked}))} style={{accentColor:theme.teal,width:15,height:15,cursor:"pointer"}}/>
+          Mark as confidential
+        </label>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setBizDocs(p=>p.filter(x=>x.id!==form.id));db.deleteBizDoc(form.id);log("deleted",form.title,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const did=form.id||uid("doc");
+            const ddata={id:did,title:form.title||"",category:form.category||"Other",status:form.status||"Draft",version:form.version||"",owner:form.owner||"",link:form.link||"",effectiveDate:form.effectiveDate||"",expiryDate:form.expiryDate||"",confidential:!!form.confidential,notes:form.notes||""};
+            if(form.id){setBizDocs(p=>p.map(x=>x.id===form.id?ddata:x));log("updated",ddata.title,"Business")}
+            else{setBizDocs(p=>[...p,ddata]);log("created",ddata.title,"Business")}
+            db.saveBizDoc(ddata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── FOCUS ROUND MODAL ─── */
+      case "editFgRound": return <Modal theme={theme} title={form.id?"Edit Round":"New Research Round"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Round Heading</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Market research for: Archive redesign"/></div>
+        <div><Label theme={theme}>Objective</Label><Textarea theme={theme} value={form.objective||""} onChange={e=>setForm(p=>({...p,objective:e.target.value}))} placeholder="What are we trying to learn?"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Start Date</Label><Input theme={theme} type="date" value={form.startDate||""} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))}/></div><div><Label theme={theme}>End Date</Label><Input theme={theme} type="date" value={form.endDate||""} onChange={e=>setForm(p=>({...p,endDate:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_ROUND_STATUS} value={form.status||"Planning"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Target Participants</Label><Input theme={theme} type="number" value={form.targetN??0} onChange={e=>setForm(p=>({...p,targetN:Number(e.target.value)}))}/></div><div><Label theme={theme}>Session Booking Link</Label><Input theme={theme} value={form.sessionLink||""} onChange={e=>setForm(p=>({...p,sessionLink:e.target.value}))} placeholder="Calendly / booking URL"/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFgRounds(p=>p.filter(x=>x.id!==form.id));db.deleteFgRound(form.id);if(fgActiveRound===form.id)setFgActiveRound("");log("deleted",form.title,"Focus Groups")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const rid2=form.id||uid("fgr");
+            const rdata={id:rid2,title:form.title||"",objective:form.objective||"",startDate:form.startDate||"",endDate:form.endDate||"",status:form.status||"Planning",owner:form.owner||"",targetN:form.targetN||0,sessionLink:form.sessionLink||"",notes:form.notes||""};
+            if(form.id){setFgRounds(p=>p.map(x=>x.id===form.id?rdata:x));log("updated",rdata.title,"Focus Groups")}
+            else{setFgRounds(p=>[...p,rdata]);setFgActiveRound(rid2);log("created",rdata.title,"Focus Groups")}
+            db.saveFgRound(rdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── FOCUS PARTICIPANT MODAL ─── */
+      case "editFgParticipant": return <Modal theme={theme} title={form.id?"Edit Participant":"New Participant"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_PARTICIPANT_STATUS} value={form.status||"Not Sent"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Email</Label><Input theme={theme} value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div><div><Label theme={theme}>Phone</Label><Input theme={theme} value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Source</Label><Input theme={theme} value={form.source||""} onChange={e=>setForm(p=>({...p,source:e.target.value}))} placeholder="Where they applied from"/></div><div><Label theme={theme}>Session Slot</Label><Input theme={theme} value={form.sessionSlot||""} onChange={e=>setForm(p=>({...p,sessionSlot:e.target.value}))} placeholder="e.g. Tue 3pm"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Invited Date</Label><Input theme={theme} type="date" value={form.invitedDate||""} onChange={e=>setForm(p=>({...p,invitedDate:e.target.value}))}/></div><div><Label theme={theme}>Responded Date</Label><Input theme={theme} type="date" value={form.respondedDate||""} onChange={e=>setForm(p=>({...p,respondedDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Response Link</Label><Input theme={theme} value={form.responseLink||""} onChange={e=>setForm(p=>({...p,responseLink:e.target.value}))} placeholder="Link to their completed survey"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFgParticipants(p=>p.filter(x=>x.id!==form.id));db.deleteFgParticipant(form.id);log("deleted",form.name,"Focus Groups")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const pid=form.id||uid("fgp");
+            const pdata={id:pid,roundId:form.roundId||"",name:form.name||"",email:form.email||"",phone:form.phone||"",source:form.source||"",status:form.status||"Not Sent",invitedDate:form.invitedDate||"",respondedDate:form.respondedDate||"",sessionSlot:form.sessionSlot||"",responseLink:form.responseLink||"",notes:form.notes||""};
+            if(form.id){setFgParticipants(p=>p.map(x=>x.id===form.id?pdata:x));log("updated",pdata.name,"Focus Groups")}
+            else{setFgParticipants(p=>[...p,pdata]);log("created",pdata.name,"Focus Groups")}
+            db.saveFgParticipant(pdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── FOCUS ASSET MODAL ─── */
+      case "editFgAsset": return <Modal theme={theme} title={form.id?"Edit Asset":"New Asset"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Archive UX survey v2"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={FG_ASSET_TYPES} value={form.type||"Survey"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Date Added</Label><Input theme={theme} type="date" value={form.addedDate||""} onChange={e=>setForm(p=>({...p,addedDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Link</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="Typeform / Google Form / Drive URL"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFgAssets(p=>p.filter(x=>x.id!==form.id));db.deleteFgAsset(form.id);log("deleted",form.name,"Focus Groups")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const aid=form.id||uid("fga");
+            const adata={id:aid,roundId:form.roundId||"",name:form.name||"",type:form.type||"Survey",url:form.url||"",addedDate:form.addedDate||"",notes:form.notes||""};
+            if(form.id){setFgAssets(p=>p.map(x=>x.id===form.id?adata:x));log("updated",adata.name,"Focus Groups")}
+            else{setFgAssets(p=>[...p,adata]);log("created",adata.name,"Focus Groups")}
+            db.saveFgAsset(adata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── FOCUS CHANNEL MODAL ─── */
+      case "editFgChannel": return <Modal theme={theme} title={form.id?"Edit Posting Area":"New Posting Area"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. r/UFOs"/></div><div><Label theme={theme}>Platform</Label><Input theme={theme} value={form.platform||""} onChange={e=>setForm(p=>({...p,platform:e.target.value}))} placeholder="Reddit, Discord..."/></div></div>
+        <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="https://..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_CHANNEL_STATUS} value={form.status||"Pending"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Posting Rules</Label><Input theme={theme} value={form.rules||""} onChange={e=>setForm(p=>({...p,rules:e.target.value}))} placeholder="e.g. Mod approval required, no self-promo Fridays"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFgChannels(p=>p.filter(x=>x.id!==form.id));db.deleteFgChannel(form.id);log("deleted",form.name,"Focus Groups")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const cid=form.id||uid("fgc");
+            const cdata={id:cid,name:form.name||"",platform:form.platform||"",url:form.url||"",status:form.status||"Pending",rules:form.rules||"",owner:form.owner||"",notes:form.notes||""};
+            if(form.id){setFgChannels(p=>p.map(x=>x.id===form.id?cdata:x));log("updated",cdata.name,"Focus Groups")}
+            else{setFgChannels(p=>[...p,cdata]);log("created",cdata.name,"Focus Groups")}
+            db.saveFgChannel(cdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── CONFIRM: CLEAR TEAM ACTIVITY (admin) ─── */
+      case "confirmClearActivity": return <Modal theme={theme} title="Clear team activity?" onClose={closeM} width={480}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.red}0d`,border:`1px solid ${theme.red}40`,borderRadius:10}}>
+          <AlertTriangle size={18} color={theme.red} style={{flexShrink:0,marginTop:2}}/>
+          <div style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>
+            This permanently deletes the activity log for the <strong>whole team</strong> — {activity.length} entries. It can't be undone, and everyone will see an empty feed.
+          </div>
+        </div>
+        <p style={{fontSize:12,color:theme.textMut,margin:0}}>Tasks, projects and all other data are unaffected — this only clears the activity history.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn theme={theme} danger onClick={()=>doSave(()=>{
+            setActivity([]);
+            db.clearAllActivity();
+          })}><Trash2 size={13}/> Clear all activity</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── CONFIRM: BULK DELETE TASKS (admin master view) ─── */
+      case "confirmBulkDeleteTasks": return <Modal theme={theme} title={`Delete ${bulkSelected.length} task${bulkSelected.length===1?"":"s"}?`} onClose={closeM} width={520}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.red}0d`,border:`1px solid ${theme.red}40`,borderRadius:10}}>
+          <AlertTriangle size={18} color={theme.red} style={{flexShrink:0,marginTop:2}}/>
+          <div style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>
+            This permanently deletes these tasks for everyone. It can't be undone.
+          </div>
+        </div>
+        <div style={{maxHeight:200,overflow:"auto",background:theme.bgInput,borderRadius:8,padding:12}}>
+          {bulkSelected.map(tid=>{const t=tasks.find(x=>x.id===tid);return t?<div key={tid} style={{fontSize:12,padding:"3px 0",display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{flex:1}}>{t.title}</span>
+            <span style={{color:theme.textMut,fontSize:11}}>{uNames(t.owners)}</span>
+          </div>:null})}
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn theme={theme} danger onClick={()=>doSave(()=>{
+            bulkSelected.forEach(tid=>db.deleteTask(tid));
+            setTasks(prev=>prev.filter(x=>!bulkSelected.includes(x.id)));
+            log("deleted",`${bulkSelected.length} task(s)`,"Tasks");
+            setBulkSelected([]);
+          })}><Trash2 size={13}/> Delete permanently</Btn>
+        </div>
+      </div></Modal>;
+
       case "editSocials": return <Modal theme={theme} title="Edit My Socials" onClose={closeM}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:8}}>Add your social profile links so the team can find you.</p>
         {[["linkedin","LinkedIn"],["x","X / Twitter"],["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"]].map(([key,label])=>(
@@ -4058,50 +4374,6 @@ export default function MarketingHub() {
       </div>
       {renderModal()}
 
-      {/* Floating Chat Bubble */}
-      {section!=="chat"&&<>
-        {chatBubble&&<div className="nanu-chat-bubble-panel" style={{position:"fixed",bottom:80,right:24,width:360,height:460,background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:16,boxShadow:theme.shadowLg,zIndex:180,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-          <div style={{padding:"12px 16px",borderBottom:`1px solid ${theme.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <select value={chatBubbleChannel} onChange={e=>setChatBubbleChannel(e.target.value)} style={{background:"transparent",border:"none",fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:14,color:theme.text,cursor:"pointer",outline:"none"}}>
-              {CHAT_CHANNELS.map(ch=><option key={ch.id} value={ch.id}>{ch.icon} #{ch.label}{getUnreadCount(ch.id)>0?` (${getUnreadCount(ch.id)})`:""}</option>)}
-              {users.filter(u=>u.id!==curUser.id).map(u=>{const dk=getDmKey(u.id);return <option key={dk} value={dk}>💬 {u.name.split(" ")[0]}{getUnreadCount(dk)>0?` (${getUnreadCount(dk)})`:""}</option>})}
-            </select>
-            <div style={{display:"flex",gap:6}}>
-              <button type="button" onClick={()=>{setSection("chat");setChatChannel(chatBubbleChannel);setChatBubble(false)}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><ExternalLink size={14}/></button>
-              <button type="button" onClick={()=>setChatBubble(false)} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer"}}><X size={16}/></button>
-            </div>
-          </div>
-          <div style={{flex:1,overflow:"auto",padding:"8px 14px"}}>
-            {(chatMessages[chatBubbleChannel]||[]).length===0&&<p style={{textAlign:"center",color:theme.textMut,fontSize:12,paddingTop:20}}>No messages yet</p>}
-            {(chatMessages[chatBubbleChannel]||[]).slice(-25).map((m,i,arr)=>{
-              const isMine=m.author===curUser?.id;
-              const prev=i>0?arr[i-1]:null;
-              const isGrouped=prev&&prev.author===m.author&&(new Date(m.time)-new Date(prev.time))<300000;
-              return <div key={m.id} style={{display:"flex",gap:8,padding:isGrouped?"2px 0":"6px 0",alignItems:"flex-start",paddingLeft:isGrouped?32:0}}>
-                {!isGrouped&&<div style={{width:24,height:24,borderRadius:"50%",background:isMine?theme.teal:"#748FFC",display:"flex",alignItems:"center",justifyContent:"center",color:"#0D1B21",fontWeight:700,fontSize:10,flexShrink:0}}>{uName(m.author).charAt(0)}</div>}
-                <div style={{flex:1,minWidth:0}}>
-                  {!isGrouped&&<div style={{fontSize:11,fontWeight:600,color:isMine?theme.teal:theme.text}}>{uName(m.author)} <span style={{fontWeight:400,color:theme.textMut,fontFamily:FONT_MONO,fontSize:9}}>{new Date(m.time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span></div>}
-                  {m.replyTo&&<div style={{padding:"2px 8px",borderLeft:`2px solid ${theme.teal}`,fontSize:11,color:theme.textMut,marginBottom:2}}>{uName(m.replyTo.author)}: {m.replyTo.text}</div>}
-                  <div style={{fontSize:13,color:theme.textSec,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:(m.text||"").replace(/@(\w+)/g,'<span style="color:#1FC2C2;font-weight:600">@$1</span>')}}/>
-                  {m.linkedEntity&&<div style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",background:theme.bgInput,borderRadius:4,fontSize:11,color:theme.teal,marginTop:2}}><Link2 size={9}/>{m.linkedEntity.name}</div>}
-                </div>
-              </div>;
-            })}
-          </div>
-          <div style={{padding:"8px 14px",borderTop:`1px solid ${theme.border}`,display:"flex",gap:6}}>
-            <input value={chatInput} onChange={handleChatInputChange}
-              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();sendChat(chatBubbleChannel,chatInput)}}}
-              placeholder="Message..." style={{flex:1,padding:"8px 12px",borderRadius:8,border:`1px solid ${theme.border}`,background:theme.bgInput,color:theme.text,fontFamily:FONT_BODY,fontSize:13,outline:"none"}}/>
-            <button type="button" onClick={()=>sendChat(chatBubbleChannel,chatInput)} style={{background:theme.teal,border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",color:"#0D1B21"}}><Send size={14}/></button>
-          </div>
-        </div>}
-
-        {/* Bubble toggle button with unread badge */}
-        <button type="button" onClick={()=>setChatBubble(p=>!p)} style={{position:"fixed",bottom:24,right:24,width:52,height:52,borderRadius:"50%",background:theme.teal,border:"none",cursor:"pointer",boxShadow:"0 4px 16px rgba(31,194,194,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:180}}>
-          {chatBubble?<X size={22} color="#0D1B21"/>:<MessageCircle size={22} color="#0D1B21"/>}
-          {!chatBubble&&totalUnread>0&&<span style={{position:"absolute",top:-2,right:-2,background:"#FF6B6B",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:10,minWidth:16,textAlign:"center"}}>{totalUnread}</span>}
-        </button>
-      </>}
     </div>
   );
 }
