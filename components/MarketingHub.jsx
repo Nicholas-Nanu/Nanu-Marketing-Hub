@@ -545,7 +545,7 @@ const LoginScreen = ({ onLogin, users }) => {
   const [showPin, setShowPin] = useState(false);
   const theme = getTheme(true);
   const handleLogin = () => {
-    const u = users.find(x => x.username.toLowerCase() === username.toLowerCase().trim() && x.pin === pin);
+    const u = users.find(x => x.username.toLowerCase() === username.toLowerCase().trim() && x.pin === pin && x.active !== false);
     if (u) { onLogin(u); setError(""); } else setError("Invalid username or PIN");
   };
   return (
@@ -726,9 +726,11 @@ export default function MarketingHub() {
       setFgAssets(data.fgAssets || []);
       setFgChannels(data.fgChannels || []);
       setActivity(data.activity);
-      // If users table is empty, this is a fresh DB — seed it
-      if (!data.users.length) {
-        console.log("Empty database detected — seeding with defaults");
+      // Only seed a genuinely fresh database. If any other table has rows, the
+      // users table being empty means someone deleted them — don't resurrect them.
+      const dbHasOtherData = (data.tasks?.length || data.activity?.length || data.projects?.length || data.outreach?.length);
+      if (!data.users.length && !dbHasOtherData) {
+        console.log("Fresh database detected — seeding default users");
         INIT_USERS.forEach(u => db.saveUser(u));
         setUsers(INIT_USERS);
       }
@@ -832,6 +834,9 @@ export default function MarketingHub() {
   const isExec = curUser?.role === "Executive";
   const canSeeBusiness = isAdmin || isExec;
   const uName = (id) => users.find(u=>u.id===id)?.name || "Unknown";
+  // Only active users appear in pickers and the team list; uName still resolves
+  // deactivated people so historical attribution doesn't break.
+  const activeUsers = users.filter(u => u.active !== false);
   const uNames = (ids) => {
     if (!ids) return "Unassigned";
     const arr = Array.isArray(ids) ? ids : [ids];
@@ -1099,7 +1104,7 @@ export default function MarketingHub() {
       <div>
         <SectionHead theme={theme} right={isAdmin&&<Btn primary theme={theme} onClick={()=>openM("editUser",{role:"Content Creator",tzLabel:"London",tz:"Europe/London",socials:{}})}><Plus size={14}/> Add Member</Btn>}>Team Directory</SectionHead>
         <div className="nanu-grid-team">
-          {users.map(u=>(
+          {activeUsers.map(u=>(
             <Card key={u.id} theme={theme} style={{ position:"relative" }}>
               <div style={{ position:"absolute", top:0, left:0, right:0, height:3, borderRadius:"12px 12px 0 0", background:`linear-gradient(90deg,${ROLE_COLORS[u.role]||theme.teal},${TZ_OPTIONS.find(t=>t.label===u.tzLabel)?.color||theme.teal})` }}/>
               <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
@@ -1181,7 +1186,7 @@ export default function MarketingHub() {
       return (
         <div>
           <SectionHead theme={theme} right={<>
-            <Sel theme={theme} options={[{value:"mine",label:"My Calendar"},{value:"all",label:"All Team"},...users.map(u=>({value:u.id,label:u.name}))]} value={calPersonFilter} onChange={e=>setCalPersonFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+            <Sel theme={theme} options={[{value:"mine",label:"My Calendar"},{value:"all",label:"All Team"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={calPersonFilter} onChange={e=>setCalPersonFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
             <Sel theme={theme} options={CAL_EVENT_TYPES.map(t=>({value:t,label:t==="All"?"All Events":t+"s"}))} value={calEventFilter} onChange={e=>setCalEventFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
             <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
               {[["month","Month"],["week","Week"],["list","List"]].map(([k,l])=>(
@@ -1393,7 +1398,7 @@ export default function MarketingHub() {
           <Sel theme={theme} options={[{value:"All",label:"All Projects"},...visibleProjects.map(p=>({value:p.id,label:p.name}))]} value={tfProject} onChange={e=>setTfProject(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
           <Sel theme={theme} options={[{value:"All",label:"All Priorities"},...TASK_PRIORITIES.map(p=>({value:p,label:p}))]} value={tfPriority} onChange={e=>setTfPriority(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
           <Sel theme={theme} options={[{value:"All",label:"All Statuses"},...TASK_STATUSES.map(s=>({value:s,label:s}))]} value={tfStatus} onChange={e=>setTfStatus(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
-          <Sel theme={theme} options={[{value:"All",label:"All People"},...users.map(u=>({value:u.id,label:u.name}))]} value={tfPerson} onChange={e=>setTfPerson(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All People"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={tfPerson} onChange={e=>setTfPerson(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
           <Sel theme={theme} options={[{value:"All",label:"All Dates"},{value:"Overdue",label:"Overdue"},{value:"This Week",label:"This Week"},{value:"Upcoming",label:"Upcoming"}]} value={tfDue} onChange={e=>setTfDue(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
           {(tfProject!=="All"||tfPriority!=="All"||tfStatus!=="All"||tfPerson!=="All"||tfDue!=="All")&&<button onClick={()=>{setTfProject("All");setTfPriority("All");setTfStatus("All");setTfPerson("All");setTfDue("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear filters</button>}
         </div>
@@ -1482,7 +1487,7 @@ export default function MarketingHub() {
             {bulkSelected.length>0&&<Card theme={theme} style={{padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",borderLeft:`3px solid ${theme.teal}`}}>
               <span style={{fontSize:13,fontWeight:600}}>{bulkSelected.length} selected</span>
               <span style={{fontSize:12,color:theme.textMut}}>Reassign to:</span>
-              <Sel theme={theme} options={[{value:"",label:"Choose person..."},...users.map(u=>({value:u.id,label:u.name}))]} value={bulkReassignTo} onChange={e=>setBulkReassignTo(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
+              <Sel theme={theme} options={[{value:"",label:"Choose person..."},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={bulkReassignTo} onChange={e=>setBulkReassignTo(e.target.value)} style={{width:"auto",fontSize:12,padding:"5px 8px"}}/>
               <Btn primary theme={theme} small onClick={doBulkReassign} disabled={!bulkReassignTo}>Reassign</Btn>
               <Btn theme={theme} danger small onClick={()=>openM("confirmBulkDeleteTasks",{count:bulkSelected.length})}><Trash2 size={12}/> Delete {bulkSelected.length}</Btn>
               <button onClick={()=>{setBulkSelected([]);setBulkReassignTo("")}} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>
@@ -1745,7 +1750,7 @@ export default function MarketingHub() {
       <div>
         <SectionHead theme={theme} right={<>
           <Sel theme={theme} options={[{value:"All",label:"All Types"},...OUTREACH_TYPES.map(t=>({value:t,label:t}))]} value={outreachFilter} onChange={(e)=>setOutreachFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
-          <Sel theme={theme} options={[{value:"All",label:"All Owners"},...users.map(u=>({value:u.id,label:u.name}))]} value={outreachUserFilter} onChange={(e)=>setOutreachUserFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+          <Sel theme={theme} options={[{value:"All",label:"All Owners"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={outreachUserFilter} onChange={(e)=>setOutreachUserFilter(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
           {(outreachFilter!=="All"||outreachUserFilter!=="All")&&<button type="button" onClick={()=>{setOutreachFilter("All");setOutreachUserFilter("All")}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button>}
           <Btn primary theme={theme} onClick={()=>openM("editOutreach",{type:"Community",status:"Identified",owner:curUser.id,platform:"",notes:"",url:"",date:"",contactName:"",contactEmail:"", linkedTasks:[] })}><Plus size={14}/> Add Contact</Btn>
         </>}>Outreach Pipeline</SectionHead>
@@ -3307,6 +3312,21 @@ export default function MarketingHub() {
       refreshNotifications();
       return (
       <div>
+        <SectionHead theme={theme}>Settings</SectionHead>
+
+        {/* Account security */}
+        <Card theme={theme} style={{maxWidth:600,marginBottom:20}}>
+          <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>Your Account</div>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16,lineHeight:1.5}}>Signed in as <strong>{curUser.name}</strong> (@{curUser.username}) · {curUser.role}</p>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`,gap:12,flexWrap:"wrap"}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600}}>Login PIN</div>
+              <div style={{fontSize:12,color:theme.textMut,marginTop:2}}>Change the PIN you use to sign in</div>
+            </div>
+            <Btn primary theme={theme} small onClick={()=>openM("changePin",{current:"",newPin:"",confirm:"",err:""})}><Lock size={12}/> Change PIN</Btn>
+          </div>
+        </Card>
+
         <SectionHead theme={theme}>Notification Settings</SectionHead>
         <Card theme={theme} style={{maxWidth:600}}>
           <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:16}}>In-Hub Notifications</div>
@@ -3366,22 +3386,34 @@ export default function MarketingHub() {
         <div className="nanu-grid-2col">
           <Card theme={theme}>
             <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:14}}>User Management</div>
-            <Btn primary theme={theme} small onClick={()=>openM("editUser",{role:"Content Creator",tzLabel:"London",tz:"Europe/London",pin:"1234",socials:{}})} style={{marginBottom:12}}><Plus size={13}/> Add User</Btn>
-            {users.map(u=>(
-              <div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:`1px solid ${theme.borderLight}`}}>
-                <div><div style={{fontWeight:600,fontSize:14}}>{u.name}</div><div style={{fontSize:12,color:theme.textMut}}>@{u.username} · {u.role} · PIN: {u.pin}</div></div>
-                <div style={{display:"flex",gap:6}}>
-                  <Btn theme={theme} small onClick={()=>{
-                    const np=String(Math.floor(1000+Math.random()*9000));
-                    setUsers(p=>p.map(x=>x.id===u.id?{...x,pin:np}:x));
-                    log("reset PIN",u.name,"Admin");
-                    alert(`PIN for ${u.name} reset to: ${np}`);
-                  }}><Lock size={12}/> Reset</Btn>
-                  <Btn theme={theme} small onClick={()=>openM("editUser",{...u})}><Edit3 size={12}/></Btn>
-                  {u.id!==curUser.id&&<Btn theme={theme} small danger onClick={()=>{if(confirm(`Remove ${u.name}?`)){setUsers(p=>p.filter(x=>x.id!==u.id));db.deleteUser(u.id);log("removed",u.name,"Admin")}}}><Trash2 size={12}/></Btn>}
+            <Btn primary theme={theme} small onClick={()=>openM("editUser",{role:"Content Creator",tzLabel:"London",tz:"Europe/London",pin:"1234",socials:{},active:true})} style={{marginBottom:12}}><Plus size={13}/> Add User</Btn>
+            {[...users].sort((a,b)=>(a.active===false)-(b.active===false)).map(u=>{
+              const inactive = u.active === false;
+              return <div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:`1px solid ${theme.borderLight}`,gap:8,flexWrap:"wrap",opacity:inactive?0.55:1}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                    {u.name}
+                    {inactive&&<Badge label="Deactivated" color={theme.textMut}/>}
+                  </div>
+                  <div style={{fontSize:12,color:theme.textMut}}>@{u.username} · {u.role} · PIN: {u.pin}</div>
                 </div>
-              </div>
-            ))}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <Btn theme={theme} small onClick={()=>openM("resetPin",{...u})}><Lock size={12}/> Reset PIN</Btn>
+                  <Btn theme={theme} small onClick={()=>openM("editUser",{...u})}><Edit3 size={12}/></Btn>
+                  {u.id!==curUser.id&&<>
+                    {inactive
+                      ? <Btn theme={theme} small onClick={()=>{
+                          const upd={...u,active:true};
+                          setUsers(p=>p.map(x=>x.id===u.id?upd:x));
+                          db.saveUser(upd); log("reactivated",u.name,"Admin");
+                        }}><Check size={12}/> Reactivate</Btn>
+                      : <Btn theme={theme} small onClick={()=>openM("deactivateUser",{...u})}><EyeOff size={12}/> Deactivate</Btn>}
+                    <Btn theme={theme} small danger onClick={()=>openM("deleteUser",{...u})}><Trash2 size={12}/></Btn>
+                  </>}
+                </div>
+              </div>;
+            })}
+            <p style={{fontSize:11,color:theme.textMut,marginTop:12,lineHeight:1.5}}>Deactivating removes someone from the hub but keeps their name on past work. Deleting is permanent and leaves their old items unassigned.</p>
           </Card>
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <Card theme={theme}><div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:10}}>Weekly Themes</div><Btn theme={theme} small onClick={()=>openM("editThemes")}><Edit3 size={12}/> Edit Themes</Btn></Card>
@@ -3427,7 +3459,7 @@ export default function MarketingHub() {
       case "editCal": return <Modal theme={theme} title={form.id?"Edit Content":"New Content"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Platform</Label><Sel theme={theme} options={PLATFORMS} value={form.platform} onChange={e=>setForm(p=>({...p,platform:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={STATUSES} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Publish Time</Label><Input theme={theme} type="time" value={form.publishTime||""} onChange={e=>setForm(p=>({...p,publishTime:e.target.value}))}/></div><div><Label theme={theme}>Campaign</Label><Sel theme={theme} options={[{value:"",label:"None"},...campaigns.map(c=>({value:c.tag,label:c.name}))]} value={form.campaign||""} onChange={e=>setForm(p=>({...p,campaign:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Caption</Label><Textarea theme={theme} value={form.caption||""} onChange={e=>setForm(p=>({...p,caption:e.target.value}))}/></div>
         <div><Label theme={theme}>Asset Link</Label><Input theme={theme} value={form.assetLink||""} onChange={e=>setForm(p=>({...p,assetLink:e.target.value}))} placeholder="https://..."/></div>
@@ -3528,7 +3560,7 @@ export default function MarketingHub() {
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const uuid=form.id||uid("u");const udata={...form,id:uuid,socials:form.socials||{}};if(form.id){setUsers(p=>p.map(u=>u.id===form.id?udata:u));log("updated",form.name,"Team")}else{setUsers(p=>[...p,udata]);log("added",form.name,"Team")}db.saveUser(udata)})}>Done</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const uuid=form.id||uid("u");const udata={...form,id:uuid,socials:form.socials||{},active:form.active!==false};if(form.id){setUsers(p=>p.map(u=>u.id===form.id?udata:u));log("updated",form.name,"Team")}else{setUsers(p=>[...p,udata]);log("added",form.name,"Team")}db.saveUser(udata)})}>Done</Btn>
         </div>
       </div></Modal>;
 
@@ -3787,7 +3819,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Partner Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What is this partnership about?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={PARTNERSHIP_TYPES} value={form.type||PARTNERSHIP_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PARTNERSHIP_STATUSES} value={form.status||"Lead / Prospect"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Linked Outreach</Label><Sel theme={theme} options={[{value:"",label:"None"},...outreach.map(o=>({value:o.id,label:o.name}))]} value={form.linkedOutreach||""} onChange={e=>setForm(p=>({...p,linkedOutreach:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Linked Outreach</Label><Sel theme={theme} options={[{value:"",label:"None"},...outreach.map(o=>({value:o.id,label:o.name}))]} value={form.linkedOutreach||""} onChange={e=>setForm(p=>({...p,linkedOutreach:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Contact Name</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))}/></div><div><Label theme={theme}>Contact Email</Label><Input theme={theme} value={form.contactEmail||""} onChange={e=>setForm(p=>({...p,contactEmail:e.target.value}))} placeholder="email@example.com"/></div></div>
         <div><Label theme={theme}>Value / Benefit</Label><Textarea theme={theme} value={form.value||""} onChange={e=>setForm(p=>({...p,value:e.target.value}))} placeholder="What's the strategic value of this partnership?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Start Date</Label><Input theme={theme} type="date" value={form.startDate||""} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))}/></div><div><Label theme={theme}>Review Date</Label><Input theme={theme} type="date" value={form.reviewDate||""} onChange={e=>setForm(p=>({...p,reviewDate:e.target.value}))}/></div></div>
@@ -3890,7 +3922,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="https://..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Members / Audience</Label><Input theme={theme} type="number" value={form.members||0} onChange={e=>setForm(p=>({...p,members:Number(e.target.value)}))}/></div><div><Label theme={theme}>Last Engaged</Label><Input theme={theme} type="date" value={form.lastEngaged||""} onChange={e=>setForm(p=>({...p,lastEngaged:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Monitoring","Active","Engaging","Paused","Planned"]} value={form.status||"Monitoring"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={["High","Medium","Low"]} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
-        <div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div>
+        <div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Engagement strategy, contacts, rules..."/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setCommChannels(p=>p.filter(x=>x.id!==form.id));db.deleteCommChannel(form.id);log("deleted",form.name,"Channels")})}><Trash2 size={13}/> Delete</Btn>}
@@ -3909,7 +3941,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Event title..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={COMM_EVENT_TYPES} value={form.type||COMM_EVENT_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={COMM_EVENT_STATUS} value={form.status||"Planned"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div><div><Label theme={theme}>Time</Label><Input theme={theme} type="time" value={form.time||""} onChange={e=>setForm(p=>({...p,time:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Duration (min)</Label><Input theme={theme} type="number" value={form.duration||60} onChange={e=>setForm(p=>({...p,duration:Number(e.target.value)}))}/></div><div><Label theme={theme}>Host</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.host||""} onChange={e=>setForm(p=>({...p,host:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Duration (min)</Label><Input theme={theme} type="number" value={form.duration||60} onChange={e=>setForm(p=>({...p,duration:Number(e.target.value)}))}/></div><div><Label theme={theme}>Host</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.host||""} onChange={e=>setForm(p=>({...p,host:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Platform / Location</Label><Input theme={theme} value={form.platform||""} onChange={e=>setForm(p=>({...p,platform:e.target.value}))} placeholder="In-app, Zoom, Discord, London..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Expected Attendees</Label><Input theme={theme} type="number" value={form.expectedAttendees||0} onChange={e=>setForm(p=>({...p,expectedAttendees:Number(e.target.value)}))}/></div><div><Label theme={theme}>Actual Attendees</Label><Input theme={theme} type="number" value={form.actualAttendees||0} onChange={e=>setForm(p=>({...p,actualAttendees:Number(e.target.value)}))}/></div></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What's the event about?"/></div>
@@ -3933,7 +3965,7 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>User / Reporter</Label><Input theme={theme} value={form.user||""} onChange={e=>setForm(p=>({...p,user:e.target.value}))} placeholder="Username or name"/></div><div><Label theme={theme}>Contact</Label><Input theme={theme} value={form.contact||""} onChange={e=>setForm(p=>({...p,contact:e.target.value}))} placeholder="email / handle (optional)"/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={FEEDBACK_TYPES} value={form.type||FEEDBACK_TYPES[0]} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Sentiment</Label><Sel theme={theme} options={FEEDBACK_SENTIMENT} value={form.sentiment||"Neutral"} onChange={e=>setForm(p=>({...p,sentiment:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Feedback Text</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))} placeholder="What did they say?"/></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FEEDBACK_STATUS} value={form.status||"New"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...users.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FEEDBACK_STATUS} value={form.status||"New"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Response / Action Taken</Label><Textarea theme={theme} value={form.response||""} onChange={e=>setForm(p=>({...p,response:e.target.value}))} placeholder="Internal notes on follow-up"/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setFeedback(p=>p.filter(x=>x.id!==form.id));db.deleteFeedback(form.id);log("deleted","feedback","Feedback")})}><Trash2 size={13}/> Delete</Btn>}
@@ -4005,7 +4037,7 @@ export default function MarketingHub() {
       case "editResponsibility": return <Modal theme={theme} title={form.id?"Edit Responsibility":"New Responsibility"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Run the weekly livestream"/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What this involves..."/></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Area</Label><Sel theme={theme} options={RESP_AREAS} value={form.area||"Content"} onChange={e=>setForm(p=>({...p,area:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Area</Label><Sel theme={theme} options={RESP_AREAS} value={form.area||"Content"} onChange={e=>setForm(p=>({...p,area:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Cadence</Label><Sel theme={theme} options={RESP_CADENCES} value={form.cadence||"Weekly"} onChange={e=>setForm(p=>({...p,cadence:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={RESP_STATUS} value={form.status||"Active"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         {form.cadence!=="Continuous"&&<div className="nanu-form-row"><div><Label theme={theme}>Next Due</Label><Input theme={theme} type="date" value={form.nextDue||""} onChange={e=>setForm(p=>({...p,nextDue:e.target.value}))}/></div><div><Label theme={theme}>Last Done</Label><Input theme={theme} type="date" value={form.lastDone||""} onChange={e=>setForm(p=>({...p,lastDone:e.target.value}))}/></div></div>}
         <div>
@@ -4059,7 +4091,7 @@ export default function MarketingHub() {
       case "editInvestor": return <Modal theme={theme} title={form.id?"Edit Investor":"New Investor"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div className="nanu-form-row"><div><Label theme={theme}>Investor / Contact Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Person or fund name"/></div><div><Label theme={theme}>Firm</Label><Input theme={theme} value={form.firm||""} onChange={e=>setForm(p=>({...p,firm:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={INVESTOR_TYPES} value={form.type||"Angel"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Stage</Label><Sel theme={theme} options={INVESTOR_STAGES} value={form.stage||"Researching"} onChange={e=>setForm(p=>({...p,stage:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Check Size</Label><Input theme={theme} value={form.checkSize||""} onChange={e=>setForm(p=>({...p,checkSize:e.target.value}))} placeholder="e.g. £50k–£100k"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Check Size</Label><Input theme={theme} value={form.checkSize||""} onChange={e=>setForm(p=>({...p,checkSize:e.target.value}))} placeholder="e.g. £50k–£100k"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Contact Name</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))}/></div><div><Label theme={theme}>Contact Email</Label><Input theme={theme} value={form.contactEmail||""} onChange={e=>setForm(p=>({...p,contactEmail:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Warm Intro Via</Label><Input theme={theme} value={form.warmIntro||""} onChange={e=>setForm(p=>({...p,warmIntro:e.target.value}))} placeholder="Who can introduce us?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Next Step</Label><Input theme={theme} value={form.nextStep||""} onChange={e=>setForm(p=>({...p,nextStep:e.target.value}))} placeholder="e.g. Send deck"/></div><div><Label theme={theme}>Next Step Date</Label><Input theme={theme} type="date" value={form.nextDate||""} onChange={e=>setForm(p=>({...p,nextDate:e.target.value}))}/></div></div>
@@ -4081,7 +4113,7 @@ export default function MarketingHub() {
       case "editBoardUpdate": return <Modal theme={theme} title={form.id?"Edit Board Update":"New Board Update"} onClose={closeM} width={640}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Q3 2026 Investor Update"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Period</Label><Input theme={theme} value={form.period||""} onChange={e=>setForm(p=>({...p,period:e.target.value}))} placeholder="e.g. Aug 2026 / Q3"/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={BOARD_UPDATE_STATUS} value={form.status||"Draft"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Author</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.author||""} onChange={e=>setForm(p=>({...p,author:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={BOARD_UPDATE_STATUS} value={form.status||"Draft"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Author</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.author||""} onChange={e=>setForm(p=>({...p,author:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Highlights</Label><Textarea theme={theme} value={form.highlights||""} onChange={e=>setForm(p=>({...p,highlights:e.target.value}))} placeholder="What went well this period"/></div>
         <div><Label theme={theme}>Challenges</Label><Textarea theme={theme} value={form.lowlights||""} onChange={e=>setForm(p=>({...p,lowlights:e.target.value}))} placeholder="What didn't, and what we're doing about it"/></div>
         <div><Label theme={theme}>Asks</Label><Textarea theme={theme} value={form.asks||""} onChange={e=>setForm(p=>({...p,asks:e.target.value}))} placeholder="Intros, advice, or support needed"/></div>
@@ -4104,7 +4136,7 @@ export default function MarketingHub() {
       case "editInitiative": return <Modal theme={theme} title={form.id?"Edit Initiative":"New Initiative"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Close pre-seed round"/></div>
         <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))}/></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Horizon</Label><Sel theme={theme} options={INITIATIVE_HORIZONS} value={form.horizon||"This Quarter"} onChange={e=>setForm(p=>({...p,horizon:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Horizon</Label><Sel theme={theme} options={INITIATIVE_HORIZONS} value={form.horizon||"This Quarter"} onChange={e=>setForm(p=>({...p,horizon:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={INITIATIVE_STATUS} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Target Date</Label><Input theme={theme} type="date" value={form.targetDate||""} onChange={e=>setForm(p=>({...p,targetDate:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Success Metric</Label><Input theme={theme} value={form.successMetric||""} onChange={e=>setForm(p=>({...p,successMetric:e.target.value}))} placeholder="How we know it's done"/></div>
         <div>
@@ -4129,7 +4161,7 @@ export default function MarketingHub() {
       case "editBizDoc": return <Modal theme={theme} title={form.id?"Edit Document":"New Document"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Articles of Association"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Category</Label><Sel theme={theme} options={DOC_CATEGORIES} value={form.category||"Legal"} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={DOC_STATUS} value={form.status||"Draft"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Version</Label><Input theme={theme} value={form.version||""} onChange={e=>setForm(p=>({...p,version:e.target.value}))} placeholder="e.g. 2.1"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Version</Label><Input theme={theme} value={form.version||""} onChange={e=>setForm(p=>({...p,version:e.target.value}))} placeholder="e.g. 2.1"/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Link (Drive, Dropbox, etc.)</Label><Input theme={theme} value={form.link||""} onChange={e=>setForm(p=>({...p,link:e.target.value}))} placeholder="https://..."/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Effective Date</Label><Input theme={theme} type="date" value={form.effectiveDate||""} onChange={e=>setForm(p=>({...p,effectiveDate:e.target.value}))}/></div><div><Label theme={theme}>Expiry / Review Date</Label><Input theme={theme} type="date" value={form.expiryDate||""} onChange={e=>setForm(p=>({...p,expiryDate:e.target.value}))}/></div></div>
         <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
@@ -4155,7 +4187,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Round Heading</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Market research for: Archive redesign"/></div>
         <div><Label theme={theme}>Objective</Label><Textarea theme={theme} value={form.objective||""} onChange={e=>setForm(p=>({...p,objective:e.target.value}))} placeholder="What are we trying to learn?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Start Date</Label><Input theme={theme} type="date" value={form.startDate||""} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))}/></div><div><Label theme={theme}>End Date</Label><Input theme={theme} type="date" value={form.endDate||""} onChange={e=>setForm(p=>({...p,endDate:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_ROUND_STATUS} value={form.status||"Planning"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_ROUND_STATUS} value={form.status||"Planning"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Target Participants</Label><Input theme={theme} type="number" value={form.targetN??0} onChange={e=>setForm(p=>({...p,targetN:Number(e.target.value)}))}/></div><div><Label theme={theme}>Session Booking Link</Label><Input theme={theme} value={form.sessionLink||""} onChange={e=>setForm(p=>({...p,sessionLink:e.target.value}))} placeholder="Calendly / booking URL"/></div></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
@@ -4215,7 +4247,7 @@ export default function MarketingHub() {
       case "editFgChannel": return <Modal theme={theme} title={form.id?"Edit Posting Area":"New Posting Area"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. r/UFOs"/></div><div><Label theme={theme}>Platform</Label><Input theme={theme} value={form.platform||""} onChange={e=>setForm(p=>({...p,platform:e.target.value}))} placeholder="Reddit, Discord..."/></div></div>
         <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="https://..."/></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_CHANNEL_STATUS} value={form.status||"Pending"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={users.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={FG_CHANNEL_STATUS} value={form.status||"Pending"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Posting Rules</Label><Input theme={theme} value={form.rules||""} onChange={e=>setForm(p=>({...p,rules:e.target.value}))} placeholder="e.g. Mod approval required, no self-promo Fridays"/></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
@@ -4232,6 +4264,99 @@ export default function MarketingHub() {
       </div></Modal>;
 
       /* ─── CONFIRM: CLEAR TEAM ACTIVITY (admin) ─── */
+      /* ─── ADMIN: RESET A USER'S PIN ─── */
+      case "resetPin": return <Modal theme={theme} title={`Reset PIN — ${form.name}`} onClose={closeM} width={460}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6}}>Set a new PIN for {form.name}. Share it with them and ask them to change it in Settings.</p>
+        <div><Label theme={theme}>New PIN (4–6 digits)</Label>
+          <Input theme={theme} value={form.newPin||""} onChange={e=>setForm(p=>({...p,newPin:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="e.g. 4821" maxLength={6}/>
+        </div>
+        <Btn theme={theme} small onClick={()=>setForm(p=>({...p,newPin:String(Math.floor(1000+Math.random()*9000))}))}><RefreshCw size={12}/> Generate random</Btn>
+        {form.newPin&&form.newPin.length<4&&<div style={{fontSize:12,color:theme.orange}}>PIN must be at least 4 digits.</div>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} disabled={!form.newPin||form.newPin.length<4} onClick={()=>doSave(()=>{
+            const upd={...users.find(x=>x.id===form.id),pin:form.newPin};
+            setUsers(p=>p.map(x=>x.id===form.id?upd:x));
+            db.saveUser(upd);
+            log("reset PIN for",form.name,"Admin");
+          })}><Lock size={13}/> Set PIN</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ADMIN: DEACTIVATE USER ─── */
+      case "deactivateUser": return <Modal theme={theme} title={`Deactivate ${form.name}?`} onClose={closeM} width={480}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.orange}0d`,border:`1px solid ${theme.orange}40`,borderRadius:10}}>
+          <EyeOff size={18} color={theme.orange} style={{flexShrink:0,marginTop:2}}/>
+          <div style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>
+            {form.name} won't be able to log in and will disappear from the team list and every owner picker. Their name stays on past tasks and activity, and you can reactivate them any time.
+          </div>
+        </div>
+        <p style={{fontSize:12,color:theme.textMut,margin:0}}>This is the safe option for someone leaving the team.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const upd={...users.find(x=>x.id===form.id),active:false};
+            setUsers(p=>p.map(x=>x.id===form.id?upd:x));
+            db.saveUser(upd);
+            log("deactivated",form.name,"Admin");
+          })}><EyeOff size={13}/> Deactivate</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ADMIN: PERMANENTLY DELETE USER ─── */
+      case "deleteUser": return <Modal theme={theme} title={`Permanently delete ${form.name}?`} onClose={closeM} width={520}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.red}0d`,border:`1px solid ${theme.red}40`,borderRadius:10}}>
+          <AlertTriangle size={18} color={theme.red} style={{flexShrink:0,marginTop:2}}/>
+          <div style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>
+            This removes {form.name} from the database for good. Anything they owned — tasks, projects, outreach, responsibilities — stays but becomes <strong>unassigned</strong>, and their name disappears from past activity.
+          </div>
+        </div>
+        {(()=>{
+          const owned = tasks.filter(t=>Array.isArray(t.owners)?t.owners.includes(form.id):t.owners===form.id).length;
+          const resp = responsibilities.filter(r=>r.owner===form.id).length;
+          return (owned>0||resp>0)&&<div style={{fontSize:12,color:theme.orange,padding:"10px 12px",background:theme.bgInput,borderRadius:8}}>
+            They currently own {owned} task{owned===1?"":"s"} and {resp} responsibilit{resp===1?"y":"ies"}. Consider reassigning first, or deactivate instead.
+          </div>;
+        })()}
+        <p style={{fontSize:12,color:theme.textMut,margin:0}}>Prefer <strong>Deactivate</strong> unless you really need them gone.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn theme={theme} danger onClick={()=>doSave(()=>{
+            setUsers(p=>p.filter(x=>x.id!==form.id));
+            db.deleteUser(form.id);
+            log("deleted",form.name,"Admin");
+          })}><Trash2 size={13}/> Delete permanently</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── USER: CHANGE OWN PIN ─── */
+      case "changePin": return <Modal theme={theme} title="Change your PIN" onClose={closeM} width={460}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Current PIN</Label>
+          <Input theme={theme} type="password" value={form.current||""} onChange={e=>setForm(p=>({...p,current:e.target.value.replace(/\D/g,"").slice(0,6),err:""}))} maxLength={6}/>
+        </div>
+        <div><Label theme={theme}>New PIN (4–6 digits)</Label>
+          <Input theme={theme} value={form.newPin||""} onChange={e=>setForm(p=>({...p,newPin:e.target.value.replace(/\D/g,"").slice(0,6),err:""}))} maxLength={6}/>
+        </div>
+        <div><Label theme={theme}>Confirm New PIN</Label>
+          <Input theme={theme} value={form.confirm||""} onChange={e=>setForm(p=>({...p,confirm:e.target.value.replace(/\D/g,"").slice(0,6),err:""}))} maxLength={6}/>
+        </div>
+        {form.err&&<div style={{fontSize:12,color:theme.red,padding:"8px 12px",background:`${theme.red}0d`,borderRadius:8}}>{form.err}</div>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>{
+            if(form.current!==curUser.pin){setForm(p=>({...p,err:"Current PIN is incorrect."}));return}
+            if(!form.newPin||form.newPin.length<4){setForm(p=>({...p,err:"New PIN must be at least 4 digits."}));return}
+            if(form.newPin!==form.confirm){setForm(p=>({...p,err:"New PIN and confirmation don't match."}));return}
+            const upd={...curUser,pin:form.newPin};
+            setUsers(p=>p.map(x=>x.id===curUser.id?upd:x));
+            setCurUser(upd);
+            db.saveUser(upd);
+            log("changed their PIN","","Settings");
+            closeM();
+          }}><Lock size={13}/> Update PIN</Btn>
+        </div>
+      </div></Modal>;
+
       case "confirmClearActivity": return <Modal theme={theme} title="Clear team activity?" onClose={closeM} width={480}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.red}0d`,border:`1px solid ${theme.red}40`,borderRadius:10}}>
           <AlertTriangle size={18} color={theme.red} style={{flexShrink:0,marginTop:2}}/>
