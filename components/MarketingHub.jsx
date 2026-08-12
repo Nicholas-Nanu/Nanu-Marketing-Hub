@@ -336,6 +336,25 @@ const DOC_CATEGORIES = ["Legal","Financial","Investor","Board","IP & Trademarks"
 const DOC_STATUS = ["Draft","In Review","Final","Signed","Expired","Archived"];
 const DOC_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Final:"#1FC2C2", Signed:"#69DB7C", Expired:"#FF6B6B", Archived:"#6B7280" };
 
+/* ═══ COMPANY STRUCTURE (from Company Structure & Departmental Workflow) ═══ */
+const NANU_DEPARTMENTS = ["Business Operations","Marketing and Growth","Content and Media","Technology","Research and Partnerships","Governance"];
+const DEPT_COLORS = { "Business Operations":"#FFD43B", "Marketing and Growth":"#FFA94D", "Content and Media":"#DA77F2", "Technology":"#1FC2C2", "Research and Partnerships":"#69DB7C", "Governance":"#748FFC" };
+const UNIT_STATUS = ["Active","Partial","Open","Inactive"];
+const UNIT_STATUS_COLORS = { Active:"#69DB7C", Partial:"#FFA94D", Open:"#FF6B6B", Inactive:"#6B7280" };
+const UNIT_LAYERS = ["Governance","Executive","Department","Function","Sub"];
+
+// Access & backup register — records WHO HOLDS access, never the credentials themselves.
+const ACCESS_STATUS = ["No backup","Confirm","Unclear","Covered"];
+const ACCESS_STATUS_COLORS = { "No backup":"#FF6B6B", Confirm:"#FFA94D", Unclear:"#FFD43B", Covered:"#69DB7C" };
+
+const SEAT_STATUS = ["Open","Interim covered","Recruiting","Filled"];
+const SEAT_STATUS_COLORS = { Open:"#FF6B6B", "Interim covered":"#FFA94D", Recruiting:"#748FFC", Filled:"#69DB7C" };
+const SEAT_URGENCY = ["Critical","High","Medium","Low"];
+const SEAT_URGENCY_COLORS = { Critical:"#FF6B6B", High:"#FFA94D", Medium:"#FFD43B", Low:"#6B7280" };
+
+const MOC_STATUS = ["Operating","Partially operating","Reduced capability","Not operating"];
+const MOC_STATUS_COLORS = { Operating:"#69DB7C", "Partially operating":"#FFA94D", "Reduced capability":"#FF6B6B", "Not operating":"#6B7280" };
+
 /* ═══ FOCUS GROUPS ═══ */
 const FG_ROUND_STATUS = ["Planning","Recruiting","In Progress","Analysing","Complete"];
 const FG_ROUND_STATUS_COLORS = { Planning:"#4E6A78", Recruiting:"#748FFC", "In Progress":"#FFA94D", Analysing:"#DA77F2", Complete:"#69DB7C" };
@@ -669,6 +688,11 @@ export default function MarketingHub() {
   const [initiatives, setInitiatives] = useState([]);
   const [bizTab, setBizTab] = useState("metrics");
   const [bizDocs, setBizDocs] = useState([]);
+  const [accessRegister, setAccessRegister] = useState([]);
+  const [openSeats, setOpenSeats] = useState([]);
+  const [orgUnits, setOrgUnits] = useState([]);
+  const [raciItems, setRaciItems] = useState([]);
+  const [mocItems, setMocItems] = useState([]);
   const [fgRounds, setFgRounds] = useState([]);
   const [fgParticipants, setFgParticipants] = useState([]);
   const [fgAssets, setFgAssets] = useState([]);
@@ -721,6 +745,11 @@ export default function MarketingHub() {
       setBoardUpdates(data.boardUpdates || []);
       setInitiatives(data.initiatives || []);
       setBizDocs(data.bizDocs || []);
+      setAccessRegister(data.accessRegister || []);
+      setOpenSeats(data.openSeats || []);
+      setOrgUnits(data.orgUnits || []);
+      setRaciItems(data.raciItems || []);
+      setMocItems(data.mocItems || []);
       setFgRounds(data.fgRounds || []);
       setFgParticipants(data.fgParticipants || []);
       setFgAssets(data.fgAssets || []);
@@ -2186,7 +2215,7 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
-            {[["metrics","Metrics & KPIs",TrendingUp],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag],["documents","Documents",FolderOpen]].map(([k,l,Icon])=>(
+            {[["metrics","Metrics & KPIs",TrendingUp],["access","Access & Backup",Lock],["seats","Open Seats",Users2],["org","Org Structure",FolderKanban],["raci","Accountability",CheckSquare],["moc","Operating Capability",Activity],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag],["documents","Documents",FolderOpen]].map(([k,l,Icon])=>(
               <button key={k} onClick={()=>setBizTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:bizTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:bizTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
                 <Icon size={14}/>{l}
               </button>
@@ -2249,6 +2278,292 @@ export default function MarketingHub() {
               <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.notes}</p>
             </Card>}
             <div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:10}}>{bizMetrics.periodLabel?`Period: ${bizMetrics.periodLabel}`:"No period set"}</div>
+          </div>}
+
+          {/* ── ACCESS & BACKUP REGISTER ── */}
+          {bizTab==="access"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:600,lineHeight:1.6}}>Who holds access to each critical system, and who covers it if they're unavailable. Any system without a named backup is a dependency, not a function.</p>
+              <div style={{display:"flex",gap:6}}>
+                {accessRegister.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["System","Category","Primary Holder","Backup Holder","Status","Last Verified","Notes"]];
+                  accessRegister.forEach(a=>rows.push([a.system,a.category,uName(a.primaryHolder),a.backupHolder?uName(a.backupHolder):"NONE",a.status,a.lastVerified,a.notes]));
+                  exportCSV(rows,`nanu-access-register-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editAccessItem",{system:"",category:"",primaryHolder:"",backupHolder:"",status:"No backup",lastVerified:"",notes:""})}><Plus size={13}/> Add System</Btn>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:12,alignItems:"flex-start",padding:14,background:`${theme.yellow}0d`,border:`1px solid ${theme.yellow}40`,borderRadius:10,marginBottom:16}}>
+              <Lock size={16} color={theme.yellow} style={{flexShrink:0,marginTop:2}}/>
+              <div style={{fontSize:12,color:theme.textSec,lineHeight:1.6}}>
+                This register records <strong>who holds</strong> access — never passwords, keys or credentials themselves. Keep those in a password manager.
+              </div>
+            </div>
+
+            {(()=>{
+              const noBackup = accessRegister.filter(a=>!a.backupHolder);
+              return noBackup.length>0&&<Card theme={theme} style={{padding:14,marginBottom:16,borderLeft:`3px solid ${theme.red}`}}>
+                <div style={{fontSize:11,fontWeight:700,color:theme.red,textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>{noBackup.length} system{noBackup.length===1?"":"s"} with no named backup</div>
+                {noBackup.map(a=>(<div key={a.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,padding:"3px 0"}}>
+                  <AlertTriangle size={12} color={theme.red}/><span style={{flex:1}}>{a.system}</span><span style={{color:theme.textMut}}>{a.primaryHolder?uName(a.primaryHolder):"no primary either"}</span>
+                </div>))}
+              </Card>;
+            })()}
+
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {accessRegister.map(a=>{
+                const missing=!a.backupHolder;
+                return <Card key={a.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${missing?theme.red:ACCESS_STATUS_COLORS[a.status]||theme.border}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{flex:"1 1 200px",minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{a.system}</div>
+                      {a.category&&<div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{a.category}</div>}
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:2,minWidth:130}}>
+                      <span style={{fontSize:10,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em"}}>Primary</span>
+                      <span style={{fontSize:12,fontWeight:600}}>{a.primaryHolder?uName(a.primaryHolder):"—"}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:2,minWidth:130}}>
+                      <span style={{fontSize:10,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em"}}>Backup</span>
+                      <span style={{fontSize:12,fontWeight:600,color:missing?theme.red:theme.text}}>{a.backupHolder?uName(a.backupHolder):"NOT NAMED"}</span>
+                    </div>
+                    <Badge label={a.status} color={ACCESS_STATUS_COLORS[a.status]}/>
+                    {a.lastVerified&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{a.lastVerified}</span>}
+                    <Btn theme={theme} small onClick={()=>openM("editAccessItem",{...a})}><Edit3 size={12}/> Edit</Btn>
+                  </div>
+                  {a.notes&&<p style={{fontSize:12,color:theme.textMut,margin:"6px 0 0",lineHeight:1.5}}>{a.notes}</p>}
+                </Card>;
+              })}
+              {accessRegister.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No systems registered yet. Click "Add System" to start.</p>}
+            </div>
+          </div>}
+
+          {/* ── OPEN SEATS ── */}
+          {bizTab==="seats"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:600,lineHeight:1.6}}>Every seat a department head has identified as required. Hours are honest expected commitments, not aspirations.</p>
+              <div style={{display:"flex",gap:6}}>
+                {openSeats.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Seat","Department","Function","Status","Urgency","Hours/week","Funded","Interim","Impact if open","Notes"]];
+                  openSeats.forEach(s=>rows.push([s.title,s.department,s.func,s.status,s.urgency,String(s.hoursPerWeek||""),s.funded?"YES":"",s.interim?uName(s.interim):"",s.impact,s.notes]));
+                  exportCSV(rows,`nanu-open-seats-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editOpenSeat",{title:"",department:NANU_DEPARTMENTS[0],func:"",impact:"",interim:"",status:"Open",urgency:"Medium",hoursPerWeek:0,funded:false,notes:""})}><Plus size={13}/> Add Seat</Btn>
+              </div>
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {SEAT_STATUS.map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${SEAT_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:SEAT_STATUS_COLORS[s]}}>{openSeats.filter(x=>x.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{openSeats.filter(s=>s.status!=="Filled").reduce((n,s)=>n+(s.hoursPerWeek||0),0)}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Hrs/wk unfilled</div>
+              </Card>
+            </div>
+
+            {NANU_DEPARTMENTS.filter(d=>openSeats.some(s=>s.department===d)).map(dept=>(
+              <div key={dept} style={{marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:DEPT_COLORS[dept]||theme.teal}}/>
+                  <span style={{fontSize:12,fontWeight:600,color:theme.textSec,textTransform:"uppercase",letterSpacing:".04em"}}>{dept}</span>
+                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{openSeats.filter(s=>s.department===dept).length}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {openSeats.filter(s=>s.department===dept).sort((a,b)=>SEAT_URGENCY.indexOf(a.urgency)-SEAT_URGENCY.indexOf(b.urgency)).map(s=>(
+                    <Card key={s.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${SEAT_URGENCY_COLORS[s.urgency]}`,opacity:s.status==="Filled"?0.6:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <div style={{flex:"1 1 200px",minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:14}}>{s.title}</div>
+                          {s.func&&<div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{s.func}</div>}
+                        </div>
+                        <Badge label={s.urgency} color={SEAT_URGENCY_COLORS[s.urgency]}/>
+                        <Badge label={s.status} color={SEAT_STATUS_COLORS[s.status]}/>
+                        {s.hoursPerWeek>0&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{s.hoursPerWeek}h/wk</span>}
+                        {s.funded&&<Badge label="Funded" color={theme.green}/>}
+                        <Btn theme={theme} small onClick={()=>openM("editOpenSeat",{...s})}><Edit3 size={12}/> Edit</Btn>
+                      </div>
+                      {s.impact&&<p style={{fontSize:12,color:theme.orange,margin:"6px 0 0",lineHeight:1.5}}>If left open: {s.impact}</p>}
+                      {s.interim&&<div style={{fontSize:11,color:theme.textMut,marginTop:4}}>Interim cover: {uName(s.interim)}</div>}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {openSeats.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No seats registered yet.</p>}
+          </div>}
+
+          {/* ── ORG STRUCTURE ── */}
+          {bizTab==="org"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:600,lineHeight:1.6}}>The live org chart. Anything marked Open is a seat we don't currently have filled.</p>
+              <div style={{display:"flex",gap:6}}>
+                {orgUnits.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Layer","Unit","Department","Holder","Reports to","Status","Notes"]];
+                  [...orgUnits].sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).forEach(u=>rows.push([u.layer,u.name,u.department,u.holderUser?uName(u.holderUser):u.holderText,u.reportsTo,u.status,u.notes]));
+                  exportCSV(rows,`nanu-org-structure-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editOrgUnit",{layer:"Function",name:"",department:NANU_DEPARTMENTS[0],holderUser:"",holderText:"",reportsTo:"",status:"Active",sortOrder:(orgUnits.length+1)*10,notes:""})}><Plus size={13}/> Add Unit</Btn>
+              </div>
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {UNIT_STATUS.map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${UNIT_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:UNIT_STATUS_COLORS[s]}}>{orgUnits.filter(u=>u.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+            </div>
+
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              {[...orgUnits].sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).map(u=>{
+                const indent={Governance:0,Executive:0,Department:0,Function:22,Sub:44}[u.layer]??22;
+                const isDept=u.layer==="Department"||u.layer==="Governance"||u.layer==="Executive";
+                return <div key={u.id} style={{marginLeft:indent}}>
+                  <Card theme={theme} style={{padding:isDept?"12px 14px":"9px 14px",borderLeft:`3px solid ${u.status==="Open"?theme.red:DEPT_COLORS[u.department]||theme.border}`,background:isDept?theme.bgCard:theme.bgInput}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:9,color:theme.textMut,textTransform:"uppercase",letterSpacing:".06em",minWidth:64}}>{u.layer}</span>
+                      <span style={{fontWeight:isDept?700:600,fontSize:isDept?14:13,flex:"1 1 180px",minWidth:0}}>{u.name}</span>
+                      <span style={{fontSize:12,color:u.status==="Open"?theme.red:theme.textSec,minWidth:140}}>{u.holderUser?uName(u.holderUser):(u.holderText||"Unfilled")}</span>
+                      {u.reportsTo&&<span style={{fontSize:11,color:theme.textMut}}>→ {u.reportsTo}</span>}
+                      <Badge label={u.status} color={UNIT_STATUS_COLORS[u.status]}/>
+                      <Btn theme={theme} small onClick={()=>openM("editOrgUnit",{...u})}><Edit3 size={11}/></Btn>
+                    </div>
+                    {u.notes&&<p style={{fontSize:11,color:theme.textMut,margin:"5px 0 0",lineHeight:1.5}}>{u.notes}</p>}
+                  </Card>
+                </div>;
+              })}
+              {orgUnits.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No org units yet. Click "Add Unit" to build the chart.</p>}
+            </div>
+            <p style={{fontSize:11,color:theme.textMut,marginTop:12,lineHeight:1.5}}>Sort order controls position. Use increments of 10 so you can insert rows later without renumbering everything.</p>
+          </div>}
+
+          {/* ── ACCOUNTABILITY (RACI) ── */}
+          {bizTab==="raci"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:640,lineHeight:1.6}}>For every recurring output: who answers for it at board level (Accountable), who does the work (Responsible), and who must be asked before it ships (Consulted).</p>
+              <div style={{display:"flex",gap:6}}>
+                {raciItems.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Recurring output","Department","Accountable","Responsible","Consulted","Notes"]];
+                  raciItems.forEach(r=>rows.push([r.output,r.department,r.accountable?uName(r.accountable):"",r.responsible,r.consulted,r.notes]));
+                  exportCSV(rows,`nanu-accountability-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editRaciItem",{output:"",department:NANU_DEPARTMENTS[0],accountable:"",responsible:"",consulted:"",notes:""})}><Plus size={13}/> Add Output</Btn>
+              </div>
+            </div>
+
+            {(()=>{
+              const unowned=raciItems.filter(r=>!r.accountable);
+              return unowned.length>0&&<Card theme={theme} style={{padding:12,marginBottom:14,borderLeft:`3px solid ${theme.orange}`}}>
+                <div style={{fontSize:12,color:theme.orange,fontWeight:600}}>{unowned.length} output{unowned.length===1?"":"s"} with nobody accountable</div>
+              </Card>;
+            })()}
+
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {raciItems.map(r=>(
+                <Card key={r.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${DEPT_COLORS[r.department]||theme.border}`}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                    <div style={{flex:"1 1 220px",minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{r.output}</div>
+                      {r.department&&<div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{r.department}</div>}
+                    </div>
+                    <div style={{display:"flex",gap:14,flexWrap:"wrap",flex:"2 1 320px"}}>
+                      <div style={{minWidth:110}}>
+                        <div style={{fontSize:9,color:theme.red,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>Accountable</div>
+                        <div style={{fontSize:12,fontWeight:600,color:r.accountable?theme.text:theme.orange}}>{r.accountable?uName(r.accountable):"Nobody"}</div>
+                      </div>
+                      <div style={{minWidth:110}}>
+                        <div style={{fontSize:9,color:theme.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>Responsible</div>
+                        <div style={{fontSize:12,color:theme.textSec}}>{r.responsible||"—"}</div>
+                      </div>
+                      <div style={{minWidth:110}}>
+                        <div style={{fontSize:9,color:theme.textMut,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>Consulted</div>
+                        <div style={{fontSize:12,color:theme.textMut}}>{r.consulted||"—"}</div>
+                      </div>
+                    </div>
+                    <Btn theme={theme} small onClick={()=>openM("editRaciItem",{...r})}><Edit3 size={12}/> Edit</Btn>
+                  </div>
+                </Card>
+              ))}
+              {raciItems.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No outputs mapped yet.</p>}
+            </div>
+            <p style={{fontSize:11,color:theme.textMut,marginTop:12,lineHeight:1.6}}>If you're accountable for an outcome and didn't have the authority or resource to reach it, say so at the time, in writing, to the board. Raising a resourcing gap is the job, not a complaint.</p>
+          </div>}
+
+          {/* ── MINIMUM OPERATING CAPABILITY ── */}
+          {bizTab==="moc"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:640,lineHeight:1.6}}>The smallest team and toolset each function needs to sustain baseline daily operations — and what's actually staffed against it.</p>
+              <div style={{display:"flex",gap:6}}>
+                {mocItems.length>0&&<Btn theme={theme} small onClick={()=>{
+                  const rows=[["Function","Department","Head","Minimum capability","Current state","Gap","Status","Hours needed","Confirmed"]];
+                  mocItems.forEach(m=>rows.push([m.func,m.department,m.headUser?uName(m.headUser):m.headText,m.minimum,m.currentState,m.gap,m.status,String(m.hoursNeeded||""),m.confirmed?"YES":"NOT YET"]));
+                  exportCSV(rows,`nanu-operating-capability-${new Date().toISOString().slice(0,10)}.csv`);
+                }}><Download size={12}/> CSV</Btn>}
+                <Btn primary theme={theme} small onClick={()=>openM("editMocItem",{func:"",department:NANU_DEPARTMENTS[0],headUser:"",headText:"",minimum:"",currentState:"",gap:"",status:"Operating",hoursNeeded:0,confirmed:false,notes:""})}><Plus size={13}/> Add Function</Btn>
+              </div>
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {MOC_STATUS.map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${MOC_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:MOC_STATUS_COLORS[s]}}>{mocItems.filter(m=>m.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{mocItems.reduce((n,m)=>n+(m.hoursNeeded||0),0)}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Total hrs/wk needed</div>
+              </Card>
+            </div>
+
+            {(()=>{
+              const unconfirmed=mocItems.filter(m=>!m.confirmed);
+              return unconfirmed.length>0&&<Card theme={theme} style={{padding:12,marginBottom:14,borderLeft:`3px solid ${theme.orange}`}}>
+                <div style={{fontSize:12,color:theme.orange,fontWeight:600}}>{unconfirmed.length} function{unconfirmed.length===1?"":"s"} still awaiting a firm figure from the department head</div>
+              </Card>;
+            })()}
+
+            {NANU_DEPARTMENTS.filter(d=>mocItems.some(m=>m.department===d)).map(dept=>(
+              <div key={dept} style={{marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:DEPT_COLORS[dept]||theme.teal}}/>
+                  <span style={{fontSize:12,fontWeight:600,color:theme.textSec,textTransform:"uppercase",letterSpacing:".04em"}}>{dept}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {mocItems.filter(m=>m.department===dept).map(m=>(
+                    <Card key={m.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${MOC_STATUS_COLORS[m.status]}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}>
+                        <span style={{fontWeight:700,fontSize:14,flex:"1 1 180px",minWidth:0}}>{m.func}</span>
+                        <span style={{fontSize:11,color:theme.textMut}}>{m.headUser?uName(m.headUser):(m.headText||"No head")}</span>
+                        {m.hoursNeeded>0&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{m.hoursNeeded}h/wk</span>}
+                        <Badge label={m.status} color={MOC_STATUS_COLORS[m.status]}/>
+                        {m.confirmed?<Badge label="Confirmed" color={theme.green}/>:<Badge label="Unconfirmed" color={theme.orange}/>}
+                        <Btn theme={theme} small onClick={()=>openM("editMocItem",{...m})}><Edit3 size={12}/> Edit</Btn>
+                      </div>
+                      {m.minimum&&<div style={{marginBottom:6}}>
+                        <div style={{fontSize:9,color:theme.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Minimum required</div>
+                        <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.5}}>{m.minimum}</p>
+                      </div>}
+                      {m.currentState&&<div style={{marginBottom:6}}>
+                        <div style={{fontSize:9,color:theme.textMut,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Currently</div>
+                        <p style={{fontSize:12,color:theme.textMut,margin:0,lineHeight:1.5}}>{m.currentState}</p>
+                      </div>}
+                      {m.gap&&<div style={{padding:"8px 10px",background:`${theme.orange}0d`,borderRadius:6,marginTop:6}}>
+                        <div style={{fontSize:9,color:theme.orange,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Gap</div>
+                        <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.5}}>{m.gap}</p>
+                      </div>}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {mocItems.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No functions mapped yet.</p>}
           </div>}
 
           {/* ── INVESTORS ── */}
@@ -4396,6 +4711,127 @@ export default function MarketingHub() {
             log("deleted",`${bulkSelected.length} task(s)`,"Tasks");
             setBulkSelected([]);
           })}><Trash2 size={13}/> Delete permanently</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ACCESS REGISTER MODAL ─── */
+      case "editAccessItem": return <Modal theme={theme} title={form.id?"Edit System Access":"Add System"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:12,background:`${theme.yellow}0d`,border:`1px solid ${theme.yellow}40`,borderRadius:8}}>
+          <Lock size={14} color={theme.yellow} style={{flexShrink:0,marginTop:2}}/>
+          <div style={{fontSize:12,color:theme.textSec,lineHeight:1.5}}>Record who holds access — never passwords or keys. Those belong in a password manager.</div>
+        </div>
+        <div className="nanu-form-row"><div><Label theme={theme}>System</Label><Input theme={theme} value={form.system||""} onChange={e=>setForm(p=>({...p,system:e.target.value}))} placeholder="e.g. Banking and payment processing"/></div><div><Label theme={theme}>Category</Label><Input theme={theme} value={form.category||""} onChange={e=>setForm(p=>({...p,category:e.target.value}))} placeholder="Platform, Finance, Social..."/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Primary Holder</Label><Sel theme={theme} options={[{value:"",label:"Not assigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.primaryHolder||""} onChange={e=>setForm(p=>({...p,primaryHolder:e.target.value}))}/></div><div><Label theme={theme}>Backup Holder</Label><Sel theme={theme} options={[{value:"",label:"NOT NAMED"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.backupHolder||""} onChange={e=>setForm(p=>({...p,backupHolder:e.target.value,status:e.target.value?"Covered":"No backup"}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={ACCESS_STATUS} value={form.status||"No backup"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Last Verified</Label><Input theme={theme} type="date" value={form.lastVerified||""} onChange={e=>setForm(p=>({...p,lastVerified:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Recovery route, who to contact, constraints..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setAccessRegister(p=>p.filter(x=>x.id!==form.id));db.deleteAccessItem(form.id);log("deleted",form.system,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const aid=form.id||uid("acc");
+            const adata={id:aid,system:form.system||"",category:form.category||"",primaryHolder:form.primaryHolder||"",backupHolder:form.backupHolder||"",status:form.status||"No backup",lastVerified:form.lastVerified||"",notes:form.notes||""};
+            if(form.id){setAccessRegister(p=>p.map(x=>x.id===form.id?adata:x));log("updated",adata.system,"Business")}
+            else{setAccessRegister(p=>[...p,adata]);log("added",adata.system,"Business")}
+            db.saveAccessItem(adata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── OPEN SEAT MODAL ─── */
+      case "editOpenSeat": return <Modal theme={theme} title={form.id?"Edit Seat":"Add Seat"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Seat Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Copy, Comms and Social Media Executive"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Department</Label><Sel theme={theme} options={NANU_DEPARTMENTS} value={form.department||NANU_DEPARTMENTS[0]} onChange={e=>setForm(p=>({...p,department:e.target.value}))}/></div><div><Label theme={theme}>Function</Label><Input theme={theme} value={form.func||""} onChange={e=>setForm(p=>({...p,func:e.target.value}))} placeholder="e.g. Public Outreach and Community"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={SEAT_STATUS} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Urgency</Label><Sel theme={theme} options={SEAT_URGENCY} value={form.urgency||"Medium"} onChange={e=>setForm(p=>({...p,urgency:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Honest hours per week</Label><Input theme={theme} type="number" value={form.hoursPerWeek??0} onChange={e=>setForm(p=>({...p,hoursPerWeek:Number(e.target.value)}))}/></div><div><Label theme={theme}>Interim Cover</Label><Sel theme={theme} options={[{value:"",label:"None"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.interim||""} onChange={e=>setForm(p=>({...p,interim:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Impact if left open</Label><Textarea theme={theme} value={form.impact||""} onChange={e=>setForm(p=>({...p,impact:e.target.value}))} placeholder="What breaks or stalls without this seat"/></div>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+          <input type="checkbox" checked={!!form.funded} onChange={e=>setForm(p=>({...p,funded:e.target.checked}))} style={{accentColor:theme.teal,width:15,height:15,cursor:"pointer"}}/>
+          Budget agreed for this seat
+        </label>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOpenSeats(p=>p.filter(x=>x.id!==form.id));db.deleteOpenSeat(form.id);log("deleted",form.title,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const sid=form.id||uid("seat");
+            const sdata={id:sid,title:form.title||"",department:form.department||"",func:form.func||"",impact:form.impact||"",interim:form.interim||"",status:form.status||"Open",urgency:form.urgency||"Medium",hoursPerWeek:form.hoursPerWeek||0,funded:!!form.funded,notes:form.notes||""};
+            if(form.id){setOpenSeats(p=>p.map(x=>x.id===form.id?sdata:x));log("updated",sdata.title,"Business")}
+            else{setOpenSeats(p=>[...p,sdata]);log("added",sdata.title,"Business")}
+            db.saveOpenSeat(sdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── ORG UNIT MODAL ─── */
+      case "editOrgUnit": return <Modal theme={theme} title={form.id?"Edit Unit":"Add Unit"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Layer</Label><Sel theme={theme} options={UNIT_LAYERS} value={form.layer||"Function"} onChange={e=>setForm(p=>({...p,layer:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={UNIT_STATUS} value={form.status||"Active"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Unit Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. 2.1 Analytics"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Department</Label><Sel theme={theme} options={NANU_DEPARTMENTS} value={form.department||NANU_DEPARTMENTS[0]} onChange={e=>setForm(p=>({...p,department:e.target.value}))}/></div><div><Label theme={theme}>Reports To</Label><Input theme={theme} value={form.reportsTo||""} onChange={e=>setForm(p=>({...p,reportsTo:e.target.value}))} placeholder="e.g. CMO"/></div></div>
+        <div><Label theme={theme}>Holder (team member)</Label><Sel theme={theme} options={[{value:"",label:"Not a hub user / unfilled"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.holderUser||""} onChange={e=>setForm(p=>({...p,holderUser:e.target.value}))}/></div>
+        <div><Label theme={theme}>Holder (free text)</Label><Input theme={theme} value={form.holderText||""} onChange={e=>setForm(p=>({...p,holderText:e.target.value}))} placeholder="Use when the holder isn't a hub user, e.g. 'Unfilled. Proposed: Ed Crowther.'"/></div>
+        <div><Label theme={theme}>Sort Order</Label><Input theme={theme} type="number" value={form.sortOrder??0} onChange={e=>setForm(p=>({...p,sortOrder:Number(e.target.value)}))}/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOrgUnits(p=>p.filter(x=>x.id!==form.id));db.deleteOrgUnit(form.id);log("deleted",form.name,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const oid=form.id||uid("org");
+            const odata={id:oid,layer:form.layer||"Function",name:form.name||"",department:form.department||"",holderUser:form.holderUser||"",holderText:form.holderText||"",reportsTo:form.reportsTo||"",status:form.status||"Active",sortOrder:form.sortOrder||0,notes:form.notes||""};
+            if(form.id){setOrgUnits(p=>p.map(x=>x.id===form.id?odata:x));log("updated",odata.name,"Business")}
+            else{setOrgUnits(p=>[...p,odata]);log("added",odata.name,"Business")}
+            db.saveOrgUnit(odata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── RACI MODAL ─── */
+      case "editRaciItem": return <Modal theme={theme} title={form.id?"Edit Output":"Add Recurring Output"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Recurring Output</Label><Input theme={theme} value={form.output||""} onChange={e=>setForm(p=>({...p,output:e.target.value}))} placeholder="e.g. Episode delivery on schedule"/></div>
+        <div><Label theme={theme}>Department</Label><Sel theme={theme} options={NANU_DEPARTMENTS} value={form.department||NANU_DEPARTMENTS[0]} onChange={e=>setForm(p=>({...p,department:e.target.value}))}/></div>
+        <div>
+          <Label theme={theme}>Accountable — answers for it at board level</Label>
+          <Sel theme={theme} options={[{value:"",label:"Nobody assigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.accountable||""} onChange={e=>setForm(p=>({...p,accountable:e.target.value}))}/>
+        </div>
+        <div><Label theme={theme}>Responsible — does the work</Label><Input theme={theme} value={form.responsible||""} onChange={e=>setForm(p=>({...p,responsible:e.target.value}))} placeholder="Person or function, e.g. Media Production"/></div>
+        <div><Label theme={theme}>Consulted — must be asked before it ships</Label><Input theme={theme} value={form.consulted||""} onChange={e=>setForm(p=>({...p,consulted:e.target.value}))} placeholder="e.g. Design, Talent"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setRaciItems(p=>p.filter(x=>x.id!==form.id));db.deleteRaciItem(form.id);log("deleted",form.output,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const rid2=form.id||uid("raci");
+            const rdata={id:rid2,output:form.output||"",department:form.department||"",accountable:form.accountable||"",responsible:form.responsible||"",consulted:form.consulted||"",notes:form.notes||""};
+            if(form.id){setRaciItems(p=>p.map(x=>x.id===form.id?rdata:x));log("updated",rdata.output,"Business")}
+            else{setRaciItems(p=>[...p,rdata]);log("added",rdata.output,"Business")}
+            db.saveRaciItem(rdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MOC MODAL ─── */
+      case "editMocItem": return <Modal theme={theme} title={form.id?"Edit Function":"Add Function"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Function</Label><Input theme={theme} value={form.func||""} onChange={e=>setForm(p=>({...p,func:e.target.value}))} placeholder="e.g. Graphic Design"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Department</Label><Sel theme={theme} options={NANU_DEPARTMENTS} value={form.department||NANU_DEPARTMENTS[0]} onChange={e=>setForm(p=>({...p,department:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={MOC_STATUS} value={form.status||"Operating"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Function Head</Label><Sel theme={theme} options={[{value:"",label:"Not a hub user"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.headUser||""} onChange={e=>setForm(p=>({...p,headUser:e.target.value}))}/></div><div><Label theme={theme}>Hours/week needed</Label><Input theme={theme} type="number" value={form.hoursNeeded??0} onChange={e=>setForm(p=>({...p,hoursNeeded:Number(e.target.value)}))}/></div></div>
+        <div><Label theme={theme}>Head (free text, if not a hub user)</Label><Input theme={theme} value={form.headText||""} onChange={e=>setForm(p=>({...p,headText:e.target.value}))} placeholder="e.g. OPEN. Interim: Matt Staroscik."/></div>
+        <div><Label theme={theme}>Minimum Operating Capability</Label><Textarea theme={theme} value={form.minimum||""} onChange={e=>setForm(p=>({...p,minimum:e.target.value}))} placeholder="Smallest team and toolset that sustains baseline daily operations"/></div>
+        <div><Label theme={theme}>Current State</Label><Textarea theme={theme} value={form.currentState||""} onChange={e=>setForm(p=>({...p,currentState:e.target.value}))} placeholder="What's actually staffed right now"/></div>
+        <div><Label theme={theme}>Gap</Label><Textarea theme={theme} value={form.gap||""} onChange={e=>setForm(p=>({...p,gap:e.target.value}))} placeholder="The difference, stated plainly"/></div>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+          <input type="checkbox" checked={!!form.confirmed} onChange={e=>setForm(p=>({...p,confirmed:e.target.checked}))} style={{accentColor:theme.teal,width:15,height:15,cursor:"pointer"}}/>
+          Department head has returned a firm figure
+        </label>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMocItems(p=>p.filter(x=>x.id!==form.id));db.deleteMocItem(form.id);log("deleted",form.func,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const mid=form.id||uid("moc");
+            const mdata={id:mid,func:form.func||"",department:form.department||"",headUser:form.headUser||"",headText:form.headText||"",minimum:form.minimum||"",currentState:form.currentState||"",gap:form.gap||"",status:form.status||"Operating",hoursNeeded:form.hoursNeeded||0,confirmed:!!form.confirmed,notes:form.notes||""};
+            if(form.id){setMocItems(p=>p.map(x=>x.id===form.id?mdata:x));log("updated",mdata.func,"Business")}
+            else{setMocItems(p=>[...p,mdata]);log("added",mdata.func,"Business")}
+            db.saveMocItem(mdata);
+          })}>Done</Btn>
         </div>
       </div></Modal>;
 
