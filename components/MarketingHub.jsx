@@ -355,6 +355,21 @@ const SEAT_URGENCY_COLORS = { Critical:"#FF6B6B", High:"#FFA94D", Medium:"#FFD43
 const MOC_STATUS = ["Operating","Partially operating","Reduced capability","Not operating"];
 const MOC_STATUS_COLORS = { Operating:"#69DB7C", "Partially operating":"#FFA94D", "Reduced capability":"#FF6B6B", "Not operating":"#6B7280" };
 
+/* ═══ MEDIA & CONTENT ═══ */
+const MEDIA_STAGES = ["Idea","Researching","Scripting","Recording","Editing","Review","Scheduled","Published"];
+const MEDIA_STAGE_COLORS = { Idea:"#4E6A78", Researching:"#748FFC", Scripting:"#22B8CF", Recording:"#FFA94D", Editing:"#DA77F2", Review:"#FFD43B", Scheduled:"#82F9F6", Published:"#69DB7C" };
+const MEDIA_FUNCTIONS = ["Creation and Research","Scripting","Design and Graphics","Recording and Hosting","Editing and Post","Admin and Coordination","Distribution and Scheduling"];
+const MEDIA_FORMATS = ["Short-form video","Long-form video","Podcast","Livestream","Written","Mixed"];
+const MEDIA_CADENCES = ["Daily","Weekly","Fortnightly","Monthly","Ad-hoc"];
+const IDEA_STATUS = ["New","Under review","Accepted","Parked","Declined"];
+const IDEA_STATUS_COLORS = { New:"#748FFC", "Under review":"#FFA94D", Accepted:"#69DB7C", Parked:"#6B7280", Declined:"#FF6B6B" };
+const MFEEDBACK_TYPES = ["Suggestion","Praise","Concern","Question"];
+const MFEEDBACK_TYPE_COLORS = { Suggestion:"#748FFC", Praise:"#69DB7C", Concern:"#FFA94D", Question:"#22B8CF" };
+const MFEEDBACK_STATUS = ["New","Read","Actioned","Closed"];
+const TOOL_CATEGORIES = ["Design","Video","Audio","Scheduling","Storage","Research","Writing","Analytics","Other"];
+const TOOL_STATUS = ["In use","Trialling","Requested","Retired"];
+const TOOL_STATUS_COLORS = { "In use":"#69DB7C", Trialling:"#FFA94D", Requested:"#748FFC", Retired:"#6B7280" };
+
 /* ═══ FOCUS GROUPS ═══ */
 const FG_ROUND_STATUS = ["Planning","Recruiting","In Progress","Analysing","Complete"];
 const FG_ROUND_STATUS_COLORS = { Planning:"#4E6A78", Recruiting:"#748FFC", "In Progress":"#FFA94D", Analysing:"#DA77F2", Complete:"#69DB7C" };
@@ -693,6 +708,15 @@ export default function MarketingHub() {
   const [orgUnits, setOrgUnits] = useState([]);
   const [raciItems, setRaciItems] = useState([]);
   const [mocItems, setMocItems] = useState([]);
+  const [mediaProducts, setMediaProducts] = useState([]);
+  const [mediaItems, setMediaItems] = useState([]);
+  const [mediaRoles, setMediaRoles] = useState([]);
+  const [mediaIdeas, setMediaIdeas] = useState([]);
+  const [mediaFeedbackList, setMediaFeedbackList] = useState([]);
+  const [mediaTools, setMediaTools] = useState([]);
+  const [mediaFolders, setMediaFolders] = useState([]);
+  const [mediaTab, setMediaTab] = useState("pipeline");
+  const [mediaProduct, setMediaProduct] = useState("");
   const [fgRounds, setFgRounds] = useState([]);
   const [fgParticipants, setFgParticipants] = useState([]);
   const [fgAssets, setFgAssets] = useState([]);
@@ -750,6 +774,13 @@ export default function MarketingHub() {
       setOrgUnits(data.orgUnits || []);
       setRaciItems(data.raciItems || []);
       setMocItems(data.mocItems || []);
+      setMediaProducts(data.mediaProducts || []);
+      setMediaItems(data.mediaItems || []);
+      setMediaRoles(data.mediaRoles || []);
+      setMediaIdeas(data.mediaIdeas || []);
+      setMediaFeedbackList(data.mediaFeedback || []);
+      setMediaTools(data.mediaTools || []);
+      setMediaFolders(data.mediaFolders || []);
       setFgRounds(data.fgRounds || []);
       setFgParticipants(data.fgParticipants || []);
       setFgAssets(data.fgAssets || []);
@@ -940,6 +971,13 @@ export default function MarketingHub() {
         { key:"feedback", label:"Feedback", icon:<Smile size={18}/> },
         { key:"focusgroups", label:"Focus Groups", icon:<Users2 size={18}/> },
         { key:"engagement", label:"Engagement", icon:<Activity size={18}/> },
+      ]
+    },
+    {
+      id: "media",
+      label: "Media",
+      items: [
+        { key:"media", label:"Media & Content", icon:<FileEdit size={18}/> },
       ]
     },
     ...(canSeeBusiness?[{
@@ -2781,6 +2819,290 @@ export default function MarketingHub() {
               </div>
             ))}
             {bizDocs.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No documents indexed yet. Click "Add Document" to start.</p>}
+          </div>}
+        </div>
+      );
+    }
+
+    /* ─── MEDIA & CONTENT ─── */
+    case "media": {
+      const prods = [...mediaProducts].sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      const activeProd = prods.find(p=>p.id===mediaProduct) || prods[0];
+      const pid = activeProd?.id;
+      const prodItems = mediaItems.filter(i=>i.productId===pid);
+      const prodRoles = mediaRoles.filter(r=>r.productId===pid);
+      const prodName = (id) => mediaProducts.find(p=>p.id===id)?.name || "";
+      const prodColor = (id) => mediaProducts.find(p=>p.id===id)?.color || theme.textMut;
+
+      const moveStage = (item, dir) => {
+        const idx = MEDIA_STAGES.indexOf(item.stage);
+        const next = MEDIA_STAGES[Math.max(0, Math.min(MEDIA_STAGES.length-1, idx+dir))];
+        if (next === item.stage) return;
+        const upd = {...item, stage: next};
+        setMediaItems(prev=>prev.map(x=>x.id===item.id?upd:x));
+        db.saveMediaItem(upd);
+      };
+      const toggleVote = (idea) => {
+        const has = (idea.votes||[]).includes(curUser.id);
+        const upd = {...idea, votes: has ? idea.votes.filter(v=>v!==curUser.id) : [...(idea.votes||[]), curUser.id]};
+        setMediaIdeas(prev=>prev.map(x=>x.id===idea.id?upd:x));
+        db.saveMediaIdea(upd);
+      };
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            {prods.length>0&&mediaTab!=="ideas"&&mediaTab!=="feedback"&&mediaTab!=="tools"&&
+              <Sel theme={theme} options={prods.map(p=>({value:p.id,label:p.name}))} value={pid||""} onChange={e=>setMediaProduct(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>}
+            <Btn primary theme={theme} onClick={()=>openM("editMediaProduct",{name:"",description:"",format:MEDIA_FORMATS[0],cadence:"Weekly",showrunner:curUser.id,status:"Active",driveUrl:"",color:"#1FC2C2",sortOrder:(prods.length+1)*10,notes:""})}><Plus size={14}/> New Product</Btn>
+          </>}>Media & Content</SectionHead>
+
+          {/* Tabs */}
+          <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
+            {[["pipeline","Pipeline",Columns],["roles","Roles",Users],["ideas","Ideas Board",Zap],["feedback","Feedback",MessageSquare],["tools","Tools",Settings],["drive","Drive & Assets",FolderOpen]].map(([k,l,Icon])=>{
+              const badge = k==="ideas" ? mediaIdeas.filter(i=>i.status==="New").length : k==="feedback" ? mediaFeedbackList.filter(f=>f.status==="New").length : 0;
+              return <button key={k} onClick={()=>setMediaTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:mediaTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:mediaTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
+                <Icon size={14}/>{l}
+                {badge>0&&<span style={{background:theme.teal,color:"#0D1B21",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{badge}</span>}
+              </button>;
+            })}
+          </div>
+
+          {prods.length===0&&<Card theme={theme} style={{padding:32,textAlign:"center"}}>
+            <FileEdit size={28} color={theme.textMut} style={{marginBottom:10}}/>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>No content products yet</div>
+            <p style={{fontSize:13,color:theme.textMut}}>Create one to start tracking its pipeline and team.</p>
+          </Card>}
+
+          {/* ── PIPELINE ── */}
+          {mediaTab==="pipeline"&&activeProd&&<div>
+            <Card theme={theme} style={{padding:18,marginBottom:16,borderLeft:`3px solid ${activeProd.color}`}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"1 1 260px",minWidth:0}}>
+                  <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:20,lineHeight:1.2}}>{activeProd.name}</div>
+                  {activeProd.description&&<p style={{fontSize:13,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{activeProd.description}</p>}
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  {activeProd.format&&<Badge label={activeProd.format} color={activeProd.color}/>}
+                  {activeProd.cadence&&<Badge label={activeProd.cadence} color={theme.textMut}/>}
+                  {activeProd.driveUrl&&<a href={activeProd.driveUrl} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:4}}><FolderOpen size={12}/> Drive</a>}
+                  <Btn theme={theme} small onClick={()=>openM("editMediaProduct",{...activeProd})}><Edit3 size={12}/> Edit</Btn>
+                  <Btn primary theme={theme} small onClick={()=>openM("editMediaItem",{productId:pid,title:"",stage:"Idea",owner:curUser.id,episodeNo:"",summary:"",dueDate:"",airDate:"",scriptUrl:"",assetsUrl:"",finalUrl:"",blocker:"",notes:""})}><Plus size={12}/> Add Item</Btn>
+                </div>
+              </div>
+            </Card>
+
+            <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
+              {MEDIA_STAGES.map(stage=>{
+                const col = prodItems.filter(i=>i.stage===stage);
+                return <div key={stage} className="nanu-kanban-col" style={{flex:"1 0 200px",minWidth:200}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:6,borderBottom:`2px solid ${MEDIA_STAGE_COLORS[stage]}`}}>
+                    <span style={{fontSize:11,fontWeight:700,color:MEDIA_STAGE_COLORS[stage],textTransform:"uppercase",letterSpacing:".04em"}}>{stage}</span>
+                    <span style={{fontSize:11,color:theme.textMut,marginLeft:"auto"}}>{col.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {col.map(item=>(
+                      <Card key={item.id} theme={theme} style={{padding:11}}>
+                        <div onClick={()=>openM("editMediaItem",{...item})} style={{fontWeight:600,fontSize:13,cursor:"pointer",marginBottom:5}}>{item.episodeNo&&<span style={{color:theme.textMut,fontFamily:FONT_MONO,fontSize:11,marginRight:5}}>{item.episodeNo}</span>}{item.title}</div>
+                        {item.blocker&&<div style={{fontSize:11,color:theme.red,marginBottom:4,display:"flex",alignItems:"center",gap:4}}><AlertTriangle size={10}/>{item.blocker}</div>}
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",fontSize:11,color:theme.textMut}}>
+                          {item.owner&&<span>{uName(item.owner)}</span>}
+                          {item.airDate&&<span style={{fontFamily:FONT_MONO,color:item.airDate<todayStr&&item.stage!=="Published"?theme.red:theme.textMut}}>{item.airDate}</span>}
+                        </div>
+                        <div style={{display:"flex",gap:4,marginTop:7,alignItems:"center"}}>
+                          <button type="button" title="Move back" onClick={()=>moveStage(item,-1)} disabled={stage===MEDIA_STAGES[0]} style={{background:"none",border:`1px solid ${theme.border}`,borderRadius:6,padding:"2px 6px",cursor:stage===MEDIA_STAGES[0]?"not-allowed":"pointer",color:theme.textMut,opacity:stage===MEDIA_STAGES[0]?0.3:1}}><ChevronLeft size={11}/></button>
+                          <button type="button" title="Move forward" onClick={()=>moveStage(item,1)} disabled={stage==="Published"} style={{background:"none",border:`1px solid ${theme.border}`,borderRadius:6,padding:"2px 6px",cursor:stage==="Published"?"not-allowed":"pointer",color:theme.teal,opacity:stage==="Published"?0.3:1}}><ChevronRight size={11}/></button>
+                          {item.scriptUrl&&<a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" title="Script" style={{color:theme.textMut,display:"flex"}}><FileText size={11}/></a>}
+                          {item.assetsUrl&&<a href={item.assetsUrl} target="_blank" rel="noopener noreferrer" title="Assets" style={{color:theme.textMut,display:"flex"}}><FolderOpen size={11}/></a>}
+                          {item.finalUrl&&<a href={item.finalUrl} target="_blank" rel="noopener noreferrer" title="Final" style={{color:theme.green,display:"flex"}}><ExternalLink size={11}/></a>}
+                        </div>
+                      </Card>
+                    ))}
+                    {col.length===0&&<div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:"14px 0",border:`1px dashed ${theme.border}`,borderRadius:8}}>—</div>}
+                  </div>
+                </div>;
+              })}
+            </div>
+          </div>}
+
+          {/* ── ROLES ── */}
+          {mediaTab==="roles"&&activeProd&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>Who owns each part of <strong>{activeProd.name}</strong>. Anything unassigned is work landing on whoever notices first.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaRole",{productId:pid,function:MEDIA_FUNCTIONS[0],holderUser:"",holderText:"",backupUser:"",notes:""})}><Plus size={13}/> Add Role</Btn>
+            </div>
+            {(()=>{
+              const unassigned=prodRoles.filter(r=>!r.holderUser&&!r.holderText.trim()||r.holderText==="Unassigned");
+              return unassigned.length>0&&<Card theme={theme} style={{padding:12,marginBottom:14,borderLeft:`3px solid ${theme.orange}`}}>
+                <div style={{fontSize:12,color:theme.orange,fontWeight:600}}>{unassigned.length} role{unassigned.length===1?"":"s"} with nobody named</div>
+              </Card>;
+            })()}
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {prodRoles.map(r=>{
+                const named=r.holderUser||(r.holderText&&r.holderText!=="Unassigned");
+                return <Card key={r.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${named?activeProd.color:theme.orange}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:700,fontSize:14,flex:"1 1 180px",minWidth:0}}>{r.function}</span>
+                    <div style={{minWidth:130}}>
+                      <div style={{fontSize:9,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em"}}>Owner</div>
+                      <div style={{fontSize:12,fontWeight:600,color:named?theme.text:theme.orange}}>{r.holderUser?uName(r.holderUser):(r.holderText||"Unassigned")}</div>
+                    </div>
+                    <div style={{minWidth:120}}>
+                      <div style={{fontSize:9,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em"}}>Backup</div>
+                      <div style={{fontSize:12,color:theme.textSec}}>{r.backupUser?uName(r.backupUser):"—"}</div>
+                    </div>
+                    <Btn theme={theme} small onClick={()=>openM("editMediaRole",{...r})}><Edit3 size={12}/> Edit</Btn>
+                  </div>
+                  {r.notes&&<p style={{fontSize:12,color:theme.textMut,margin:"6px 0 0",lineHeight:1.5}}>{r.notes}</p>}
+                </Card>;
+              })}
+              {prodRoles.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No roles defined for this product yet.</p>}
+            </div>
+          </div>}
+
+          {/* ── IDEAS BOARD ── */}
+          {mediaTab==="ideas"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>Anyone can post a content idea here. The media team reviews the board — no need to interrupt them directly.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaIdea",{title:"",description:"",productId:"",submittedBy:curUser.id,submittedDate:todayStr,status:"New",votes:[],response:""})}><Plus size={13}/> Submit Idea</Btn>
+            </div>
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {IDEA_STATUS.map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${IDEA_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:IDEA_STATUS_COLORS[s]}}>{mediaIdeas.filter(i=>i.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {[...mediaIdeas].sort((a,b)=>((b.votes||[]).length-(a.votes||[]).length)||(b.submittedDate||"").localeCompare(a.submittedDate||"")).map(idea=>{
+                const voted=(idea.votes||[]).includes(curUser.id);
+                return <Card key={idea.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${IDEA_STATUS_COLORS[idea.status]}`}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                    <button type="button" onClick={()=>toggleVote(idea)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:voted?`${theme.teal}18`:"transparent",border:`1px solid ${voted?theme.teal:theme.border}`,borderRadius:8,padding:"5px 9px",cursor:"pointer",color:voted?theme.teal:theme.textMut,flexShrink:0}}>
+                      <ArrowUp size={13}/>
+                      <span style={{fontSize:12,fontWeight:700}}>{(idea.votes||[]).length}</span>
+                    </button>
+                    <div style={{flex:"1 1 240px",minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{idea.title}</div>
+                      {idea.description&&<p style={{fontSize:12,color:theme.textSec,margin:"4px 0 0",lineHeight:1.5}}>{idea.description}</p>}
+                      <div style={{fontSize:11,color:theme.textMut,marginTop:6}}>{idea.submittedBy?uName(idea.submittedBy):"Unknown"} · {idea.submittedDate}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                      {idea.productId&&<Badge label={prodName(idea.productId)} color={prodColor(idea.productId)}/>}
+                      <Badge label={idea.status} color={IDEA_STATUS_COLORS[idea.status]}/>
+                      <Btn theme={theme} small onClick={()=>openM("editMediaIdea",{...idea})}><Edit3 size={12}/></Btn>
+                    </div>
+                  </div>
+                  {idea.response&&<div style={{marginTop:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.5}}><strong style={{color:theme.teal}}>Media team:</strong> {idea.response}</div>}
+                </Card>;
+              })}
+              {mediaIdeas.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No ideas yet. Be the first.</p>}
+            </div>
+          </div>}
+
+          {/* ── FEEDBACK ── */}
+          {mediaTab==="feedback"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>Creative feedback on what we've published. Direct, in one place, so it reaches the people making it.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaFeedback",{subject:"",body:"",type:"Suggestion",productId:"",submittedBy:curUser.id,submittedDate:todayStr,status:"New",response:""})}><Plus size={13}/> Give Feedback</Btn>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {[...mediaFeedbackList].sort((a,b)=>(b.submittedDate||"").localeCompare(a.submittedDate||"")).map(f=>(
+                <Card key={f.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${MFEEDBACK_TYPE_COLORS[f.type]}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:6}}>
+                    <span style={{fontWeight:700,fontSize:14,flex:"1 1 200px",minWidth:0}}>{f.subject}</span>
+                    <Badge label={f.type} color={MFEEDBACK_TYPE_COLORS[f.type]}/>
+                    {f.productId&&<Badge label={prodName(f.productId)} color={prodColor(f.productId)}/>}
+                    <Badge label={f.status} color={f.status==="Actioned"?theme.green:f.status==="New"?theme.yellow:theme.textMut}/>
+                    <Btn theme={theme} small onClick={()=>openM("editMediaFeedback",{...f})}><Edit3 size={12}/></Btn>
+                  </div>
+                  {f.body&&<p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{f.body}</p>}
+                  <div style={{fontSize:11,color:theme.textMut,marginTop:6}}>{f.submittedBy?uName(f.submittedBy):"Unknown"} · {f.submittedDate}</div>
+                  {f.response&&<div style={{marginTop:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.5}}><strong style={{color:theme.teal}}>Response:</strong> {f.response}</div>}
+                </Card>
+              ))}
+              {mediaFeedbackList.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No feedback yet.</p>}
+            </div>
+          </div>}
+
+          {/* ── TOOLS ── */}
+          {mediaTab==="tools"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>The agreed production toolset and who holds access to each.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaTool",{name:"",category:TOOL_CATEGORIES[0],purpose:"",url:"",accessHolder:curUser.id,sharedAccess:"",cost:"",status:"In use",notes:""})}><Plus size={13}/> Add Tool</Btn>
+            </div>
+            {TOOL_CATEGORIES.filter(c=>mediaTools.some(t=>t.category===c)).map(cat=>(
+              <div key={cat} style={{marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:600,color:theme.textSec,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{cat}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {mediaTools.filter(t=>t.category===cat).map(t=>(
+                    <Card key={t.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${TOOL_STATUS_COLORS[t.status]}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <div style={{flex:"1 1 200px",minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:14}}>{t.name}</div>
+                          {t.purpose&&<div style={{fontSize:12,color:theme.textMut,marginTop:2}}>{t.purpose}</div>}
+                        </div>
+                        {t.sharedAccess&&<span style={{fontSize:11,color:theme.textSec,minWidth:120}}>{t.sharedAccess}</span>}
+                        {t.cost&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{t.cost}</span>}
+                        <Badge label={t.status} color={TOOL_STATUS_COLORS[t.status]}/>
+                        {t.url&&<a href={t.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex"}}><ExternalLink size={12}/></a>}
+                        <Btn theme={theme} small onClick={()=>openM("editMediaTool",{...t})}><Edit3 size={12}/></Btn>
+                      </div>
+                      {t.accessHolder&&<div style={{fontSize:11,color:theme.textMut,marginTop:5}}>Access held by {uName(t.accessHolder)}</div>}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {mediaTools.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No tools listed yet.</p>}
+          </div>}
+
+          {/* ── DRIVE & ASSETS ── */}
+          {mediaTab==="drive"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>Shared Drive folders for source material, working files and finished assets.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaFolder",{name:"",productId:"",url:"",purpose:"",notes:""})}><Plus size={13}/> Add Folder</Btn>
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Shared folders</div>
+            <div className="nanu-grid-2col" style={{marginBottom:20}}>
+              {mediaFolders.filter(f=>!f.productId).map(f=>(
+                <Card key={f.id} theme={theme} style={{padding:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <FolderOpen size={16} color={theme.teal}/>
+                    <span style={{fontWeight:700,fontSize:14,flex:1,minWidth:0}}>{f.name}</span>
+                    {f.url?<a href={f.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:3}}><ExternalLink size={11}/> Open</a>:<span style={{fontSize:11,color:theme.orange}}>no link</span>}
+                    <Btn theme={theme} small onClick={()=>openM("editMediaFolder",{...f})}><Edit3 size={11}/></Btn>
+                  </div>
+                  {f.purpose&&<p style={{fontSize:12,color:theme.textMut,margin:"6px 0 0",lineHeight:1.5}}>{f.purpose}</p>}
+                </Card>
+              ))}
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:theme.textMut,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Per product</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {prods.map(p=>(
+                <Card key={p.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${p.color}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:700,fontSize:14,flex:"1 1 200px",minWidth:0}}>{p.name}</span>
+                    {p.driveUrl
+                      ? <a href={p.driveUrl} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:4}}><FolderOpen size={12}/> Open folder</a>
+                      : <span style={{fontSize:11,color:theme.orange}}>No Drive folder linked</span>}
+                    <Btn theme={theme} small onClick={()=>openM("editMediaProduct",{...p})}><Edit3 size={11}/> Set link</Btn>
+                  </div>
+                  {mediaFolders.filter(f=>f.productId===p.id).map(f=>(
+                    <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,marginTop:6,paddingLeft:12,fontSize:12}}>
+                      <FolderOpen size={11} color={theme.textMut}/>
+                      <span style={{flex:1,color:theme.textSec}}>{f.name}</span>
+                      {f.url&&<a href={f.url} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex"}}><ExternalLink size={10}/></a>}
+                      <Btn theme={theme} small onClick={()=>openM("editMediaFolder",{...f})}><Edit3 size={10}/></Btn>
+                    </div>
+                  ))}
+                </Card>
+              ))}
+            </div>
+            <p style={{fontSize:11,color:theme.textMut,marginTop:14,lineHeight:1.6}}>Files live in Drive — the hub stores the links. Paste the folder's share URL so the whole team can reach it.</p>
           </div>}
         </div>
       );
@@ -4831,6 +5153,154 @@ export default function MarketingHub() {
             if(form.id){setMocItems(p=>p.map(x=>x.id===form.id?mdata:x));log("updated",mdata.func,"Business")}
             else{setMocItems(p=>[...p,mdata]);log("added",mdata.func,"Business")}
             db.saveMocItem(mdata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA PRODUCT MODAL ─── */
+      case "editMediaProduct": return <Modal theme={theme} title={form.id?"Edit Product":"New Content Product"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Today in Mystery"/></div>
+        <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Format</Label><Sel theme={theme} options={MEDIA_FORMATS} value={form.format||MEDIA_FORMATS[0]} onChange={e=>setForm(p=>({...p,format:e.target.value}))}/></div><div><Label theme={theme}>Cadence</Label><Sel theme={theme} options={MEDIA_CADENCES} value={form.cadence||"Weekly"} onChange={e=>setForm(p=>({...p,cadence:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Showrunner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.showrunner||""} onChange={e=>setForm(p=>({...p,showrunner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Active","Paused","Archived"]} value={form.status||"Active"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Google Drive folder link</Label><Input theme={theme} value={form.driveUrl||""} onChange={e=>setForm(p=>({...p,driveUrl:e.target.value}))} placeholder="https://drive.google.com/..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Accent colour</Label><Input theme={theme} value={form.color||"#1FC2C2"} onChange={e=>setForm(p=>({...p,color:e.target.value}))} placeholder="#1FC2C2"/></div><div><Label theme={theme}>Sort order</Label><Input theme={theme} type="number" value={form.sortOrder??0} onChange={e=>setForm(p=>({...p,sortOrder:Number(e.target.value)}))}/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaProducts(p=>p.filter(x=>x.id!==form.id));db.deleteMediaProduct(form.id);log("deleted",form.name,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const mid=form.id||uid("mp");
+            const md={id:mid,name:form.name||"",description:form.description||"",format:form.format||"",cadence:form.cadence||"",showrunner:form.showrunner||"",status:form.status||"Active",driveUrl:form.driveUrl||"",color:form.color||"#1FC2C2",sortOrder:form.sortOrder||0,notes:form.notes||""};
+            if(form.id){setMediaProducts(p=>p.map(x=>x.id===form.id?md:x));log("updated",md.name,"Media")}
+            else{setMediaProducts(p=>[...p,md]);setMediaProduct(mid);log("created",md.name,"Media")}
+            db.saveMediaProduct(md);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA ITEM MODAL ─── */
+      case "editMediaItem": return <Modal theme={theme} title={form.id?"Edit Item":"New Content Item"} onClose={closeM} width={600}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div><div><Label theme={theme}>Episode / Ref</Label><Input theme={theme} value={form.episodeNo||""} onChange={e=>setForm(p=>({...p,episodeNo:e.target.value}))} placeholder="e.g. S1E04"/></div></div>
+        <div><Label theme={theme}>Summary</Label><Textarea theme={theme} value={form.summary||""} onChange={e=>setForm(p=>({...p,summary:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Product</Label><Sel theme={theme} options={mediaProducts.map(p=>({value:p.id,label:p.name}))} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div><div><Label theme={theme}>Stage</Label><Sel theme={theme} options={MEDIA_STAGES} value={form.stage||"Idea"} onChange={e=>setForm(p=>({...p,stage:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="What's holding it up"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Air / Publish Date</Label><Input theme={theme} type="date" value={form.airDate||""} onChange={e=>setForm(p=>({...p,airDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Script link</Label><Input theme={theme} value={form.scriptUrl||""} onChange={e=>setForm(p=>({...p,scriptUrl:e.target.value}))} placeholder="Google Doc URL"/></div>
+        <div><Label theme={theme}>Assets folder link</Label><Input theme={theme} value={form.assetsUrl||""} onChange={e=>setForm(p=>({...p,assetsUrl:e.target.value}))} placeholder="Drive folder URL"/></div>
+        <div><Label theme={theme}>Final / published link</Label><Input theme={theme} value={form.finalUrl||""} onChange={e=>setForm(p=>({...p,finalUrl:e.target.value}))}/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaItems(p=>p.filter(x=>x.id!==form.id));db.deleteMediaItem(form.id);log("deleted",form.title,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const iid=form.id||uid("mi");
+            const idata={id:iid,productId:form.productId||"",title:form.title||"",stage:form.stage||"Idea",owner:form.owner||"",episodeNo:form.episodeNo||"",summary:form.summary||"",dueDate:form.dueDate||"",airDate:form.airDate||"",scriptUrl:form.scriptUrl||"",assetsUrl:form.assetsUrl||"",finalUrl:form.finalUrl||"",blocker:form.blocker||"",notes:form.notes||""};
+            if(form.id){setMediaItems(p=>p.map(x=>x.id===form.id?idata:x));log("updated",idata.title,"Media")}
+            else{setMediaItems(p=>[...p,idata]);log("created",idata.title,"Media")}
+            db.saveMediaItem(idata);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA ROLE MODAL ─── */
+      case "editMediaRole": return <Modal theme={theme} title={form.id?"Edit Role":"New Role"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Product</Label><Sel theme={theme} options={mediaProducts.map(p=>({value:p.id,label:p.name}))} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div><div><Label theme={theme}>Function</Label><Sel theme={theme} options={MEDIA_FUNCTIONS} value={form.function||MEDIA_FUNCTIONS[0]} onChange={e=>setForm(p=>({...p,function:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Not a hub user / unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.holderUser||""} onChange={e=>setForm(p=>({...p,holderUser:e.target.value}))}/></div>
+        <div><Label theme={theme}>Owner (free text)</Label><Input theme={theme} value={form.holderText||""} onChange={e=>setForm(p=>({...p,holderText:e.target.value}))} placeholder="Use for contractors or 'Unassigned'"/></div>
+        <div><Label theme={theme}>Backup</Label><Sel theme={theme} options={[{value:"",label:"None"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.backupUser||""} onChange={e=>setForm(p=>({...p,backupUser:e.target.value}))}/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaRoles(p=>p.filter(x=>x.id!==form.id));db.deleteMediaRole(form.id);log("deleted",form.function,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const rid3=form.id||uid("mr");
+            const rd={id:rid3,productId:form.productId||"",function:form.function||"",holderUser:form.holderUser||"",holderText:form.holderText||"",backupUser:form.backupUser||"",notes:form.notes||""};
+            if(form.id){setMediaRoles(p=>p.map(x=>x.id===form.id?rd:x));log("updated",rd.function,"Media")}
+            else{setMediaRoles(p=>[...p,rd]);log("created",rd.function,"Media")}
+            db.saveMediaRole(rd);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA IDEA MODAL ─── */
+      case "editMediaIdea": return <Modal theme={theme} title={form.id?"Edit Idea":"Submit an Idea"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Idea</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="One line — what's the idea?"/></div>
+        <div><Label theme={theme}>Detail</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="Why it works, any source material, who'd front it..."/></div>
+        <div><Label theme={theme}>Product (optional)</Label><Sel theme={theme} options={[{value:"",label:"Any / not sure"},...mediaProducts.map(p=>({value:p.id,label:p.name}))]} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div>
+        {form.id&&<div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={IDEA_STATUS} value={form.status||"New"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Submitted</Label><Input theme={theme} type="date" value={form.submittedDate||""} onChange={e=>setForm(p=>({...p,submittedDate:e.target.value}))}/></div></div>}
+        {form.id&&<div><Label theme={theme}>Media team response</Label><Textarea theme={theme} value={form.response||""} onChange={e=>setForm(p=>({...p,response:e.target.value}))} placeholder="Visible to whoever submitted it"/></div>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaIdeas(p=>p.filter(x=>x.id!==form.id));db.deleteMediaIdea(form.id);log("deleted",form.title,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const iid2=form.id||uid("mid");
+            const idd={id:iid2,title:form.title||"",description:form.description||"",productId:form.productId||"",submittedBy:form.submittedBy||curUser.id,submittedDate:form.submittedDate||todayStr,status:form.status||"New",votes:form.votes||[],response:form.response||""};
+            if(form.id){setMediaIdeas(p=>p.map(x=>x.id===form.id?idd:x));log("updated",idd.title,"Media")}
+            else{setMediaIdeas(p=>[...p,idd]);log("submitted idea",idd.title,"Media")}
+            db.saveMediaIdea(idd);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA FEEDBACK MODAL ─── */
+      case "editMediaFeedback": return <Modal theme={theme} title={form.id?"Edit Feedback":"Give Feedback"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Subject</Label><Input theme={theme} value={form.subject||""} onChange={e=>setForm(p=>({...p,subject:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={MFEEDBACK_TYPES} value={form.type||"Suggestion"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Product</Label><Sel theme={theme} options={[{value:"",label:"General"},...mediaProducts.map(p=>({value:p.id,label:p.name}))]} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Feedback</Label><Textarea theme={theme} value={form.body||""} onChange={e=>setForm(p=>({...p,body:e.target.value}))} placeholder="Be specific — what worked, what didn't, what you'd try"/></div>
+        {form.id&&<div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={MFEEDBACK_STATUS} value={form.status||"New"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.submittedDate||""} onChange={e=>setForm(p=>({...p,submittedDate:e.target.value}))}/></div></div>}
+        {form.id&&<div><Label theme={theme}>Response</Label><Textarea theme={theme} value={form.response||""} onChange={e=>setForm(p=>({...p,response:e.target.value}))}/></div>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaFeedbackList(p=>p.filter(x=>x.id!==form.id));db.deleteMediaFeedback(form.id);log("deleted",form.subject,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const fid2=form.id||uid("mfb");
+            const fd={id:fid2,subject:form.subject||"",body:form.body||"",type:form.type||"Suggestion",productId:form.productId||"",submittedBy:form.submittedBy||curUser.id,submittedDate:form.submittedDate||todayStr,status:form.status||"New",response:form.response||""};
+            if(form.id){setMediaFeedbackList(p=>p.map(x=>x.id===form.id?fd:x));log("updated",fd.subject,"Media")}
+            else{setMediaFeedbackList(p=>[...p,fd]);log("gave feedback",fd.subject,"Media")}
+            db.saveMediaFeedback(fd);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA TOOL MODAL ─── */
+      case "editMediaTool": return <Modal theme={theme} title={form.id?"Edit Tool":"Add Tool"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div><div><Label theme={theme}>Category</Label><Sel theme={theme} options={TOOL_CATEGORIES} value={form.category||TOOL_CATEGORIES[0]} onChange={e=>setForm(p=>({...p,category:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Purpose</Label><Input theme={theme} value={form.purpose||""} onChange={e=>setForm(p=>({...p,purpose:e.target.value}))} placeholder="What we use it for"/></div>
+        <div><Label theme={theme}>URL</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Access held by</Label><Sel theme={theme} options={[{value:"",label:"Nobody named"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.accessHolder||""} onChange={e=>setForm(p=>({...p,accessHolder:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TOOL_STATUS} value={form.status||"In use"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Who has shared access</Label><Input theme={theme} value={form.sharedAccess||""} onChange={e=>setForm(p=>({...p,sharedAccess:e.target.value}))} placeholder="e.g. Media team, or the shared account address"/></div>
+        <div><Label theme={theme}>Cost</Label><Input theme={theme} value={form.cost||""} onChange={e=>setForm(p=>({...p,cost:e.target.value}))} placeholder="e.g. £20/mo"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaTools(p=>p.filter(x=>x.id!==form.id));db.deleteMediaTool(form.id);log("deleted",form.name,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const tid=form.id||uid("mt");
+            const td={id:tid,name:form.name||"",category:form.category||"",purpose:form.purpose||"",url:form.url||"",accessHolder:form.accessHolder||"",sharedAccess:form.sharedAccess||"",cost:form.cost||"",status:form.status||"In use",notes:form.notes||""};
+            if(form.id){setMediaTools(p=>p.map(x=>x.id===form.id?td:x));log("updated",td.name,"Media")}
+            else{setMediaTools(p=>[...p,td]);log("added",td.name,"Media")}
+            db.saveMediaTool(td);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEDIA FOLDER MODAL ─── */
+      case "editMediaFolder": return <Modal theme={theme} title={form.id?"Edit Folder":"Add Drive Folder"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Folder name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+        <div><Label theme={theme}>Product (leave blank for shared)</Label><Sel theme={theme} options={[{value:"",label:"Shared / all products"},...mediaProducts.map(p=>({value:p.id,label:p.name}))]} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div>
+        <div><Label theme={theme}>Google Drive link</Label><Input theme={theme} value={form.url||""} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="https://drive.google.com/..."/></div>
+        <div><Label theme={theme}>Purpose</Label><Input theme={theme} value={form.purpose||""} onChange={e=>setForm(p=>({...p,purpose:e.target.value}))} placeholder="What belongs in here"/></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaFolders(p=>p.filter(x=>x.id!==form.id));db.deleteMediaFolder(form.id);log("deleted",form.name,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const fdid=form.id||uid("mf");
+            const fdd={id:fdid,name:form.name||"",productId:form.productId||"",url:form.url||"",purpose:form.purpose||"",notes:form.notes||""};
+            if(form.id){setMediaFolders(p=>p.map(x=>x.id===form.id?fdd:x));log("updated",fdd.name,"Media")}
+            else{setMediaFolders(p=>[...p,fdd]);log("added",fdd.name,"Media")}
+            db.saveMediaFolder(fdd);
           })}>Done</Btn>
         </div>
       </div></Modal>;
