@@ -393,6 +393,16 @@ function deadlineColor(ratio){
 }
 function daysBetween(a,b){ return Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000); }
 
+// Format a stored 24-hour "HH:MM" string as 12-hour with am/pm
+function fmt12(hhmm){
+  if(!hhmm || !/^\d{1,2}:\d{2}/.test(hhmm)) return hhmm || "";
+  const [h,m] = hhmm.split(":");
+  const hr = parseInt(h,10);
+  const suffix = hr < 12 ? "am" : "pm";
+  const h12 = hr % 12 === 0 ? 12 : hr % 12;
+  return `${h12}:${m}${suffix}`;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    EXPORT UTILITIES
    ═══════════════════════════════════════════════════════════════ */
@@ -615,7 +625,8 @@ const LoginScreen = ({ onLogin, users }) => {
 const WorldClocks = ({ theme }) => {
   const [now, setNow] = useState(new Date());
   useEffect(() => { const i = setInterval(()=>setNow(new Date()), 1000); return ()=>clearInterval(i); }, []);
-  const getTime = tz => { try { return now.toLocaleTimeString("en-GB",{timeZone:tz,hour:"2-digit",minute:"2-digit"}); } catch { return "--:--"; }};
+  // 12-hour clock with am/pm — easier to read at a glance than 24-hour
+  const getTime = tz => { try { return now.toLocaleTimeString("en-US",{timeZone:tz,hour:"numeric",minute:"2-digit",hour12:true}).toLowerCase(); } catch { return "--:--"; }};
   const getHour = tz => { try { return parseInt(now.toLocaleTimeString("en-GB",{timeZone:tz,hour:"2-digit",hour12:false})); } catch { return 0; }};
   const londonH = getHour("Europe/London");
   const nyH = getHour("America/New_York");
@@ -1128,7 +1139,7 @@ export default function MarketingHub() {
                 <Badge label={c.platform} color={PLATFORM_COLORS[c.platform]||theme.teal}/>
                 <span style={{ fontSize:13, flex:1 }}>{c.title}</span>
                 <Badge label={c.status} color={STATUS_COLORS[c.status]}/>
-                <span style={{ fontFamily:FONT_MONO, fontSize:11, color:theme.textMut }}>{c.publishTime}</span>
+                <span style={{ fontFamily:FONT_MONO, fontSize:11, color:theme.textMut }}>{fmt12(c.publishTime)}</span>
               </div>
             ))}
           </Card>
@@ -1544,8 +1555,8 @@ export default function MarketingHub() {
                 ))}
               </div>
               <Btn theme={theme} small onClick={()=>{
-                const rows=[["Title","Status","Priority","Due Date","Owner","Department","Project","Overdue","Blocker","Notes"]];
-                mTasks.forEach(t=>{const o=Array.isArray(t.owners)?t.owners[0]:t.owners;rows.push([t.title,t.status,t.priority||"",t.dueDate||"",uNames(t.owners),userDept(o),visibleProjects.find(p=>p.id===t.project)?.name||"",isOverdue(t)?"YES":"",t.blocker||"",t.notes||""])});
+                const rows=[["Title","Status","Priority","Due Date","Owner","Department","Project","Overdue","Added by","Added on","Contact","Contact detail","Done when","Blocker","Notes","Background"]];
+                mTasks.forEach(t=>{const o=Array.isArray(t.owners)?t.owners[0]:t.owners;rows.push([t.title,t.status,t.priority||"",t.dueDate||"",uNames(t.owners),userDept(o),visibleProjects.find(p=>p.id===t.project)?.name||"",isOverdue(t)?"YES":"",t.createdBy?uName(t.createdBy):"",t.createdDate||"",t.contactName||"",t.contactDetail||"",t.outcome||"",t.blocker||"",t.notes||"",t.context||""])});
                 exportCSV(rows,`nanu-team-tasks-${new Date().toISOString().slice(0,10)}.csv`);
               }}><Download size={13}/> Team Report</Btn>
             </div>
@@ -1620,7 +1631,15 @@ export default function MarketingHub() {
               <button type="button" title={isPinned("task",t.id)?"Unpin from My Space":"Pin to My Space"} onClick={e=>{e.stopPropagation();togglePin("task",t.id)}} style={{background:"none",border:"none",cursor:"pointer",color:isPinned("task",t.id)?theme.teal:theme.textMut,opacity:isPinned("task",t.id)?1:0.4,padding:0}}><Pin size={14}/></button>
             </div>
             {t.notes&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{t.notes}</p>}
+            {t.context&&<p style={{fontSize:12,color:theme.textMut,margin:"4px 0 0",lineHeight:1.5,fontStyle:"italic",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{t.context}</p>}
+            {(t.contactName||t.contactDetail)&&<div style={{marginTop:5,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",fontSize:11}}>
+              <Users size={11} color={theme.tealLt}/>
+              {t.contactName&&<span style={{color:theme.textSec}}>{t.contactName}</span>}
+              {t.contactDetail&&<span style={{color:theme.textMut,fontFamily:FONT_MONO}}>{t.contactDetail}</span>}
+            </div>}
+            {t.outcome&&<div style={{marginTop:4,display:"flex",alignItems:"flex-start",gap:5,fontSize:11,color:theme.green}}><Check size={11} style={{flexShrink:0,marginTop:2}}/><span>Done when: {t.outcome}</span></div>}
             {t.blocker&&<p style={{fontSize:12,color:theme.red,margin:"4px 0 0"}}>Blocker: {t.blocker}</p>}
+            {(t.createdBy||t.createdDate)&&<div style={{marginTop:6,fontSize:10,color:theme.textMut,opacity:0.75}}>Added by {t.createdBy?uName(t.createdBy):"unknown"}{t.createdDate?` · ${t.createdDate}`:""}</div>}
             {t.linkedContent&&calendar.find((c)=>c.id===t.linkedContent)&&<div style={{marginTop:4,display:"flex",alignItems:"center",gap:4}}><Link2 size={11} color={theme.teal}/><span style={{fontSize:11,color:theme.teal}}>Linked: {calendar.find((c)=>c.id===t.linkedContent)?.title}</span></div>}
           </Card>;
         })}
@@ -2077,7 +2096,7 @@ export default function MarketingHub() {
                   <div style={{display:"flex",gap:10,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>
                     <Badge label={ev.type} color={theme.teal}/>
                     <Badge label={ev.status} color={COMM_EVENT_STATUS_COLORS[ev.status]}/>
-                    {ev.date&&<span style={{fontSize:12,color:theme.textMut}}>{ev.date} {ev.time&&`at ${ev.time}`} · {ev.duration}min</span>}
+                    {ev.date&&<span style={{fontSize:12,color:theme.textMut}}>{ev.date} {ev.time&&`at ${fmt12(ev.time)}`} · {ev.duration}min</span>}
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
@@ -4109,7 +4128,21 @@ export default function MarketingHub() {
 
       case "editTask": return <Modal theme={theme} title={form.id?"Edit Task":"New Task"} onClose={closeM} width={620}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
+        {form.id&&(form.createdBy||form.createdDate)&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textMut}}>
+          <Users size={12}/>
+          <span>Added by <strong style={{color:theme.textSec}}>{form.createdBy?uName(form.createdBy):"unknown"}</strong>{form.createdDate?` on ${form.createdDate}`:""}</span>
+        </div>}
+
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Add context, details, links, or instructions for this task..." style={{minHeight:80}}/></div>
+
+        <div><Label theme={theme}>Why this matters / background</Label><Textarea theme={theme} value={form.context||""} onChange={e=>setForm(p=>({...p,context:e.target.value}))} placeholder="Write this for someone picking the task up cold in three weeks. Where did it come from, and why?" style={{minHeight:60}}/></div>
+
+        <div className="nanu-form-row">
+          <div><Label theme={theme}>Who to contact</Label><Input theme={theme} value={form.contactName||""} onChange={e=>setForm(p=>({...p,contactName:e.target.value}))} placeholder="Full name and who they are, not just a first name"/></div>
+          <div><Label theme={theme}>How to reach them</Label><Input theme={theme} value={form.contactDetail||""} onChange={e=>setForm(p=>({...p,contactDetail:e.target.value}))} placeholder="Email, handle, or where they were introduced"/></div>
+        </div>
+
+        <div><Label theme={theme}>What does done look like?</Label><Input theme={theme} value={form.outcome||""} onChange={e=>setForm(p=>({...p,outcome:e.target.value}))} placeholder="What should happen once contact is made, or what's the finished result?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Assigned To</Label><div style={{display:"flex",flexDirection:"column",gap:4}}>{users.map(u=>(<label key={u.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.owners||[]).includes(u.id)} onChange={e=>{const cur=form.owners||[];setForm(p=>({...p,owners:e.target.checked?[...cur,u.id]:cur.filter(x=>x!==u.id)}))}}/>{u.name}</label>))}</div></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TASK_STATUSES} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
@@ -4146,7 +4179,9 @@ export default function MarketingHub() {
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setTasks(p=>p.filter(t=>t.id!==form.id));db.deleteTask(form.id);log("deleted",form.title,"Tasks")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
-          <Btn primary theme={theme} onClick={()=>doSave(()=>{const {_newUpdate,...cleanForm}=form;const tid=cleanForm.id||uid("t");const tdata={...cleanForm,id:tid};
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{const {_newUpdate,...cleanForm}=form;const tid=cleanForm.id||uid("t");
+            // Stamp who entered the task and when, once, on creation
+            const tdata={...cleanForm,id:tid,createdBy:cleanForm.createdBy||curUser.id,createdDate:cleanForm.createdDate||todayStr};
             const oldTask=tasks.find(t=>t.id===cleanForm.id);
             if(cleanForm.id){
               setTasks(p=>p.map(t=>t.id===cleanForm.id?tdata:t));log("updated",cleanForm.title,"Tasks");
