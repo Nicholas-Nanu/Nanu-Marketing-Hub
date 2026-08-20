@@ -661,6 +661,7 @@ export default function MarketingHub() {
   const [section, setSection] = useState("dashboard");
   const [sidebar, setSidebar] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [navEdit, setNavEdit] = useState(false);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [calView, setCalView] = useState("month");
@@ -959,7 +960,6 @@ export default function MarketingHub() {
         { key:"stats", label:"Stats", icon:<BarChart3 size={18}/> },
         { key:"resources", label:"Resources", icon:<Link2 size={18}/> },
         { key:"notes", label:"Notes", icon:<StickyNote size={18}/> },
-        { key:"workspace", label:"My Space", icon:<BookOpen size={18}/> },
       ]
     },
     {
@@ -1007,8 +1007,61 @@ export default function MarketingHub() {
       ]
     },
   ];
-  // Flat list for compatibility
-  const NAV = NAV_GROUPS.flatMap(g => g.items);
+
+  /* ═══ NAV CUSTOMISATION (per user, stored in their workspace) ═══
+     navPrefs = { hidden:[keys], itemOrder:{groupId:[keys]}, groupOrder:[groupIds] }
+     My Space is pinned above the groups and can't be hidden. */
+  const navPrefs = workspace.navPrefs || {};
+  const navHidden = navPrefs.hidden || [];
+  const isNavHidden = (key) => navHidden.includes(key);
+
+  const orderedGroups = (() => {
+    const go = navPrefs.groupOrder || [];
+    const base = [...NAV_GROUPS];
+    base.sort((a,b) => {
+      const ia = go.indexOf(a.id), ib = go.indexOf(b.id);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    return base.map(g => {
+      const io = (navPrefs.itemOrder || {})[g.id] || [];
+      const items = [...g.items].sort((a,b) => {
+        const ia = io.indexOf(a.key), ib = io.indexOf(b.key);
+        if (ia === -1 && ib === -1) return 0;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
+      return { ...g, items };
+    });
+  })();
+
+  const setNavPrefs = (updater) => updateWs("navPrefs", prev => updater(prev || {}));
+  const toggleNavItem = (key) => setNavPrefs(p => {
+    const h = p.hidden || [];
+    return { ...p, hidden: h.includes(key) ? h.filter(k=>k!==key) : [...h, key] };
+  });
+  const moveNavItem = (groupId, key, dir) => {
+    const group = orderedGroups.find(g=>g.id===groupId);
+    if (!group) return;
+    const keys = group.items.map(i=>i.key);
+    const idx = keys.indexOf(key);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= keys.length) return;
+    [keys[idx], keys[swap]] = [keys[swap], keys[idx]];
+    setNavPrefs(p => ({ ...p, itemOrder: { ...(p.itemOrder||{}), [groupId]: keys } }));
+  };
+  const moveNavGroup = (groupId, dir) => {
+    const ids = orderedGroups.map(g=>g.id);
+    const idx = ids.indexOf(groupId);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= ids.length) return;
+    [ids[idx], ids[swap]] = [ids[swap], ids[idx]];
+    setNavPrefs(p => ({ ...p, groupOrder: ids }));
+  };
+  const resetNav = () => updateWs("navPrefs", {});
 
   const todayStr = new Date().toISOString().split("T")[0];
   // A task is overdue if its due date has passed and it isn't done
@@ -5373,20 +5426,66 @@ export default function MarketingHub() {
           </div>
         </div>
         <nav style={{flex:1,padding:"10px 6px",overflow:"auto"}}>
-          {NAV_GROUPS.map(group=>{
+
+          {/* ── PINNED: MY SPACE ── */}
+          <button onClick={()=>setSection("workspace")}
+            style={{display:"flex",alignItems:"center",gap:11,width:"100%",padding:sidebar?"11px 12px":"11px 0",borderRadius:10,border:`1px solid ${section==="workspace"?theme.teal:theme.border}`,cursor:"pointer",marginBottom:12,background:section==="workspace"?`${theme.teal}18`:theme.bgInput,color:section==="workspace"?theme.teal:theme.textSec,fontFamily:FONT_BODY,fontWeight:600,fontSize:14,transition:"all .15s",justifyContent:sidebar?"flex-start":"center"}}>
+            <BookOpen size={18}/>
+            {sidebar&&<span className="nanu-sidebar-label">My Space</span>}
+            {sidebar&&(()=>{const due=responsibilities.filter(r=>r.owner===curUser.id&&r.status==="Active"&&respIsDue(r)).length;
+              return due>0?<span style={{marginLeft:"auto",background:theme.orange,color:"#0D1B21",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{due}</span>:null;})()}
+          </button>
+
+          {/* ── CUSTOMISE BAR ── */}
+          {sidebar&&navEdit&&<div style={{padding:"8px 10px",marginBottom:10,background:`${theme.teal}0d`,border:`1px solid ${theme.teal}40`,borderRadius:8}}>
+            <div style={{fontSize:11,color:theme.teal,fontWeight:700,marginBottom:4}}>Customising your menu</div>
+            <div style={{fontSize:10,color:theme.textMut,lineHeight:1.5,marginBottom:6}}>Hide what you don't use and reorder the rest. Only affects your view.</div>
+            <div style={{display:"flex",gap:6}}>
+              <button type="button" onClick={()=>setNavEdit(false)} style={{flex:1,background:theme.teal,border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",color:"#0D1B21",fontSize:11,fontWeight:700}}>Done</button>
+              <button type="button" onClick={resetNav} style={{background:"transparent",border:`1px solid ${theme.border}`,borderRadius:6,padding:"5px 8px",cursor:"pointer",color:theme.textMut,fontSize:11,fontWeight:600}}>Reset</button>
+            </div>
+          </div>}
+
+          {orderedGroups.map((group,gi)=>{
             const isCollapsed = collapsedGroups[group.id];
+            const visibleItems = navEdit ? group.items : group.items.filter(n=>!isNavHidden(n.key));
+            if (!navEdit && visibleItems.length === 0) return null;
             return <div key={group.id} style={{marginBottom:8}}>
-              {sidebar && <button type="button" onClick={()=>setCollapsedGroups(p=>({...p,[group.id]:!p[group.id]}))} style={{display:"flex",alignItems:"center",gap:6,width:"100%",padding:"6px 12px",border:"none",background:"transparent",cursor:"pointer",fontSize:10,fontWeight:700,color:theme.textMut,textTransform:"uppercase",letterSpacing:".08em",justifyContent:"space-between"}}>
-                <span>{group.label}</span>
-                <ChevronRight size={11} style={{transform:isCollapsed?"none":"rotate(90deg)",transition:"transform .15s"}}/>
-              </button>}
-              {(!sidebar || !isCollapsed) && group.items.map(n=>(
-                <button key={n.key} onClick={()=>setSection(n.key)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",padding:sidebar?"9px 12px":"9px 0",borderRadius:8,border:"none",cursor:"pointer",marginBottom:1,background:section===n.key?`${theme.teal}12`:"transparent",color:section===n.key?theme.teal:theme.textSec,fontFamily:FONT_BODY,fontWeight:500,fontSize:14,transition:"all .15s",justifyContent:sidebar?"flex-start":"center"}}>{n.icon}{sidebar&&<span className="nanu-sidebar-label">{n.label}</span>}
-                  {n.key==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:theme.red,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{overdue}</span>}
+              {sidebar && <div style={{display:"flex",alignItems:"center",gap:2}}>
+                <button type="button" onClick={()=>setCollapsedGroups(p=>({...p,[group.id]:!p[group.id]}))} style={{display:"flex",alignItems:"center",gap:6,flex:1,padding:"6px 12px",border:"none",background:"transparent",cursor:"pointer",fontSize:10,fontWeight:700,color:theme.textMut,textTransform:"uppercase",letterSpacing:".08em",justifyContent:"space-between"}}>
+                  <span>{group.label}</span>
+                  {!navEdit&&<ChevronRight size={11} style={{transform:isCollapsed?"none":"rotate(90deg)",transition:"transform .15s"}}/>}
                 </button>
-              ))}
+                {navEdit&&<>
+                  <button type="button" title="Move group up" onClick={()=>moveNavGroup(group.id,-1)} disabled={gi===0} style={{background:"none",border:"none",cursor:gi===0?"not-allowed":"pointer",color:theme.textMut,opacity:gi===0?0.25:1,padding:"2px"}}><ArrowUp size={11}/></button>
+                  <button type="button" title="Move group down" onClick={()=>moveNavGroup(group.id,1)} disabled={gi===orderedGroups.length-1} style={{background:"none",border:"none",cursor:gi===orderedGroups.length-1?"not-allowed":"pointer",color:theme.textMut,opacity:gi===orderedGroups.length-1?0.25:1,padding:"2px 6px 2px 2px"}}><ArrowDown size={11}/></button>
+                </>}
+              </div>}
+              {(!sidebar || !isCollapsed || navEdit) && visibleItems.map((n,ii)=>{
+                const hidden = isNavHidden(n.key);
+                return <div key={n.key} style={{display:"flex",alignItems:"center",gap:2}}>
+                  <button onClick={()=>navEdit?toggleNavItem(n.key):setSection(n.key)}
+                    style={{display:"flex",alignItems:"center",gap:11,flex:1,minWidth:0,padding:sidebar?"9px 12px":"9px 0",borderRadius:8,border:"none",cursor:"pointer",marginBottom:1,background:section===n.key&&!navEdit?`${theme.teal}12`:"transparent",color:hidden?theme.textMut:(section===n.key&&!navEdit?theme.teal:theme.textSec),opacity:hidden?0.4:1,fontFamily:FONT_BODY,fontWeight:500,fontSize:14,transition:"all .15s",justifyContent:sidebar?"flex-start":"center",textDecoration:hidden?"line-through":"none"}}>
+                    {n.icon}
+                    {sidebar&&<span className="nanu-sidebar-label" style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</span>}
+                    {!navEdit&&n.key==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:theme.red,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{overdue}</span>}
+                  </button>
+                  {sidebar&&navEdit&&<>
+                    <button type="button" title={hidden?"Show":"Hide"} onClick={()=>toggleNavItem(n.key)} style={{background:"none",border:"none",cursor:"pointer",color:hidden?theme.textMut:theme.teal,padding:"2px"}}>{hidden?<EyeOff size={12}/>:<Eye size={12}/>}</button>
+                    <button type="button" title="Move up" onClick={()=>moveNavItem(group.id,n.key,-1)} disabled={ii===0} style={{background:"none",border:"none",cursor:ii===0?"not-allowed":"pointer",color:theme.textMut,opacity:ii===0?0.25:1,padding:"2px"}}><ArrowUp size={11}/></button>
+                    <button type="button" title="Move down" onClick={()=>moveNavItem(group.id,n.key,1)} disabled={ii===visibleItems.length-1} style={{background:"none",border:"none",cursor:ii===visibleItems.length-1?"not-allowed":"pointer",color:theme.textMut,opacity:ii===visibleItems.length-1?0.25:1,padding:"2px 6px 2px 2px"}}><ArrowDown size={11}/></button>
+                  </>}
+                </div>;
+              })}
             </div>;
           })}
+
+          {/* ── CUSTOMISE ENTRY POINT ── */}
+          {sidebar&&!navEdit&&<button type="button" onClick={()=>setNavEdit(true)}
+            style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 12px",marginTop:6,borderRadius:8,border:`1px dashed ${theme.border}`,background:"transparent",cursor:"pointer",color:theme.textMut,fontSize:11,fontWeight:600}}>
+            <Settings size={12}/> Customise menu
+            {navHidden.length>0&&<span style={{marginLeft:"auto",fontSize:10,opacity:0.7}}>{navHidden.length} hidden</span>}
+          </button>}
         </nav>
         <div style={{padding:"10px 6px",borderTop:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",gap:1}}>
           <button onClick={()=>setSidebar(!sidebar)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 12px",borderRadius:8,border:"none",background:"transparent",color:theme.textMut,cursor:"pointer",fontSize:12,justifyContent:sidebar?"flex-start":"center"}}>{sidebar?<ChevronLeft size={16}/>:<ChevronRight size={16}/>}{sidebar&&<span className="nanu-sidebar-label">Collapse</span>}</button>
