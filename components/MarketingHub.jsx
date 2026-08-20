@@ -369,6 +369,12 @@ const MFEEDBACK_STATUS = ["New","Read","Actioned","Closed"];
 const TOOL_CATEGORIES = ["Design","Video","Audio","Scheduling","Storage","Research","Writing","Analytics","Other"];
 const TOOL_STATUS = ["In use","Trialling","Requested","Retired"];
 const TOOL_STATUS_COLORS = { "In use":"#69DB7C", Trialling:"#FFA94D", Requested:"#748FFC", Retired:"#6B7280" };
+const DESIGN_STATUS = ["Not started","In progress","Ready","Not needed"];
+const DESIGN_STATUS_COLORS = { "Not started":"#FF6B6B", "In progress":"#FFA94D", Ready:"#69DB7C", "Not needed":"#6B7280" };
+const GUEST_STATUS = ["Approached","Confirmed","Recorded","Published","Declined"];
+const GUEST_STATUS_COLORS = { Approached:"#748FFC", Confirmed:"#FFA94D", Recorded:"#DA77F2", Published:"#69DB7C", Declined:"#6B7280" };
+// How long an item may sit in a stage before it's flagged
+const STAGE_STALE_DAYS = { Idea:21, Researching:10, Scripting:7, Recording:7, Editing:7, Review:3, Scheduled:14, Published:9999 };
 
 /* ═══ FOCUS GROUPS ═══ */
 const FG_ROUND_STATUS = ["Planning","Recruiting","In Progress","Analysing","Complete"];
@@ -729,6 +735,8 @@ export default function MarketingHub() {
   const [mediaFolders, setMediaFolders] = useState([]);
   const [mediaTab, setMediaTab] = useState("pipeline");
   const [mediaProduct, setMediaProduct] = useState("");
+  const [mediaGuests, setMediaGuests] = useState([]);
+  const [pipeView, setPipeView] = useState("board");
   const [fgRounds, setFgRounds] = useState([]);
   const [fgParticipants, setFgParticipants] = useState([]);
   const [fgAssets, setFgAssets] = useState([]);
@@ -793,6 +801,7 @@ export default function MarketingHub() {
       setMediaFeedbackList(data.mediaFeedback || []);
       setMediaTools(data.mediaTools || []);
       setMediaFolders(data.mediaFolders || []);
+      setMediaGuests(data.mediaGuests || []);
       setFgRounds(data.fgRounds || []);
       setFgParticipants(data.fgParticipants || []);
       setFgAssets(data.fgAssets || []);
@@ -1275,8 +1284,8 @@ export default function MarketingHub() {
     /* ─── CALENDAR ─── */
     /* ─── COMPANY CALENDAR ─── */
     case "calendar": {
-      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Event","Responsibility","Meeting","Key Date"];
-      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Event:"#69DB7C", Responsibility:"#FFD43B", Meeting:"#22B8CF", "Key Date":"#FF6B6B" };
+      const CAL_EVENT_TYPES = ["All","Task","Project","Partnership","Outreach","Event","Media","Responsibility","Meeting","Key Date"];
+      const CAL_TYPE_COLORS = { Task:theme.teal, Project:"#DA77F2", Partnership:"#748FFC", Outreach:"#FFA94D", Event:"#69DB7C", Media:"#DA77F2", Responsibility:"#FFD43B", Meeting:"#22B8CF", "Key Date":"#FF6B6B" };
 
       // Project recurring responsibility occurrences across a forward window (next ~120 days)
       const projectResp = () => {
@@ -1305,6 +1314,7 @@ export default function MarketingHub() {
         ...outreach.filter(o=>o.date).map(o=>({id:"out_"+o.id,type:"Outreach",title:o.name,date:o.date,color:CAL_TYPE_COLORS.Outreach,status:o.status,ownerId:o.owner,owner:uName(o.owner),onClick:()=>openM("editOutreach",{...o})})),
         ...commEvents.filter(e=>e.date).map(e=>({id:"cev_"+e.id,type:"Event",title:e.title,date:e.date,color:"#69DB7C",status:e.status,ownerId:e.host,owner:uName(e.host),onClick:()=>openM("editCommEvent",{...e})})),
         ...projectResp(),
+        ...mediaItems.filter(i=>i.airDate).map(i=>({id:"med_"+i.id,type:"Media",title:(i.episodeNo?i.episodeNo+" ":"")+(i.title||"Untitled"),date:i.airDate,color:mediaProducts.find(p=>p.id===i.productId)?.color||"#DA77F2",status:i.stage,ownerId:i.owner,owner:uName(i.owner),onClick:()=>openM("editMediaItem",{...i})})),
         ...keyDates.map(d=>({id:"kd_"+d.id,type:"Key Date",title:d.title,date:d.date,color:d.color||CAL_TYPE_COLORS["Key Date"],status:"",ownerId:"",owner:"",onClick:null})),
         ...calendar.filter(c=>c.dueDate).map(c=>({id:"cal_"+c.id,type:"Meeting",title:c.title,date:c.dueDate,color:CAL_TYPE_COLORS.Meeting,status:c.status,ownerId:c.owner,owner:uName(c.owner),onClick:()=>openM("editCal",{...c})})),
       ].filter(e=>e.date);
@@ -2906,11 +2916,29 @@ export default function MarketingHub() {
       const prodName = (id) => mediaProducts.find(p=>p.id===id)?.name || "";
       const prodColor = (id) => mediaProducts.find(p=>p.id===id)?.color || theme.textMut;
 
+      // Moving a stage resets the clock used for staleness
       const moveStage = (item, dir) => {
         const idx = MEDIA_STAGES.indexOf(item.stage);
         const next = MEDIA_STAGES[Math.max(0, Math.min(MEDIA_STAGES.length-1, idx+dir))];
         if (next === item.stage) return;
-        const upd = {...item, stage: next};
+        const upd = {...item, stage: next, stageSince: todayStr};
+        setMediaItems(prev=>prev.map(x=>x.id===item.id?upd:x));
+        db.saveMediaItem(upd);
+      };
+      const daysInStage = (item) => item.stageSince ? daysBetween(item.stageSince, todayStr) : null;
+      const staleLevel = (item) => {
+        const d = daysInStage(item);
+        if (d === null || item.stage === "Published") return 0;
+        const limit = STAGE_STALE_DAYS[item.stage] || 14;
+        if (d >= limit * 1.5) return 2;
+        if (d >= limit) return 1;
+        return 0;
+      };
+      const checklistDone = (item) => (item.checklist||[]).filter(c=>c.done).length;
+      const toggleCheck = (item, i) => {
+        const cl = [...(item.checklist||[])];
+        cl[i] = {...cl[i], done: !cl[i].done};
+        const upd = {...item, checklist: cl};
         setMediaItems(prev=>prev.map(x=>x.id===item.id?upd:x));
         db.saveMediaItem(upd);
       };
@@ -2931,7 +2959,7 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
-            {[["pipeline","Pipeline",Columns],["roles","Roles",Users],["ideas","Ideas Board",Zap],["feedback","Feedback",MessageSquare],["tools","Tools",Settings],["drive","Drive & Assets",FolderOpen]].map(([k,l,Icon])=>{
+            {[["pipeline","Pipeline",Columns],["roles","Roles",Users],["guests","Guests",Users2],["ideas","Ideas Board",Zap],["feedback","Feedback",MessageSquare],["tools","Tools",Settings],["drive","Drive & Assets",FolderOpen]].map(([k,l,Icon])=>{
               const badge = k==="ideas" ? mediaIdeas.filter(i=>i.status==="New").length : k==="feedback" ? mediaFeedbackList.filter(f=>f.status==="New").length : 0;
               return <button key={k} onClick={()=>setMediaTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:mediaTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:mediaTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
                 <Icon size={14}/>{l}
@@ -2959,42 +2987,132 @@ export default function MarketingHub() {
                   {activeProd.cadence&&<Badge label={activeProd.cadence} color={theme.textMut}/>}
                   {activeProd.driveUrl&&<a href={activeProd.driveUrl} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,fontSize:12,display:"flex",alignItems:"center",gap:4}}><FolderOpen size={12}/> Drive</a>}
                   <Btn theme={theme} small onClick={()=>openM("editMediaProduct",{...activeProd})}><Edit3 size={12}/> Edit</Btn>
-                  <Btn primary theme={theme} small onClick={()=>openM("editMediaItem",{productId:pid,title:"",stage:"Idea",owner:curUser.id,episodeNo:"",summary:"",dueDate:"",airDate:"",scriptUrl:"",assetsUrl:"",finalUrl:"",blocker:"",notes:""})}><Plus size={12}/> Add Item</Btn>
+                  <Btn theme={theme} small onClick={()=>openM("bulkEpisodes",{productId:pid,count:5,startDate:todayStr,startNumber:1})}><Repeat size={12}/> Generate</Btn>
+                  <Btn primary theme={theme} small onClick={()=>openM("editMediaItem",{productId:pid,title:"",stage:"Idea",owner:activeProd.defaultOwner||curUser.id,episodeNo:"",summary:"",dueDate:"",airDate:"",scriptUrl:"",assetsUrl:"",finalUrl:"",blocker:"",notes:"",needsDesign:false,designStatus:"",stageSince:todayStr,checklist:(activeProd.checklistTemplate||[]).map(c=>({label:c,done:false})),linkedTasks:[]})}><Plus size={12}/> Add Item</Btn>
                 </div>
               </div>
             </Card>
 
-            <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
+            {/* View switcher */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+                {[["board","Board"],["slate","Slate"],["design","Design Queue"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setPipeView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:pipeView===k?theme.teal:"transparent",color:pipeView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+                ))}
+              </div>
+              {(()=>{const stale=prodItems.filter(i=>staleLevel(i)>0).length;
+                return stale>0?<span style={{fontSize:12,color:theme.orange,display:"flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>{stale} item{stale===1?"":"s"} sitting too long</span>:null;})()}
+            </div>
+
+            {/* ── BOARD ── */}
+            {pipeView==="board"&&<div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
               {MEDIA_STAGES.map(stage=>{
                 const col = prodItems.filter(i=>i.stage===stage);
-                return <div key={stage} className="nanu-kanban-col" style={{flex:"1 0 200px",minWidth:200}}>
+                return <div key={stage} className="nanu-kanban-col" style={{flex:"1 0 210px",minWidth:210}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:6,borderBottom:`2px solid ${MEDIA_STAGE_COLORS[stage]}`}}>
                     <span style={{fontSize:11,fontWeight:700,color:MEDIA_STAGE_COLORS[stage],textTransform:"uppercase",letterSpacing:".04em"}}>{stage}</span>
                     <span style={{fontSize:11,color:theme.textMut,marginLeft:"auto"}}>{col.length}</span>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {col.map(item=>(
-                      <Card key={item.id} theme={theme} style={{padding:11}}>
+                    {col.map(item=>{
+                      const sl=staleLevel(item), dis=daysInStage(item);
+                      const cl=item.checklist||[], done=checklistDone(item);
+                      return <Card key={item.id} theme={theme} style={{padding:11,borderLeft:sl?`3px solid ${sl===2?theme.red:theme.orange}`:undefined}}>
                         <div onClick={()=>openM("editMediaItem",{...item})} style={{fontWeight:600,fontSize:13,cursor:"pointer",marginBottom:5}}>{item.episodeNo&&<span style={{color:theme.textMut,fontFamily:FONT_MONO,fontSize:11,marginRight:5}}>{item.episodeNo}</span>}{item.title}</div>
                         {item.blocker&&<div style={{fontSize:11,color:theme.red,marginBottom:4,display:"flex",alignItems:"center",gap:4}}><AlertTriangle size={10}/>{item.blocker}</div>}
                         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",fontSize:11,color:theme.textMut}}>
                           {item.owner&&<span>{uName(item.owner)}</span>}
                           {item.airDate&&<span style={{fontFamily:FONT_MONO,color:item.airDate<todayStr&&item.stage!=="Published"?theme.red:theme.textMut}}>{item.airDate}</span>}
+                          {sl>0&&<span style={{color:sl===2?theme.red:theme.orange,fontWeight:600}}>{dis}d here</span>}
                         </div>
+                        {item.needsDesign&&<div style={{marginTop:5,display:"flex",alignItems:"center",gap:4,fontSize:10}}>
+                          <div style={{width:7,height:7,borderRadius:"50%",background:DESIGN_STATUS_COLORS[item.designStatus||"Not started"]}}/>
+                          <span style={{color:theme.textMut}}>Design: {item.designStatus||"Not started"}</span>
+                        </div>}
+                        {cl.length>0&&<div style={{marginTop:6}}>
+                          <div style={{height:3,background:theme.bgInput,borderRadius:2,overflow:"hidden"}}>
+                            <div style={{width:`${(done/cl.length)*100}%`,height:"100%",background:done===cl.length?theme.green:theme.teal}}/>
+                          </div>
+                          <div style={{fontSize:9,color:theme.textMut,marginTop:2}}>{done}/{cl.length} checks</div>
+                        </div>}
                         <div style={{display:"flex",gap:4,marginTop:7,alignItems:"center"}}>
                           <button type="button" title="Move back" onClick={()=>moveStage(item,-1)} disabled={stage===MEDIA_STAGES[0]} style={{background:"none",border:`1px solid ${theme.border}`,borderRadius:6,padding:"2px 6px",cursor:stage===MEDIA_STAGES[0]?"not-allowed":"pointer",color:theme.textMut,opacity:stage===MEDIA_STAGES[0]?0.3:1}}><ChevronLeft size={11}/></button>
                           <button type="button" title="Move forward" onClick={()=>moveStage(item,1)} disabled={stage==="Published"} style={{background:"none",border:`1px solid ${theme.border}`,borderRadius:6,padding:"2px 6px",cursor:stage==="Published"?"not-allowed":"pointer",color:theme.teal,opacity:stage==="Published"?0.3:1}}><ChevronRight size={11}/></button>
                           {item.scriptUrl&&<a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" title="Script" style={{color:theme.textMut,display:"flex"}}><FileText size={11}/></a>}
                           {item.assetsUrl&&<a href={item.assetsUrl} target="_blank" rel="noopener noreferrer" title="Assets" style={{color:theme.textMut,display:"flex"}}><FolderOpen size={11}/></a>}
                           {item.finalUrl&&<a href={item.finalUrl} target="_blank" rel="noopener noreferrer" title="Final" style={{color:theme.green,display:"flex"}}><ExternalLink size={11}/></a>}
+                          {(item.linkedTasks||[]).length>0&&<span title="Linked tasks" style={{fontSize:10,color:theme.textMut,display:"flex",alignItems:"center",gap:2}}><CheckSquare size={10}/>{item.linkedTasks.length}</span>}
                         </div>
-                      </Card>
-                    ))}
+                      </Card>;
+                    })}
                     {col.length===0&&<div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:"14px 0",border:`1px dashed ${theme.border}`,borderRadius:8}}>—</div>}
                   </div>
                 </div>;
               })}
-            </div>
+            </div>}
+
+            {/* ── SLATE (next 21 days, all products) ── */}
+            {pipeView==="slate"&&<div>
+              <p style={{fontSize:12,color:theme.textSec,marginBottom:12,lineHeight:1.6}}>Everything scheduled across all products for the next three weeks. Empty days on a daily product are the gaps worth filling.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {Array.from({length:21},(_,d)=>{
+                  const date=new Date(); date.setDate(date.getDate()+d);
+                  const ds=date.toISOString().split("T")[0];
+                  const dayName=date.toLocaleDateString("en-GB",{weekday:"short"});
+                  const dayItems=mediaItems.filter(i=>i.airDate===ds);
+                  const isToday=d===0;
+                  const isWeekend=[0,6].includes(date.getDay());
+                  return <div key={ds} style={{display:"flex",gap:10,alignItems:"stretch",padding:"7px 12px",borderRadius:8,background:isToday?`${theme.teal}12`:(isWeekend?"transparent":theme.bgCard),border:`1px solid ${isToday?theme.teal:theme.border}`,opacity:isWeekend&&dayItems.length===0?0.5:1}}>
+                    <div style={{minWidth:88,flexShrink:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:isToday?theme.teal:theme.text}}>{dayName} {date.getDate()}</div>
+                      <div style={{fontSize:10,color:theme.textMut,fontFamily:FONT_MONO}}>{ds.slice(5)}</div>
+                    </div>
+                    <div style={{flex:1,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                      {dayItems.map(item=>(
+                        <button key={item.id} onClick={()=>openM("editMediaItem",{...item})} style={{display:"flex",alignItems:"center",gap:6,background:theme.bgInput,border:`1px solid ${prodColor(item.productId)}55`,borderLeft:`3px solid ${prodColor(item.productId)}`,borderRadius:6,padding:"4px 9px",cursor:"pointer",color:theme.text,fontSize:12}}>
+                          <span style={{fontWeight:600}}>{item.title||"Untitled"}</span>
+                          <span style={{fontSize:10,color:MEDIA_STAGE_COLORS[item.stage]}}>{item.stage}</span>
+                          {item.needsDesign&&item.designStatus!=="Ready"&&item.designStatus!=="Not needed"&&<span title="Design outstanding" style={{width:6,height:6,borderRadius:"50%",background:theme.orange}}/>}
+                        </button>
+                      ))}
+                      {dayItems.length===0&&<span style={{fontSize:11,color:isWeekend?theme.textMut:theme.red,opacity:isWeekend?0.6:1}}>{isWeekend?"—":"Nothing scheduled"}</span>}
+                    </div>
+                  </div>;
+                })}
+              </div>
+            </div>}
+
+            {/* ── DESIGN QUEUE (cross-product) ── */}
+            {pipeView==="design"&&<div>
+              <p style={{fontSize:12,color:theme.textSec,marginBottom:12,lineHeight:1.6}}>Every item needing design across all four products, oldest air date first. Flag an item as needing design in its detail view.</p>
+              <div className="nanu-grid-summary" style={{marginBottom:14}}>
+                {DESIGN_STATUS.filter(s=>s!=="Not needed").map(s=>(
+                  <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${DESIGN_STATUS_COLORS[s]}`}}>
+                    <div className="nanu-big-num" style={{fontSize:22,color:DESIGN_STATUS_COLORS[s]}}>{mediaItems.filter(i=>i.needsDesign&&(i.designStatus||"Not started")===s).length}</div>
+                    <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                  </Card>
+                ))}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {mediaItems.filter(i=>i.needsDesign&&i.designStatus!=="Not needed"&&i.stage!=="Published")
+                  .sort((a,b)=>(a.airDate||"9999").localeCompare(b.airDate||"9999")).map(item=>(
+                  <Card key={item.id} theme={theme} style={{padding:13,borderLeft:`3px solid ${DESIGN_STATUS_COLORS[item.designStatus||"Not started"]}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <Badge label={prodName(item.productId)} color={prodColor(item.productId)}/>
+                      <span onClick={()=>openM("editMediaItem",{...item})} style={{fontWeight:600,fontSize:13,flex:"1 1 180px",cursor:"pointer",minWidth:0}}>{item.title}</span>
+                      <Badge label={item.stage} color={MEDIA_STAGE_COLORS[item.stage]}/>
+                      {item.airDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:item.airDate<todayStr?theme.red:theme.textMut}}>{item.airDate}</span>}
+                      <select value={item.designStatus||"Not started"} onChange={e=>{const upd={...item,designStatus:e.target.value};setMediaItems(prev=>prev.map(x=>x.id===item.id?upd:x));db.saveMediaItem(upd)}}
+                        style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:DESIGN_STATUS_COLORS[item.designStatus||"Not started"],cursor:"pointer",fontWeight:700}}>
+                        {DESIGN_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {item.assetsUrl&&<a href={item.assetsUrl} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex"}}><FolderOpen size={12}/></a>}
+                    </div>
+                  </Card>
+                ))}
+                {mediaItems.filter(i=>i.needsDesign&&i.designStatus!=="Not needed"&&i.stage!=="Published").length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>Nothing waiting on design.</p>}
+              </div>
+            </div>}
           </div>}
 
           {/* ── ROLES ── */}
@@ -3029,6 +3147,56 @@ export default function MarketingHub() {
                 </Card>;
               })}
               {prodRoles.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No roles defined for this product yet.</p>}
+            </div>
+          </div>}
+
+          {/* ── GUESTS ── */}
+          {mediaTab==="guests"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:620,lineHeight:1.6}}>Guests across all products, and whether we have a signed release. No release means we can't publish.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editMediaGuest",{name:"",email:"",phone:"",productId:pid||"",itemId:"",bio:"",recordedDate:"",releaseSigned:false,releaseUrl:"",status:"Approached",notes:""})}><Plus size={13}/> Add Guest</Btn>
+            </div>
+
+            {(()=>{const risk=mediaGuests.filter(g=>!g.releaseSigned&&["Recorded","Published"].includes(g.status));
+              return risk.length>0&&<Card theme={theme} style={{padding:14,marginBottom:16,borderLeft:`3px solid ${theme.red}`}}>
+                <div style={{fontSize:11,fontWeight:700,color:theme.red,textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>{risk.length} recorded without a signed release</div>
+                {risk.map(g=>(<div key={g.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,padding:"3px 0"}}>
+                  <AlertTriangle size={12} color={theme.red}/><span style={{flex:1}}>{g.name}</span><span style={{color:theme.textMut}}>{g.status}</span>
+                </div>))}
+              </Card>;})()}
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {GUEST_STATUS.filter(s=>s!=="Declined").map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${GUEST_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:GUEST_STATUS_COLORS[s]}}>{mediaGuests.filter(g=>g.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+            </div>
+
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {mediaGuests.map(g=>(
+                <Card key={g.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${GUEST_STATUS_COLORS[g.status]}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <div style={{flex:"1 1 200px",minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{g.name}</div>
+                      {g.bio&&<div style={{fontSize:12,color:theme.textMut,marginTop:2}}>{g.bio}</div>}
+                    </div>
+                    {g.productId&&<Badge label={prodName(g.productId)} color={prodColor(g.productId)}/>}
+                    <Badge label={g.status} color={GUEST_STATUS_COLORS[g.status]}/>
+                    {g.releaseSigned
+                      ? <span style={{fontSize:11,color:theme.green,display:"flex",alignItems:"center",gap:4,fontWeight:600}}><Check size={12}/> Release signed</span>
+                      : <span style={{fontSize:11,color:theme.red,display:"flex",alignItems:"center",gap:4,fontWeight:600}}><AlertTriangle size={12}/> No release</span>}
+                    {g.recordedDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{g.recordedDate}</span>}
+                    <Btn theme={theme} small onClick={()=>openM("editMediaGuest",{...g})}><Edit3 size={12}/> Edit</Btn>
+                  </div>
+                  {(g.email||g.phone)&&<div style={{fontSize:11,color:theme.textMut,marginTop:6,display:"flex",gap:10}}>
+                    {g.email&&<a href={`mailto:${g.email}`} style={{color:theme.teal,textDecoration:"none"}}>{g.email}</a>}
+                    {g.phone&&<span>{g.phone}</span>}
+                  </div>}
+                </Card>
+              ))}
+              {mediaGuests.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No guests logged yet.</p>}
             </div>
           </div>}
 
@@ -5252,6 +5420,18 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Format</Label><Sel theme={theme} options={MEDIA_FORMATS} value={form.format||MEDIA_FORMATS[0]} onChange={e=>setForm(p=>({...p,format:e.target.value}))}/></div><div><Label theme={theme}>Cadence</Label><Sel theme={theme} options={MEDIA_CADENCES} value={form.cadence||"Weekly"} onChange={e=>setForm(p=>({...p,cadence:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Showrunner</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.showrunner||""} onChange={e=>setForm(p=>({...p,showrunner:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={["Active","Paused","Archived"]} value={form.status||"Active"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Google Drive folder link</Label><Input theme={theme} value={form.driveUrl||""} onChange={e=>setForm(p=>({...p,driveUrl:e.target.value}))} placeholder="https://drive.google.com/..."/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Episode prefix</Label><Input theme={theme} value={form.episodePrefix||""} onChange={e=>setForm(p=>({...p,episodePrefix:e.target.value}))} placeholder="e.g. TIM"/></div><div><Label theme={theme}>Default owner</Label><Sel theme={theme} options={[{value:"",label:"None"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.defaultOwner||""} onChange={e=>setForm(p=>({...p,defaultOwner:e.target.value}))}/></div></div>
+        <div>
+          <Label theme={theme}>Publishing checklist template</Label>
+          <p style={{fontSize:11,color:theme.textMut,margin:"0 0 6px"}}>Applied to every new item for this product.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {(form.checklistTemplate||[]).map((c,i)=>(<div key={i} style={{display:"flex",gap:6}}>
+              <Input theme={theme} value={c} onChange={e=>{const cl=[...(form.checklistTemplate||[])];cl[i]=e.target.value;setForm(p=>({...p,checklistTemplate:cl}))}} style={{flex:1}}/>
+              <button type="button" onClick={()=>{const cl=[...(form.checklistTemplate||[])];cl.splice(i,1);setForm(p=>({...p,checklistTemplate:cl}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={13}/></button>
+            </div>))}
+            <Btn theme={theme} small onClick={()=>setForm(p=>({...p,checklistTemplate:[...(p.checklistTemplate||[]),""]}))}><Plus size={12}/> Add step</Btn>
+          </div>
+        </div>
         <div className="nanu-form-row"><div><Label theme={theme}>Accent colour</Label><Input theme={theme} value={form.color||"#1FC2C2"} onChange={e=>setForm(p=>({...p,color:e.target.value}))} placeholder="#1FC2C2"/></div><div><Label theme={theme}>Sort order</Label><Input theme={theme} type="number" value={form.sortOrder??0} onChange={e=>setForm(p=>({...p,sortOrder:Number(e.target.value)}))}/></div></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
@@ -5259,7 +5439,7 @@ export default function MarketingHub() {
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const mid=form.id||uid("mp");
-            const md={id:mid,name:form.name||"",description:form.description||"",format:form.format||"",cadence:form.cadence||"",showrunner:form.showrunner||"",status:form.status||"Active",driveUrl:form.driveUrl||"",color:form.color||"#1FC2C2",sortOrder:form.sortOrder||0,notes:form.notes||""};
+            const md={id:mid,name:form.name||"",description:form.description||"",format:form.format||"",cadence:form.cadence||"",showrunner:form.showrunner||"",status:form.status||"Active",driveUrl:form.driveUrl||"",color:form.color||"#1FC2C2",sortOrder:form.sortOrder||0,notes:form.notes||"",episodePrefix:form.episodePrefix||"",defaultOwner:form.defaultOwner||"",checklistTemplate:(form.checklistTemplate||[]).filter(Boolean),publishDay:form.publishDay||""};
             if(form.id){setMediaProducts(p=>p.map(x=>x.id===form.id?md:x));log("updated",md.name,"Media")}
             else{setMediaProducts(p=>[...p,md]);setMediaProduct(mid);log("created",md.name,"Media")}
             db.saveMediaProduct(md);
@@ -5278,12 +5458,54 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Assets folder link</Label><Input theme={theme} value={form.assetsUrl||""} onChange={e=>setForm(p=>({...p,assetsUrl:e.target.value}))} placeholder="Drive folder URL"/></div>
         <div><Label theme={theme}>Final / published link</Label><Input theme={theme} value={form.finalUrl||""} onChange={e=>setForm(p=>({...p,finalUrl:e.target.value}))}/></div>
         <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+
+        {/* Design */}
+        <div style={{padding:"12px 14px",background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
+            <input type="checkbox" checked={!!form.needsDesign} onChange={e=>setForm(p=>({...p,needsDesign:e.target.checked,designStatus:e.target.checked?(p.designStatus||"Not started"):""}))} style={{accentColor:theme.teal,width:15,height:15,cursor:"pointer"}}/>
+            This item needs design work
+          </label>
+          {form.needsDesign&&<div style={{marginTop:10}}>
+            <Label theme={theme}>Design status</Label>
+            <Sel theme={theme} options={DESIGN_STATUS} value={form.designStatus||"Not started"} onChange={e=>setForm(p=>({...p,designStatus:e.target.value}))}/>
+            <p style={{fontSize:11,color:theme.textMut,margin:"6px 0 0"}}>Appears in the cross-product Design Queue until marked Ready.</p>
+          </div>}
+        </div>
+
+        {/* Publishing checklist */}
+        <div>
+          <Label theme={theme}>Publishing checklist</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {(form.checklist||[]).map((c,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                <input type="checkbox" checked={!!c.done} onChange={()=>{const cl=[...(form.checklist||[])];cl[i]={...cl[i],done:!cl[i].done};setForm(p=>({...p,checklist:cl}))}} style={{accentColor:theme.teal,width:15,height:15,cursor:"pointer",flexShrink:0}}/>
+                <Input theme={theme} value={c.label} onChange={e=>{const cl=[...(form.checklist||[])];cl[i]={...cl[i],label:e.target.value};setForm(p=>({...p,checklist:cl}))}} style={{flex:1,textDecoration:c.done?"line-through":"none",opacity:c.done?0.6:1}}/>
+                <button type="button" onClick={()=>{const cl=[...(form.checklist||[])];cl.splice(i,1);setForm(p=>({...p,checklist:cl}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={13}/></button>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:6}}>
+              <Btn theme={theme} small onClick={()=>setForm(p=>({...p,checklist:[...(p.checklist||[]),{label:"",done:false}]}))}><Plus size={12}/> Add check</Btn>
+              {(form.checklist||[]).length===0&&form.productId&&<Btn theme={theme} small onClick={()=>{const tpl=(mediaProducts.find(p=>p.id===form.productId)?.checklistTemplate)||[];setForm(p=>({...p,checklist:tpl.map(c=>({label:c,done:false}))}))}}>Use product template</Btn>}
+            </div>
+          </div>
+        </div>
+
+        {/* Linked tasks */}
+        <div>
+          <Label theme={theme}>Linked tasks</Label>
+          <Sel theme={theme} options={[{value:"",label:"Link an existing task..."},...tasks.filter(t=>t.status!=="Done"&&!(form.linkedTasks||[]).includes(t.id)).map(t=>({value:t.id,label:t.title}))]} value="" onChange={e=>{if(e.target.value)setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),e.target.value]}))}}/>
+          {(form.linkedTasks||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+            {(form.linkedTasks||[]).map(tid=>{const tk=tasks.find(x=>x.id===tid);return tk?<span key={tid} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 8px",background:theme.bgInput,borderRadius:6,color:theme.textSec}}>{tk.title}<button type="button" onClick={()=>setForm(p=>({...p,linkedTasks:p.linkedTasks.filter(x=>x!==tid)}))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",padding:0}}><X size={11}/></button></span>:null})}
+          </div>}
+          <Btn theme={theme} small onClick={()=>{const nt={id:uid("t"),title:form.title||"Media task",owners:[form.owner||curUser.id],status:"Not Started",priority:"Medium",dueDate:form.dueDate||form.airDate||"",blocker:"",notes:`From media item: ${form.title||""}`,context:"",contactName:"",contactDetail:"",outcome:"",linkedContent:"",project:"",updates:[],createdBy:curUser.id,createdDate:todayStr};setTasks(prev=>[...prev,nt]);db.saveTask(nt);setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),nt.id]}));log("created",nt.title,"Tasks")}} style={{marginTop:8}}><Plus size={12}/> Create linked task</Btn>
+        </div>
+
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaItems(p=>p.filter(x=>x.id!==form.id));db.deleteMediaItem(form.id);log("deleted",form.title,"Media")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const iid=form.id||uid("mi");
-            const idata={id:iid,productId:form.productId||"",title:form.title||"",stage:form.stage||"Idea",owner:form.owner||"",episodeNo:form.episodeNo||"",summary:form.summary||"",dueDate:form.dueDate||"",airDate:form.airDate||"",scriptUrl:form.scriptUrl||"",assetsUrl:form.assetsUrl||"",finalUrl:form.finalUrl||"",blocker:form.blocker||"",notes:form.notes||""};
+            const idata={id:iid,productId:form.productId||"",title:form.title||"",stage:form.stage||"Idea",owner:form.owner||"",episodeNo:form.episodeNo||"",summary:form.summary||"",dueDate:form.dueDate||"",airDate:form.airDate||"",scriptUrl:form.scriptUrl||"",assetsUrl:form.assetsUrl||"",finalUrl:form.finalUrl||"",blocker:form.blocker||"",notes:form.notes||"",needsDesign:!!form.needsDesign,designStatus:form.designStatus||"",stageSince:form.stageSince||todayStr,checklist:form.checklist||[],linkedTasks:form.linkedTasks||[]};
             if(form.id){setMediaItems(p=>p.map(x=>x.id===form.id?idata:x));log("updated",idata.title,"Media")}
             else{setMediaItems(p=>[...p,idata]);log("created",idata.title,"Media")}
             db.saveMediaItem(idata);
@@ -5392,6 +5614,69 @@ export default function MarketingHub() {
           })}>Done</Btn>
         </div>
       </div></Modal>;
+
+      /* ─── MEDIA GUEST MODAL ─── */
+      case "editMediaGuest": return <Modal theme={theme} title={form.id?"Edit Guest":"Add Guest"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Name</Label><Input theme={theme} value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={GUEST_STATUS} value={form.status||"Approached"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Bio / who they are</Label><Input theme={theme} value={form.bio||""} onChange={e=>setForm(p=>({...p,bio:e.target.value}))} placeholder="One line — enough for whoever books them"/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Email</Label><Input theme={theme} value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div><div><Label theme={theme}>Phone</Label><Input theme={theme} value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Product</Label><Sel theme={theme} options={[{value:"",label:"Not set"},...mediaProducts.map(p=>({value:p.id,label:p.name}))]} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div><div><Label theme={theme}>Recorded date</Label><Input theme={theme} type="date" value={form.recordedDate||""} onChange={e=>setForm(p=>({...p,recordedDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Episode</Label><Sel theme={theme} options={[{value:"",label:"Not linked"},...mediaItems.filter(i=>!form.productId||i.productId===form.productId).map(i=>({value:i.id,label:i.title||"Untitled"}))]} value={form.itemId||""} onChange={e=>setForm(p=>({...p,itemId:e.target.value}))}/></div>
+        <div style={{padding:"12px 14px",background:form.releaseSigned?`${theme.green}0d`:`${theme.red}0d`,borderRadius:10,border:`1px solid ${form.releaseSigned?theme.green:theme.red}40`}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
+            <input type="checkbox" checked={!!form.releaseSigned} onChange={e=>setForm(p=>({...p,releaseSigned:e.target.checked}))} style={{accentColor:theme.green,width:15,height:15,cursor:"pointer"}}/>
+            Signed release / consent form on file
+          </label>
+          <div style={{marginTop:8}}><Input theme={theme} value={form.releaseUrl||""} onChange={e=>setForm(p=>({...p,releaseUrl:e.target.value}))} placeholder="Link to the signed form in Drive"/></div>
+          {!form.releaseSigned&&<p style={{fontSize:11,color:theme.red,margin:"8px 0 0",lineHeight:1.5}}>Without a signed release we shouldn't publish this recording.</p>}
+        </div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMediaGuests(p=>p.filter(x=>x.id!==form.id));db.deleteMediaGuest(form.id);log("deleted",form.name,"Media")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const gid=form.id||uid("mg");
+            const gd={id:gid,name:form.name||"",email:form.email||"",phone:form.phone||"",productId:form.productId||"",itemId:form.itemId||"",bio:form.bio||"",recordedDate:form.recordedDate||"",releaseSigned:!!form.releaseSigned,releaseUrl:form.releaseUrl||"",status:form.status||"Approached",notes:form.notes||""};
+            if(form.id){setMediaGuests(p=>p.map(x=>x.id===form.id?gd:x));log("updated",gd.name,"Media")}
+            else{setMediaGuests(p=>[...p,gd]);log("added guest",gd.name,"Media")}
+            db.saveMediaGuest(gd);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── BULK EPISODE GENERATOR ─── */
+      case "bulkEpisodes": {
+        const prod = mediaProducts.find(p=>p.id===form.productId);
+        const stepDays = { Daily:1, Weekly:7, Fortnightly:14, Monthly:30 }[prod?.cadence] || 7;
+        const preview = Array.from({length:Math.min(form.count||0,30)},(_,i)=>{
+          const d=new Date(form.startDate+"T00:00:00"); d.setDate(d.getDate()+i*stepDays);
+          return { no:`${prod?.episodePrefix||"EP"}${(Number(form.startNumber||1)+i)}`, date:d.toISOString().split("T")[0] };
+        });
+        return <Modal theme={theme} title="Generate episode slots" onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6}}>Creates empty placeholders for <strong>{prod?.name}</strong> at its {prod?.cadence?.toLowerCase()} cadence, each with the product's checklist. Titles are left blank for you to fill in.</p>
+          <div className="nanu-form-row"><div><Label theme={theme}>How many</Label><Input theme={theme} type="number" value={form.count??5} onChange={e=>setForm(p=>({...p,count:Math.max(0,Math.min(30,Number(e.target.value)))}))}/></div><div><Label theme={theme}>First air date</Label><Input theme={theme} type="date" value={form.startDate||""} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))}/></div></div>
+          <div><Label theme={theme}>Starting episode number</Label><Input theme={theme} type="number" value={form.startNumber??1} onChange={e=>setForm(p=>({...p,startNumber:Number(e.target.value)}))}/></div>
+          <div>
+            <Label theme={theme}>Preview</Label>
+            <div style={{maxHeight:180,overflow:"auto",background:theme.bgInput,borderRadius:8,padding:10}}>
+              {preview.map((p,i)=>(<div key={i} style={{display:"flex",gap:10,fontSize:12,padding:"2px 0"}}>
+                <span style={{fontFamily:FONT_MONO,color:theme.teal,minWidth:70}}>{p.no}</span>
+                <span style={{color:theme.textSec,fontFamily:FONT_MONO}}>{p.date}</span>
+              </div>))}
+              {preview.length===0&&<span style={{fontSize:12,color:theme.textMut}}>Nothing to create.</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+            <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+            <Btn primary theme={theme} disabled={preview.length===0} onClick={()=>doSave(()=>{
+              const created=preview.map(p=>({id:uid("mi"),productId:form.productId,title:"",stage:"Idea",owner:prod?.defaultOwner||"",episodeNo:p.no,summary:"",dueDate:"",airDate:p.date,scriptUrl:"",assetsUrl:"",finalUrl:"",blocker:"",notes:"",needsDesign:false,designStatus:"",stageSince:todayStr,checklist:(prod?.checklistTemplate||[]).map(c=>({label:c,done:false})),linkedTasks:[]}));
+              setMediaItems(prev=>[...prev,...created]);
+              created.forEach(c=>db.saveMediaItem(c));
+              log("generated",`${created.length} slots for ${prod?.name}`,"Media");
+            })}><Repeat size={13}/> Create {preview.length}</Btn>
+          </div>
+        </div></Modal>;
+      }
 
       case "editSocials": return <Modal theme={theme} title="Edit My Socials" onClose={closeM}><div style={{display:"flex",flexDirection:"column",gap:14}}>
         <p style={{fontSize:13,color:theme.textSec,marginBottom:8}}>Add your social profile links so the team can find you.</p>
