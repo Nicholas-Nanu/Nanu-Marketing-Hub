@@ -337,8 +337,10 @@ const DOC_STATUS = ["Draft","In Review","Final","Signed","Expired","Archived"];
 const DOC_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Final:"#1FC2C2", Signed:"#69DB7C", Expired:"#FF6B6B", Archived:"#6B7280" };
 
 /* ═══ COMPANY STRUCTURE (from Company Structure & Departmental Workflow) ═══ */
-const NANU_DEPARTMENTS = ["Business Operations","Marketing and Growth","Content and Media","Technology","Research and Partnerships","Governance"];
-const DEPT_COLORS = { "Business Operations":"#FFD43B", "Marketing and Growth":"#FFA94D", "Content and Media":"#DA77F2", "Technology":"#1FC2C2", "Research and Partnerships":"#69DB7C", "Governance":"#748FFC" };
+const NANU_DEPARTMENTS = ["Business Development","Marketing and Advertising","Media and Content","Business Operations","Development","Partnerships and Outreach","Community Engagement","Advisory","Governance"];
+const DEPT_COLORS = { "Business Development":"#FFD43B", "Marketing and Advertising":"#FFA94D", "Media and Content":"#DA77F2", "Business Operations":"#22B8CF", "Development":"#1FC2C2", "Partnerships and Outreach":"#69DB7C", "Community Engagement":"#82F9F6", "Advisory":"#BDA177", "Governance":"#748FFC" };
+const PHASE_ACTION_STATUS = ["Not started","In progress","Blocked","Done"];
+const PHASE_ACTION_STATUS_COLORS = { "Not started":"#4E6A78", "In progress":"#FFA94D", Blocked:"#FF6B6B", Done:"#69DB7C" };
 const UNIT_STATUS = ["Active","Partial","Open","Inactive"];
 const UNIT_STATUS_COLORS = { Active:"#69DB7C", Partial:"#FFA94D", Open:"#FF6B6B", Inactive:"#6B7280" };
 const UNIT_LAYERS = ["Governance","Executive","Department","Function","Sub"];
@@ -708,7 +710,6 @@ export default function MarketingHub() {
   const [workspace, setWorkspace] = useState({ todos:[], notes:[], bookmarks:[], goals:[], drafts:[] });
   const [previewItem, setPreviewItem] = useState(null);
   const [pallyyKey, setPallyyKey] = useState(0);
-  const [copiedField, setCopiedField] = useState(null);
   const [ambassadors, setAmbassadors] = useState([]);
   const [commChannels, setCommChannels] = useState([]);
   const [commEvents, setCommEvents] = useState([]);
@@ -720,6 +721,7 @@ export default function MarketingHub() {
   const [boardUpdates, setBoardUpdates] = useState([]);
   const [initiatives, setInitiatives] = useState([]);
   const [bizTab, setBizTab] = useState("metrics");
+  const [phaseActions, setPhaseActions] = useState([]);
   const [bizDocs, setBizDocs] = useState([]);
   const [accessRegister, setAccessRegister] = useState([]);
   const [openSeats, setOpenSeats] = useState([]);
@@ -794,6 +796,7 @@ export default function MarketingHub() {
       setOrgUnits(data.orgUnits || []);
       setRaciItems(data.raciItems || []);
       setMocItems(data.mocItems || []);
+      setPhaseActions(data.phaseActions || []);
       setMediaProducts(data.mediaProducts || []);
       setMediaItems(data.mediaItems || []);
       setMediaRoles(data.mediaRoles || []);
@@ -884,12 +887,13 @@ export default function MarketingHub() {
 
   // Department mapping for the master task view (based on role)
   const DEPT_BY_ROLE = {
-    "Admin": "Leadership",
-    "Executive": "Leadership",
-    "Marketing Lead": "Marketing",
-    "Content Creator": "Marketing",
-    "Social Media Manager": "Community",
-    "Community Lead": "Community",
+    "Admin": "Business Development",
+    "Executive": "Business Operations",
+    "Marketing Lead": "Marketing and Advertising",
+    "Content Creator": "Media and Content",
+    "Designer": "Media and Content",
+    "Social Media Manager": "Community Engagement",
+    "Community Lead": "Community Engagement",
   };
   const userDept = (uid2) => { const u = users.find(x => x.id === uid2); return u ? (DEPT_BY_ROLE[u.role] || "Other") : "Unassigned"; };
 
@@ -1434,7 +1438,6 @@ export default function MarketingHub() {
 
     /* ─── PALLYY / CONTENT SCHEDULER ─── */
     case "pallyy": {
-      const copyText = (text, field) => { navigator.clipboard.writeText(text).then(() => { setCopiedField(field); setTimeout(() => setCopiedField(null), 2000); }); };
 
       return (
         <div>
@@ -1458,33 +1461,18 @@ export default function MarketingHub() {
             </div>
           </Card>
 
-          {/* Login credentials card */}
-          <Card theme={theme} style={{padding:20,marginBottom:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-              <Lock size={16} color={theme.teal}/>
-              <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Team Login Credentials</span>
+          {/* Access card — credentials live in the password manager, not here */}
+          <Card theme={theme} style={{padding:20,marginBottom:20,borderLeft:`3px solid ${theme.yellow}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Lock size={16} color={theme.yellow}/>
+              <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15}}>Access</span>
             </div>
-            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 240px",padding:14,background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
-                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6}}>Email</div>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                  <code style={{fontSize:14,color:theme.text,fontFamily:FONT_MONO}}>socials@nanu-app.com</code>
-                  <button type="button" onClick={()=>copyText("socials@nanu-app.com","user")} style={{background:copiedField==="user"?theme.green:theme.teal,border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",color:"#0D1B21",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                    {copiedField==="user"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
-                  </button>
-                </div>
-              </div>
-              <div style={{flex:"1 1 240px",padding:14,background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
-                <div style={{fontSize:11,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6}}>Password</div>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                  <code style={{fontSize:14,color:theme.text,fontFamily:FONT_MONO}}>Ws!czbCykyg69yK</code>
-                  <button type="button" onClick={()=>copyText("Ws!czbCykyg69yK","pass")} style={{background:copiedField==="pass"?theme.green:theme.teal,border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",color:"#0D1B21",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                    {copiedField==="pass"?<><Check size={12}/> Copied</>:<><Copy size={12}/> Copy</>}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <p style={{fontSize:12,color:theme.textMut,marginTop:12}}>Copy credentials above, then click "Open Pallyy" to log in. This is a shared team account.</p>
+            <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6}}>
+              Pallyy uses a shared team account. Credentials are held in the company password manager — they are deliberately not stored in Team Hub.
+            </p>
+            <p style={{fontSize:12,color:theme.textMut,margin:"8px 0 0",lineHeight:1.6}}>
+              If you need access, ask Nicholas. Access levels are per person, with the executive team as a third layer so nobody is ever the only holder.
+            </p>
           </Card>
 
           {/* Quick links */}
@@ -2335,7 +2323,7 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:4,marginBottom:18,borderBottom:`1px solid ${theme.border}`,flexWrap:"wrap"}}>
-            {[["metrics","Metrics & KPIs",TrendingUp],["access","Access & Backup",Lock],["seats","Open Seats",Users2],["org","Org Structure",FolderKanban],["raci","Accountability",CheckSquare],["moc","Operating Capability",Activity],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag],["documents","Documents",FolderOpen]].map(([k,l,Icon])=>(
+            {[["metrics","Metrics & KPIs",TrendingUp],["phase","Phase 1 Actions",Flag],["access","Access & Backup",Lock],["seats","Open Seats",Users2],["org","Org Structure",FolderKanban],["raci","Accountability",CheckSquare],["moc","Operating Capability",Activity],["investors","Investors",Handshake],["board","Board Updates",FileText],["initiatives","Initiatives",Flag],["documents","Documents",FolderOpen]].map(([k,l,Icon])=>(
               <button key={k} onClick={()=>setBizTab(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 14px",border:"none",background:"transparent",borderBottom:bizTab===k?`2px solid ${theme.teal}`:"2px solid transparent",color:bizTab===k?theme.teal:theme.textSec,cursor:"pointer",fontSize:13,fontWeight:600,marginBottom:-1}}>
                 <Icon size={14}/>{l}
               </button>
@@ -2398,6 +2386,72 @@ export default function MarketingHub() {
               <p style={{fontSize:13,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.notes}</p>
             </Card>}
             <div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:10}}>{bizMetrics.periodLabel?`Period: ${bizMetrics.periodLabel}`:"No period set"}</div>
+          </div>}
+
+          {/* ── PHASE 1 ACTIONS ── */}
+          {bizTab==="phase"&&<div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:theme.textSec,margin:0,maxWidth:640,lineHeight:1.6}}>What we agreed on 18 August. Each has an owner and a date.</p>
+              <Btn primary theme={theme} small onClick={()=>openM("editPhaseAction",{seq:(phaseActions.length+1),action:"",detail:"",ownerUser:"",ownerText:"",dueLabel:"",dueDate:"",status:"Not started",notes:""})}><Plus size={13}/> Add Action</Btn>
+            </div>
+
+            <div className="nanu-grid-summary" style={{marginBottom:16}}>
+              {PHASE_ACTION_STATUS.map(s=>(
+                <Card key={s} theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${PHASE_ACTION_STATUS_COLORS[s]}`}}>
+                  <div className="nanu-big-num" style={{fontSize:22,color:PHASE_ACTION_STATUS_COLORS[s]}}>{phaseActions.filter(a=>a.status===s).length}</div>
+                  <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s}</div>
+                </Card>
+              ))}
+              <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:theme.red}}>{phaseActions.filter(a=>a.dueDate&&a.dueDate<todayStr&&a.status!=="Done").length}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Overdue</div>
+              </Card>
+            </div>
+
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {[...phaseActions].sort((a,b)=>(a.seq||0)-(b.seq||0)).map(a=>{
+                const late=a.dueDate&&a.dueDate<todayStr&&a.status!=="Done";
+                return <Card key={a.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${late?theme.red:PHASE_ACTION_STATUS_COLORS[a.status]}`,opacity:a.status==="Done"?0.65:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut,minWidth:20}}>{a.seq}</span>
+                    <span style={{fontWeight:700,fontSize:14,flex:"1 1 220px",minWidth:0,textDecoration:a.status==="Done"?"line-through":"none"}}>{a.action}</span>
+                    <span style={{fontSize:12,color:theme.textSec,minWidth:110}}>{a.ownerUser?uName(a.ownerUser):(a.ownerText||"Unassigned")}</span>
+                    <span style={{fontSize:11,color:late?theme.red:theme.textMut,minWidth:90,fontWeight:late?600:400}}>{a.dueLabel||a.dueDate||"—"}</span>
+                    <select value={a.status} onChange={e=>{const upd={...a,status:e.target.value};setPhaseActions(prev=>prev.map(x=>x.id===a.id?upd:x));db.savePhaseAction(upd)}}
+                      style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:PHASE_ACTION_STATUS_COLORS[a.status],cursor:"pointer",fontWeight:700}}>
+                      {PHASE_ACTION_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <Btn theme={theme} small onClick={()=>openM("editPhaseAction",{...a})}><Edit3 size={12}/></Btn>
+                  </div>
+                  {a.detail&&<p style={{fontSize:12,color:theme.textMut,margin:"6px 0 0",lineHeight:1.5,paddingLeft:30}}>{a.detail}</p>}
+                </Card>;
+              })}
+              {phaseActions.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No actions logged.</p>}
+            </div>
+
+            {/* How we work */}
+            <Card theme={theme} style={{padding:18,marginTop:20}}>
+              <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:10}}>How we work in Phase 1</div>
+              {[
+                ["Every department runs itself","Each head sets their department up however they want. What the rest of us need is visibility in Team Hub, not permission requests."],
+                ["Blockers are the most important thing","Put it against the task in the hub, not in a Signal message. A blocker is a blocker and nobody is asked to justify it. Clear it if you can, escalate if you cannot. The executive team will spend more time on blockers than anything else."],
+                ["Team Hub is where the work lives","Roles, projects, calendars, opportunities and blockers go in the hub. If it is not in there, it is invisible to everyone else. Priorities are set by due date and managed inside each department."],
+                ["Passwords and access","Everything goes in the password manager, with per-person access levels and the executive team as a third layer so nobody is ever the only holder."],
+                ["Opportunities","Anything Susan brings in goes into Team Hub first. Small things at the weekly meeting. High priority gets a priority ticket and a short bespoke meeting."],
+                ["Community engagement is shared","Not a department, no head. Ed internal, Susan external, everyone else boosts. The weight goes on external — it brings new users and doubles as advertising."],
+              ].map(([h,b],i)=>(
+                <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?`1px solid ${theme.borderLight}`:"none"}}>
+                  <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.teal,flexShrink:0}}>{i+1}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{h}</div>
+                    <p style={{fontSize:12,color:theme.textMut,margin:0,lineHeight:1.6}}>{b}</p>
+                  </div>
+                </div>
+              ))}
+              <div style={{marginTop:12,padding:"10px 14px",background:`${theme.teal}0d`,border:`1px solid ${theme.teal}40`,borderRadius:8,fontSize:13,fontWeight:600,color:theme.teal,textAlign:"center"}}>
+                The goal behind all of it: 5,000 users. External first, retention second.
+              </div>
+            </Card>
           </div>}
 
           {/* ── ACCESS & BACKUP REGISTER ── */}
@@ -5289,6 +5343,27 @@ export default function MarketingHub() {
             log("deleted",`${bulkSelected.length} task(s)`,"Tasks");
             setBulkSelected([]);
           })}><Trash2 size={13}/> Delete permanently</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── PHASE ACTION MODAL ─── */
+      case "editPhaseAction": return <Modal theme={theme} title={form.id?"Edit Action":"New Action"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Number</Label><Input theme={theme} type="number" value={form.seq??0} onChange={e=>setForm(p=>({...p,seq:Number(e.target.value)}))}/></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={PHASE_ACTION_STATUS} value={form.status||"Not started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Action</Label><Input theme={theme} value={form.action||""} onChange={e=>setForm(p=>({...p,action:e.target.value}))}/></div>
+        <div><Label theme={theme}>Detail</Label><Textarea theme={theme} value={form.detail||""} onChange={e=>setForm(p=>({...p,detail:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Use free text"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.ownerUser||""} onChange={e=>setForm(p=>({...p,ownerUser:e.target.value}))}/></div><div><Label theme={theme}>Owner (free text)</Label><Input theme={theme} value={form.ownerText||""} onChange={e=>setForm(p=>({...p,ownerText:e.target.value}))} placeholder="e.g. Everyone, Each head"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Due label</Label><Input theme={theme} value={form.dueLabel||""} onChange={e=>setForm(p=>({...p,dueLabel:e.target.value}))} placeholder="e.g. Next Tuesday, Ongoing"/></div><div><Label theme={theme}>Due date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Notes</Label><Textarea theme={theme} value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setPhaseActions(p=>p.filter(x=>x.id!==form.id));db.deletePhaseAction(form.id);log("deleted",form.action,"Business")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const aid=form.id||uid("pa");
+            const ad={id:aid,seq:form.seq||0,action:form.action||"",detail:form.detail||"",ownerUser:form.ownerUser||"",ownerText:form.ownerText||"",dueLabel:form.dueLabel||"",dueDate:form.dueDate||"",status:form.status||"Not started",notes:form.notes||""};
+            if(form.id){setPhaseActions(p=>p.map(x=>x.id===form.id?ad:x));log("updated",ad.action,"Business")}
+            else{setPhaseActions(p=>[...p,ad]);log("added",ad.action,"Business")}
+            db.savePhaseAction(ad);
+          })}>Done</Btn>
         </div>
       </div></Modal>;
 
