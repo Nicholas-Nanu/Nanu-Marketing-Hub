@@ -339,6 +339,14 @@ const DOC_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Final:"#1FC2
 /* ═══ COMPANY STRUCTURE (from Company Structure & Departmental Workflow) ═══ */
 const NANU_DEPARTMENTS = ["Business Development","Marketing and Advertising","Media and Content","Business Operations","Development","Partnerships and Outreach","Community Engagement","Advisory","Governance"];
 const DEPT_COLORS = { "Business Development":"#FFD43B", "Marketing and Advertising":"#FFA94D", "Media and Content":"#DA77F2", "Business Operations":"#22B8CF", "Development":"#1FC2C2", "Partnerships and Outreach":"#69DB7C", "Community Engagement":"#82F9F6", "Advisory":"#BDA177", "Governance":"#748FFC" };
+const RM_BUCKETS = ["Requested","Now","Next","Later","Shipped","Parked"];
+const RM_BOARD_BUCKETS = ["Now","Next","Later"];
+const RM_BUCKET_COLORS = { Requested:"#748FFC", Now:"#69DB7C", Next:"#FFA94D", Later:"#4E6A78", Shipped:"#1FC2C2", Parked:"#6B7280" };
+const RM_BUCKET_BLURB = { Now:"Being built or up next in the queue", Next:"Committed, not started", Later:"Agreed direction, no date yet" };
+const RM_AREAS = ["App","Platform","Archive","Website","Infrastructure","Design","Other"];
+const RM_EFFORT = ["S","M","L","XL"];
+const RM_PRIORITY = ["Critical","High","Medium","Low"];
+const RM_PRIORITY_COLORS = { Critical:"#FF6B6B", High:"#FFA94D", Medium:"#FFD43B", Low:"#6B7280" };
 const PHASE_ACTION_STATUS = ["Not started","In progress","Blocked","Done"];
 const PHASE_ACTION_STATUS_COLORS = { "Not started":"#4E6A78", "In progress":"#FFA94D", Blocked:"#FF6B6B", Done:"#69DB7C" };
 const UNIT_STATUS = ["Active","Partial","Open","Inactive"];
@@ -722,6 +730,9 @@ export default function MarketingHub() {
   const [initiatives, setInitiatives] = useState([]);
   const [bizTab, setBizTab] = useState("metrics");
   const [phaseActions, setPhaseActions] = useState([]);
+  const [roadmapItems, setRoadmapItems] = useState([]);
+  const [rmView, setRmView] = useState("board");
+  const [rmArea, setRmArea] = useState("All");
   const [bizDocs, setBizDocs] = useState([]);
   const [accessRegister, setAccessRegister] = useState([]);
   const [openSeats, setOpenSeats] = useState([]);
@@ -797,6 +808,7 @@ export default function MarketingHub() {
       setRaciItems(data.raciItems || []);
       setMocItems(data.mocItems || []);
       setPhaseActions(data.phaseActions || []);
+      setRoadmapItems(data.roadmapItems || []);
       setMediaProducts(data.mediaProducts || []);
       setMediaItems(data.mediaItems || []);
       setMediaRoles(data.mediaRoles || []);
@@ -995,6 +1007,13 @@ export default function MarketingHub() {
         { key:"feedback", label:"Feedback", icon:<Smile size={18}/> },
         { key:"focusgroups", label:"Focus Groups", icon:<Users2 size={18}/> },
         { key:"engagement", label:"Engagement", icon:<Activity size={18}/> },
+      ]
+    },
+    {
+      id: "roadmap",
+      label: "Roadmap",
+      items: [
+        { key:"roadmap", label:"App Roadmap", icon:<Flag size={18}/> },
       ]
     },
     {
@@ -2955,6 +2974,169 @@ export default function MarketingHub() {
               </div>
             ))}
             {bizDocs.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No documents indexed yet. Click "Add Document" to start.</p>}
+          </div>}
+        </div>
+      );
+    }
+
+    /* ─── APP ROADMAP ─── */
+    case "roadmap": {
+      const canEditRoadmap = isAdmin || isExec;
+      const rmFiltered = rmArea==="All" ? roadmapItems : roadmapItems.filter(r=>r.area===rmArea);
+      const inBucket = (b) => rmFiltered.filter(r=>r.bucket===b).sort((a,b2)=>(a.sortOrder||0)-(b2.sortOrder||0));
+      const requests = rmFiltered.filter(r=>r.bucket==="Requested");
+      const shipped = rmFiltered.filter(r=>r.bucket==="Shipped").sort((a,b)=>(b.shippedDate||"").localeCompare(a.shippedDate||""));
+      const moveBucket = (item, bucket) => {
+        const upd = {...item, bucket, ...(bucket==="Shipped"&&!item.shippedDate?{shippedDate:todayStr,progress:100}:{})};
+        setRoadmapItems(prev=>prev.map(x=>x.id===item.id?upd:x));
+        db.saveRoadmapItem(upd);
+        log("moved",`${item.title} to ${bucket}`,"Roadmap");
+      };
+
+      const RmCard = ({item, showBucketPicker}) => (
+        <Card theme={theme} style={{padding:13,borderLeft:`3px solid ${RM_BUCKET_COLORS[item.bucket]}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+            <span onClick={()=>canEditRoadmap?openM("editRoadmapItem",{...item}):null} style={{fontWeight:700,fontSize:13,flex:"1 1 150px",minWidth:0,cursor:canEditRoadmap?"pointer":"default"}}>{item.title}</span>
+            {item.priority&&item.bucket!=="Shipped"&&<Badge label={item.priority} color={RM_PRIORITY_COLORS[item.priority]}/>}
+          </div>
+          {item.description&&<p style={{fontSize:12,color:theme.textSec,margin:"5px 0 0",lineHeight:1.5}}>{item.description}</p>}
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:8,fontSize:11,color:theme.textMut}}>
+            {item.area&&<Badge label={item.area} color={theme.textMut}/>}
+            {item.effort&&<span style={{fontFamily:FONT_MONO}}>{item.effort}</span>}
+            {item.owner&&<span>{uName(item.owner)}</span>}
+            {item.targetQuarter&&<span style={{fontFamily:FONT_MONO,color:theme.tealLt}}>{item.targetQuarter}</span>}
+            {item.shippedDate&&<span style={{fontFamily:FONT_MONO,color:theme.green}}>{item.shippedDate}</span>}
+            {item.releaseTag&&<Badge label={item.releaseTag} color={theme.green}/>}
+          </div>
+          {item.bucket==="Now"&&<div style={{marginTop:8}}>
+            <div style={{height:4,background:theme.bgInput,borderRadius:2,overflow:"hidden"}}>
+              <div style={{width:`${item.progress||0}%`,height:"100%",background:theme.green,transition:"width .4s"}}/>
+            </div>
+            <div style={{fontSize:9,color:theme.textMut,marginTop:2}}>{item.progress||0}%</div>
+          </div>}
+          {canEditRoadmap&&showBucketPicker&&<div style={{display:"flex",gap:4,marginTop:9,flexWrap:"wrap"}}>
+            {RM_BUCKETS.filter(b=>b!==item.bucket).map(b=>(
+              <button key={b} onClick={()=>moveBucket(item,b)} style={{background:"transparent",border:`1px solid ${RM_BUCKET_COLORS[b]}55`,borderRadius:6,padding:"2px 7px",cursor:"pointer",color:RM_BUCKET_COLORS[b],fontSize:10,fontWeight:600}}>{b}</button>
+            ))}
+            <button onClick={()=>openM("editRoadmapItem",{...item})} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMut,padding:"2px"}}><Edit3 size={11}/></button>
+          </div>}
+        </Card>
+      );
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            <Sel theme={theme} options={["All",...RM_AREAS].map(a=>({value:a,label:a==="All"?"All areas":a}))} value={rmArea} onChange={e=>setRmArea(e.target.value)} style={{width:"auto",fontSize:13,padding:"6px 10px"}}/>
+            <Btn theme={theme} onClick={()=>openM("editRoadmapItem",{title:"",description:"",area:RM_AREAS[0],bucket:"Requested",owner:"",priority:"Medium",effort:"",progress:0,targetQuarter:"",targetDate:"",shippedDate:"",releaseTag:"",requestedBy:curUser.id,requestedDate:todayStr,why:"",decisionNote:"",linkedTasks:[],sortOrder:(roadmapItems.length+1)*10,notes:""})}><Plus size={14}/> Request something</Btn>
+            {canEditRoadmap&&<Btn primary theme={theme} onClick={()=>openM("editRoadmapItem",{title:"",description:"",area:RM_AREAS[0],bucket:"Next",owner:"",priority:"Medium",effort:"M",progress:0,targetQuarter:"",targetDate:"",shippedDate:"",releaseTag:"",requestedBy:"",requestedDate:"",why:"",decisionNote:"",linkedTasks:[],sortOrder:(roadmapItems.length+1)*10,notes:""})}><Plus size={14}/> Add to Roadmap</Btn>}
+          </>}>App Roadmap</SectionHead>
+
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:14,maxWidth:680,lineHeight:1.6}}>What is being built, what is committed next, and what direction we have agreed. Requests go in writing here — that is the one channel.</p>
+
+          {/* View switcher */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+            <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+              {[["board","Now / Next / Later"],["timeline","By Quarter"],["requests",`Requests${requests.length?" ("+requests.length+")":""}`],["shipped","Shipped"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setRmView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:rmView===k?theme.teal:"transparent",color:rmView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+              ))}
+            </div>
+            {!canEditRoadmap&&<span style={{fontSize:11,color:theme.textMut,display:"flex",alignItems:"center",gap:5}}><Lock size={11}/> View only — anyone can submit a request</span>}
+          </div>
+
+          {/* ── BOARD ── */}
+          {rmView==="board"&&<div className="nanu-grid-2col" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+            {RM_BOARD_BUCKETS.map(b=>(
+              <div key={b}>
+                <div style={{marginBottom:10,paddingBottom:8,borderBottom:`2px solid ${RM_BUCKET_COLORS[b]}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:16,color:RM_BUCKET_COLORS[b]}}>{b}</span>
+                    <span style={{fontSize:11,color:theme.textMut,marginLeft:"auto"}}>{inBucket(b).length}</span>
+                  </div>
+                  <div style={{fontSize:11,color:theme.textMut,marginTop:2}}>{RM_BUCKET_BLURB[b]}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {inBucket(b).map(item=><RmCard key={item.id} item={item} showBucketPicker={true}/>)}
+                  {inBucket(b).length===0&&<div style={{fontSize:11,color:theme.textMut,textAlign:"center",padding:"18px 0",border:`1px dashed ${theme.border}`,borderRadius:8}}>Nothing here</div>}
+                </div>
+              </div>
+            ))}
+          </div>}
+
+          {/* ── TIMELINE ── */}
+          {rmView==="timeline"&&<div>
+            {(()=>{
+              const qs=[...new Set(rmFiltered.filter(r=>r.targetQuarter&&r.bucket!=="Requested"&&r.bucket!=="Parked").map(r=>r.targetQuarter))].sort();
+              const noQ=rmFiltered.filter(r=>!r.targetQuarter&&["Now","Next","Later"].includes(r.bucket));
+              return <>
+                {qs.map(q=>(
+                  <div key={q} style={{marginBottom:20}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <span style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:17,color:theme.teal}}>{q}</span>
+                      <div style={{flex:1,height:1,background:theme.border}}/>
+                      <span style={{fontSize:11,color:theme.textMut}}>{rmFiltered.filter(r=>r.targetQuarter===q).length} items</span>
+                    </div>
+                    <div className="nanu-grid-2col">
+                      {rmFiltered.filter(r=>r.targetQuarter===q).map(item=><RmCard key={item.id} item={item} showBucketPicker={false}/>)}
+                    </div>
+                  </div>
+                ))}
+                {noQ.length>0&&<div style={{marginBottom:20}}>
+                  <div style={{fontSize:12,fontWeight:600,color:theme.textMut,marginBottom:10,textTransform:"uppercase",letterSpacing:".04em"}}>No quarter set</div>
+                  <div className="nanu-grid-2col">{noQ.map(item=><RmCard key={item.id} item={item} showBucketPicker={false}/>)}</div>
+                </div>}
+                {qs.length===0&&noQ.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>Nothing scheduled yet. Set a target quarter on roadmap items to see them here.</p>}
+              </>;
+            })()}
+          </div>}
+
+          {/* ── REQUESTS ── */}
+          {rmView==="requests"&&<div>
+            <p style={{fontSize:12,color:theme.textSec,marginBottom:12,lineHeight:1.6}}>Anything asked for that has not been triaged yet. Requests arrive in writing here, or they do not exist.</p>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {requests.map(item=>(
+                <Card key={item.id} theme={theme} style={{padding:14,borderLeft:`3px solid ${RM_BUCKET_COLORS.Requested}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:700,fontSize:14,flex:"1 1 200px",minWidth:0}}>{item.title}</span>
+                    {item.area&&<Badge label={item.area} color={theme.textMut}/>}
+                    <span style={{fontSize:11,color:theme.textMut}}>{item.requestedBy?uName(item.requestedBy):"—"}{item.requestedDate?` · ${item.requestedDate}`:""}</span>
+                  </div>
+                  {item.description&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.5}}>{item.description}</p>}
+                  {item.why&&<div style={{marginTop:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8}}>
+                    <div style={{fontSize:9,color:theme.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Why it matters</div>
+                    <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.5}}>{item.why}</p>
+                  </div>}
+                  {canEditRoadmap&&<div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+                    <span style={{fontSize:11,color:theme.textMut}}>Triage to:</span>
+                    {["Now","Next","Later","Parked"].map(b=>(
+                      <button key={b} onClick={()=>moveBucket(item,b)} style={{background:"transparent",border:`1px solid ${RM_BUCKET_COLORS[b]}`,borderRadius:6,padding:"3px 10px",cursor:"pointer",color:RM_BUCKET_COLORS[b],fontSize:11,fontWeight:600}}>{b}</button>
+                    ))}
+                    <Btn theme={theme} small onClick={()=>openM("editRoadmapItem",{...item})}><Edit3 size={11}/> Edit</Btn>
+                  </div>}
+                </Card>
+              ))}
+              {requests.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No untriaged requests.</p>}
+            </div>
+          </div>}
+
+          {/* ── SHIPPED ── */}
+          {rmView==="shipped"&&<div>
+            <p style={{fontSize:12,color:theme.textSec,marginBottom:12,lineHeight:1.6}}>What has actually gone out, newest first.</p>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {shipped.map(item=>(
+                <Card key={item.id} theme={theme} style={{padding:13,borderLeft:`3px solid ${theme.green}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <Check size={14} color={theme.green}/>
+                    <span style={{fontWeight:600,fontSize:13,flex:"1 1 200px",minWidth:0}}>{item.title}</span>
+                    {item.area&&<Badge label={item.area} color={theme.textMut}/>}
+                    {item.releaseTag&&<Badge label={item.releaseTag} color={theme.green}/>}
+                    <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{item.shippedDate}</span>
+                    {canEditRoadmap&&<Btn theme={theme} small onClick={()=>openM("editRoadmapItem",{...item})}><Edit3 size={11}/></Btn>}
+                  </div>
+                  {item.description&&<p style={{fontSize:12,color:theme.textMut,margin:"5px 0 0",lineHeight:1.5}}>{item.description}</p>}
+                </Card>
+              ))}
+              {shipped.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>Nothing shipped yet.</p>}
+            </div>
           </div>}
         </div>
       );
@@ -5345,6 +5527,55 @@ export default function MarketingHub() {
           })}><Trash2 size={13}/> Delete permanently</Btn>
         </div>
       </div></Modal>;
+
+      /* ─── ROADMAP ITEM MODAL ─── */
+      case "editRoadmapItem": {
+        const canEditRm = isAdmin || isExec;
+        const isRequest = (form.bucket||"Requested")==="Requested";
+        return <Modal theme={theme} title={form.id?(isRequest?"Request":"Roadmap item"):(canEditRm&&!isRequest?"New roadmap item":"New request")} onClose={closeM} width={620}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {isRequest&&!canEditRm&&<div style={{padding:"10px 14px",background:`${theme.teal}0d`,border:`1px solid ${theme.teal}40`,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.6}}>
+            This goes to the dev team as a written request. They will triage it and you will see where it lands on the roadmap.
+          </div>}
+          <div><Label theme={theme}>What is it?</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="One line"/></div>
+          <div><Label theme={theme}>Description</Label><Textarea theme={theme} value={form.description||""} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="What should it do, and for whom?"/></div>
+          <div><Label theme={theme}>Why it matters</Label><Textarea theme={theme} value={form.why||""} onChange={e=>setForm(p=>({...p,why:e.target.value}))} placeholder="What breaks or stays slow without it"/></div>
+          <div className="nanu-form-row"><div><Label theme={theme}>Area</Label><Sel theme={theme} options={RM_AREAS} value={form.area||RM_AREAS[0]} onChange={e=>setForm(p=>({...p,area:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={RM_PRIORITY} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
+
+          {canEditRm&&<>
+            <div className="nanu-form-row"><div><Label theme={theme}>Bucket</Label><Sel theme={theme} options={RM_BUCKETS} value={form.bucket||"Requested"} onChange={e=>setForm(p=>({...p,bucket:e.target.value}))}/></div><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div></div>
+            <div className="nanu-form-row"><div><Label theme={theme}>Effort</Label><Sel theme={theme} options={[{value:"",label:"Not sized"},...RM_EFFORT.map(x=>({value:x,label:x}))]} value={form.effort||""} onChange={e=>setForm(p=>({...p,effort:e.target.value}))}/></div><div><Label theme={theme}>Target quarter</Label><Input theme={theme} value={form.targetQuarter||""} onChange={e=>setForm(p=>({...p,targetQuarter:e.target.value}))} placeholder="e.g. 2026 Q4"/></div></div>
+            {form.bucket==="Now"&&<div>
+              <Label theme={theme}>Progress: {form.progress||0}%</Label>
+              <input type="range" min="0" max="100" step="5" value={form.progress||0} onChange={e=>setForm(p=>({...p,progress:Number(e.target.value)}))} style={{width:"100%",accentColor:theme.teal,cursor:"pointer"}}/>
+            </div>}
+            {form.bucket==="Shipped"&&<div className="nanu-form-row"><div><Label theme={theme}>Shipped date</Label><Input theme={theme} type="date" value={form.shippedDate||""} onChange={e=>setForm(p=>({...p,shippedDate:e.target.value}))}/></div><div><Label theme={theme}>Release tag</Label><Input theme={theme} value={form.releaseTag||""} onChange={e=>setForm(p=>({...p,releaseTag:e.target.value}))} placeholder="e.g. v2.1"/></div></div>}
+            <div><Label theme={theme}>Decision note</Label><Textarea theme={theme} value={form.decisionNote||""} onChange={e=>setForm(p=>({...p,decisionNote:e.target.value}))} placeholder="Why it landed where it did — visible to whoever requested it"/></div>
+            <div>
+              <Label theme={theme}>Linked tasks</Label>
+              <Sel theme={theme} options={[{value:"",label:"Link an existing task..."},...tasks.filter(x=>x.status!=="Done"&&!(form.linkedTasks||[]).includes(x.id)).map(x=>({value:x.id,label:x.title}))]} value="" onChange={e=>{if(e.target.value)setForm(p=>({...p,linkedTasks:[...(p.linkedTasks||[]),e.target.value]}))}}/>
+              {(form.linkedTasks||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+                {(form.linkedTasks||[]).map(tid=>{const tk=tasks.find(x=>x.id===tid);return tk?<span key={tid} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 8px",background:theme.bgInput,borderRadius:6,color:theme.textSec}}>{tk.title}<button type="button" onClick={()=>setForm(p=>({...p,linkedTasks:p.linkedTasks.filter(x=>x!==tid)}))} style={{background:"none",border:"none",color:theme.textMut,cursor:"pointer",padding:0}}><X size={11}/></button></span>:null})}
+              </div>}
+            </div>
+            <div><Label theme={theme}>Sort order</Label><Input theme={theme} type="number" value={form.sortOrder??0} onChange={e=>setForm(p=>({...p,sortOrder:Number(e.target.value)}))}/></div>
+          </>}
+
+          {form.id&&form.requestedBy&&<div style={{fontSize:11,color:theme.textMut,padding:"8px 12px",background:theme.bgInput,borderRadius:8}}>Requested by {uName(form.requestedBy)}{form.requestedDate?` on ${form.requestedDate}`:""}</div>}
+          {form.decisionNote&&!canEditRm&&<div style={{padding:"8px 12px",background:theme.bgInput,borderRadius:8,fontSize:12,color:theme.textSec,lineHeight:1.5}}><strong style={{color:theme.teal}}>Decision:</strong> {form.decisionNote}</div>}
+
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+            {form.id&&canEditRm&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setRoadmapItems(p=>p.filter(x=>x.id!==form.id));db.deleteRoadmapItem(form.id);log("deleted",form.title,"Roadmap")})}><Trash2 size={13}/> Delete</Btn>}
+            <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+            <Btn primary theme={theme} onClick={()=>doSave(()=>{
+              const rid4=form.id||uid("rm");
+              const rd={id:rid4,title:form.title||"",description:form.description||"",area:form.area||"",bucket:form.bucket||"Requested",owner:form.owner||"",priority:form.priority||"Medium",effort:form.effort||"",progress:form.progress||0,targetQuarter:form.targetQuarter||"",targetDate:form.targetDate||"",shippedDate:form.shippedDate||"",releaseTag:form.releaseTag||"",requestedBy:form.requestedBy||curUser.id,requestedDate:form.requestedDate||todayStr,why:form.why||"",decisionNote:form.decisionNote||"",linkedTasks:form.linkedTasks||[],sortOrder:form.sortOrder||0,notes:form.notes||""};
+              if(form.id){setRoadmapItems(p=>p.map(x=>x.id===form.id?rd:x));log("updated",rd.title,"Roadmap")}
+              else{setRoadmapItems(p=>[...p,rd]);log(rd.bucket==="Requested"?"requested":"added",rd.title,"Roadmap")}
+              db.saveRoadmapItem(rd);
+            })}>Done</Btn>
+          </div>
+        </div></Modal>;
+      }
 
       /* ─── PHASE ACTION MODAL ─── */
       case "editPhaseAction": return <Modal theme={theme} title={form.id?"Edit Action":"New Action"} onClose={closeM} width={580}><div style={{display:"flex",flexDirection:"column",gap:14}}>
