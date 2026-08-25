@@ -731,6 +731,7 @@ export default function MarketingHub() {
   const [bizTab, setBizTab] = useState("metrics");
   const [phaseActions, setPhaseActions] = useState([]);
   const [roadmapItems, setRoadmapItems] = useState([]);
+  const [opStructures, setOpStructures] = useState([]);
   const [rmView, setRmView] = useState("board");
   const [rmArea, setRmArea] = useState("All");
   const [bizDocs, setBizDocs] = useState([]);
@@ -809,6 +810,7 @@ export default function MarketingHub() {
       setMocItems(data.mocItems || []);
       setPhaseActions(data.phaseActions || []);
       setRoadmapItems(data.roadmapItems || []);
+      setOpStructures(data.opStructures || []);
       setMediaProducts(data.mediaProducts || []);
       setMediaItems(data.mediaItems || []);
       setMediaRoles(data.mediaRoles || []);
@@ -1278,6 +1280,11 @@ export default function MarketingHub() {
                 <Badge label={u.role} color={ROLE_COLORS[u.role]||theme.teal}/><Badge label={u.tzLabel} color={TZ_OPTIONS.find(t=>t.label===u.tzLabel)?.color||theme.teal}/>
               </div>
               <p style={{ fontSize:13, color:theme.textMut, marginTop:10, lineHeight:1.5 }}>{u.resp}</p>
+              {isAdmin&&<div style={{marginTop:10}}>
+                <Btn theme={theme} small onClick={()=>{const ex=opStructures.find(s=>s.userId===u.id);openM("editOpStructure",ex?{...ex}:{userId:u.id,subtitle:"",intro:"",owns:[],shared:[],cadence:[{day:"Monday",theme:"",items:[]},{day:"Tuesday",theme:"",items:[]},{day:"Wednesday",theme:"",items:[]},{day:"Thursday",theme:"",items:[]},{day:"Friday",theme:"",items:[]}],standing:[],focus:[],sourceNote:""})}}>
+                  <Award size={11}/> {opStructures.some(s=>s.userId===u.id)?"Edit operating structure":"Set operating structure"}
+                </Btn>
+              </div>}
               {(()=>{const ur=responsibilities.filter(r=>r.owner===u.id&&r.status==="Active");return ur.length>0&&<div style={{marginTop:10,borderTop:`1px solid ${theme.border}`,paddingTop:10}}>
                 <div style={{fontSize:10,fontWeight:600,color:theme.textMut,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6,display:"flex",alignItems:"center",gap:4}}><Repeat size={11}/> Ongoing ({ur.length})</div>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -4170,13 +4177,87 @@ export default function MarketingHub() {
 
           {/* Tabs */}
           <div className="nanu-ws-tabs" style={{display:"flex",gap:2,background:theme.bgInput,borderRadius:10,padding:3,border:`1px solid ${theme.border}`,marginBottom:20,flexWrap:"wrap"}}>
-            {[["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["contacts","Address Book",Users2],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
+            {[["role","My Role",Award],["todos","To-Dos",CheckSquare],["wnotes","Scratchpad",FileEdit],["bookmarks","Bookmarks",Bookmark],["contacts","Address Book",Users2],["goals","Goals",Target],["drafts","Drafts",FileText],["myactivity","Activity",Clock]].map(([k,l,Icon])=>(
               <button key={k} type="button" onClick={()=>setWsTab(k)} style={{padding:"8px 14px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,background:wsTab===k?theme.teal:"transparent",color:wsTab===k?"#0D1B21":theme.textSec,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 <Icon size={13}/>{l}
                 {k==="todos"&&todos.filter(t=>!t.done).length>0&&<span style={{background:wsTab===k?"#0D1B2130":theme.teal,color:wsTab===k?"#0D1B21":"#0D1B21",padding:"1px 6px",borderRadius:10,fontSize:10,fontWeight:700}}>{todos.filter(t=>!t.done).length}</span>}
               </button>
             ))}
           </div>
+
+          {/* ── MY ROLE ── */}
+          {wsTab==="role"&&(()=>{
+            const os = opStructures.find(s=>s.userId===curUser.id);
+            const dayIdx = new Date().getDay();
+            const todayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][dayIdx];
+            const Block = ({title, items, color, note}) => (
+              (items&&items.length>0)?<Card theme={theme} style={{padding:18,marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:color||theme.teal,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>{title}</div>
+                {note&&<p style={{fontSize:12,color:theme.textMut,margin:"0 0 10px",lineHeight:1.5}}>{note}</p>}
+                <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                  {items.map((it,i)=>(
+                    <div key={i} style={{display:"flex",gap:9,alignItems:"flex-start"}}>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:color||theme.teal,flexShrink:0,marginTop:7}}/>
+                      <span style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>{it}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>:null
+            );
+
+            if(!os) return <Card theme={theme} style={{padding:32,textAlign:"center"}}>
+              <Award size={28} color={theme.textMut} style={{marginBottom:10}}/>
+              <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>No operating structure yet</div>
+              <p style={{fontSize:13,color:theme.textMut,maxWidth:420,margin:"0 auto 14px",lineHeight:1.6}}>This is where what you own, your weekly rhythm and your standing responsibilities live. Build yours, or ask Nicholas to set it up.</p>
+              <Btn primary theme={theme} onClick={()=>openM("editOpStructure",{userId:curUser.id,subtitle:"",intro:"",owns:[],shared:[],cadence:[{day:"Monday",theme:"",items:[]},{day:"Tuesday",theme:"",items:[]},{day:"Wednesday",theme:"",items:[]},{day:"Thursday",theme:"",items:[]},{day:"Friday",theme:"",items:[]}],standing:[],focus:[],sourceNote:""})}><Plus size={14}/> Create my structure</Btn>
+            </Card>;
+
+            return <div>
+              <Card theme={theme} style={{padding:20,marginBottom:14,borderLeft:`3px solid ${theme.teal}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                  <div style={{flex:"1 1 260px",minWidth:0}}>
+                    <div style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,lineHeight:1.2}}>{curUser.name}</div>
+                    {os.subtitle&&<div style={{fontSize:12,color:theme.tealLt,marginTop:3,letterSpacing:".02em"}}>{os.subtitle}</div>}
+                  </div>
+                  <Btn theme={theme} small onClick={()=>openM("editOpStructure",{...os})}><Edit3 size={12}/> Edit</Btn>
+                </div>
+                {os.intro&&<p style={{fontSize:13,color:theme.textSec,margin:"12px 0 0",lineHeight:1.6}}>{os.intro}</p>}
+              </Card>
+
+              <Block title="What you own" items={os.owns} color={theme.teal}/>
+              <Block title="Shared and supporting" items={os.shared} color={theme.tealLt}/>
+
+              {/* Weekly cadence */}
+              {(os.cadence||[]).length>0&&<div style={{marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:theme.textMut,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Weekly cadence</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {(os.cadence||[]).map((d,i)=>{
+                    const isToday = d.day===todayName;
+                    return <Card key={i} theme={theme} style={{padding:16,borderLeft:`3px solid ${isToday?theme.teal:theme.border}`,background:isToday?`${theme.teal}0a`:theme.bgCard}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:d.items&&d.items.length?9:0,flexWrap:"wrap"}}>
+                        <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,color:isToday?theme.teal:theme.text}}>{d.day}</span>
+                        {d.theme&&<span style={{fontSize:12,color:theme.textMut}}>· {d.theme}</span>}
+                        {isToday&&<Badge label="Today" color={theme.teal}/>}
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {(d.items||[]).map((it,j)=>(
+                          <div key={j} style={{display:"flex",gap:9,alignItems:"flex-start"}}>
+                            <div style={{width:5,height:5,borderRadius:"50%",background:isToday?theme.teal:theme.textMut,flexShrink:0,marginTop:7,opacity:isToday?1:0.5}}/>
+                            <span style={{fontSize:13,color:theme.textSec,lineHeight:1.6}}>{it}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>;
+                  })}
+                </div>
+              </div>}
+
+              <Block title="Standing responsibilities" items={os.standing} color="#FFD43B"/>
+              <Block title="Immediate focus · next 1–2 weeks" items={os.focus} color={theme.orange}/>
+
+              {os.sourceNote&&<p style={{fontSize:11,color:theme.textMut,fontStyle:"italic",lineHeight:1.6,padding:"10px 2px"}}>{os.sourceNote}</p>}
+            </div>;
+          })()}
 
           {/* ── TO-DO LIST (with priority & due date) ── */}
           {wsTab==="todos"&&<Card theme={theme} style={{padding:18}}>
@@ -5527,6 +5608,76 @@ export default function MarketingHub() {
           })}><Trash2 size={13}/> Delete permanently</Btn>
         </div>
       </div></Modal>;
+
+      /* ─── OPERATING STRUCTURE MODAL ─── */
+      case "editOpStructure": {
+        const ListEditor = ({label, field, placeholder}) => (
+          <div>
+            <Label theme={theme}>{label}</Label>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {(form[field]||[]).map((v,i)=>(
+                <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                  <Textarea theme={theme} value={v} onChange={e=>{const a=[...(form[field]||[])];a[i]=e.target.value;setForm(p=>({...p,[field]:a}))}} style={{flex:1,minHeight:44}}/>
+                  <button type="button" onClick={()=>{const a=[...(form[field]||[])];a.splice(i,1);setForm(p=>({...p,[field]:a}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",marginTop:8}}><Trash2 size={13}/></button>
+                </div>
+              ))}
+              <Btn theme={theme} small onClick={()=>setForm(p=>({...p,[field]:[...(p[field]||[]),""]}))}><Plus size={12}/> {placeholder}</Btn>
+            </div>
+          </div>
+        );
+        return <Modal theme={theme} title={`Operating structure — ${uName(form.userId)}`} onClose={closeM} width={680}><div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {isAdmin&&<div><Label theme={theme}>Person</Label><Sel theme={theme} options={activeUsers.map(u=>({value:u.id,label:u.name}))} value={form.userId||""} onChange={e=>setForm(p=>({...p,userId:e.target.value}))}/></div>}
+          <div><Label theme={theme}>Subtitle</Label><Input theme={theme} value={form.subtitle||""} onChange={e=>setForm(p=>({...p,subtitle:e.target.value}))} placeholder="e.g. Business Operations · Internal Community · Phase 1"/></div>
+          <div><Label theme={theme}>Intro</Label><Textarea theme={theme} value={form.intro||""} onChange={e=>setForm(p=>({...p,intro:e.target.value}))}/></div>
+
+          <ListEditor label="What you own" field="owns" placeholder="Add ownership"/>
+          <ListEditor label="Shared and supporting" field="shared" placeholder="Add shared item"/>
+
+          <div>
+            <Label theme={theme}>Weekly cadence</Label>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {(form.cadence||[]).map((d,di)=>(
+                <div key={di} style={{padding:12,background:theme.bgInput,borderRadius:10,border:`1px solid ${theme.border}`}}>
+                  <div style={{display:"flex",gap:6,marginBottom:8}}>
+                    <Input theme={theme} value={d.day||""} onChange={e=>{const c=[...(form.cadence||[])];c[di]={...c[di],day:e.target.value};setForm(p=>({...p,cadence:c}))}} placeholder="Day" style={{flex:"0 0 120px"}}/>
+                    <Input theme={theme} value={d.theme||""} onChange={e=>{const c=[...(form.cadence||[])];c[di]={...c[di],theme:e.target.value};setForm(p=>({...p,cadence:c}))}} placeholder="Theme" style={{flex:1}}/>
+                    <button type="button" onClick={()=>{const c=[...(form.cadence||[])];c.splice(di,1);setForm(p=>({...p,cadence:c}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer"}}><Trash2 size={13}/></button>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:5,paddingLeft:10}}>
+                    {(d.items||[]).map((it,ii)=>(
+                      <div key={ii} style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                        <Textarea theme={theme} value={it} onChange={e=>{const c=[...(form.cadence||[])];const items=[...(c[di].items||[])];items[ii]=e.target.value;c[di]={...c[di],items};setForm(p=>({...p,cadence:c}))}} style={{flex:1,minHeight:40}}/>
+                        <button type="button" onClick={()=>{const c=[...(form.cadence||[])];const items=[...(c[di].items||[])];items.splice(ii,1);c[di]={...c[di],items};setForm(p=>({...p,cadence:c}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",marginTop:8}}><X size={12}/></button>
+                      </div>
+                    ))}
+                    <Btn theme={theme} small onClick={()=>{const c=[...(form.cadence||[])];c[di]={...c[di],items:[...(c[di].items||[]),""]};setForm(p=>({...p,cadence:c}))}}><Plus size={11}/> Add item</Btn>
+                  </div>
+                </div>
+              ))}
+              <Btn theme={theme} small onClick={()=>setForm(p=>({...p,cadence:[...(p.cadence||[]),{day:"",theme:"",items:[]}]}))}><Plus size={12}/> Add day</Btn>
+            </div>
+          </div>
+
+          <ListEditor label="Standing responsibilities" field="standing" placeholder="Add responsibility"/>
+          <ListEditor label="Immediate focus · next 1–2 weeks" field="focus" placeholder="Add focus item"/>
+
+          <div><Label theme={theme}>Source note</Label><Input theme={theme} value={form.sourceNote||""} onChange={e=>setForm(p=>({...p,sourceNote:e.target.value}))}/></div>
+
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+            {isAdmin&&opStructures.some(s=>s.userId===form.userId)&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setOpStructures(p=>p.filter(x=>x.userId!==form.userId));db.deleteOpStructure(form.userId);log("deleted structure for",uName(form.userId),"Team")})}><Trash2 size={13}/> Delete</Btn>}
+            <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+            <Btn primary theme={theme} onClick={()=>doSave(()=>{
+              const clean=(a)=>(a||[]).map(x=>typeof x==="string"?x.trim():x).filter(x=>typeof x==="string"?x:true);
+              const sd={userId:form.userId,subtitle:form.subtitle||"",intro:form.intro||"",owns:clean(form.owns),shared:clean(form.shared),
+                cadence:(form.cadence||[]).filter(d=>d.day).map(d=>({...d,items:clean(d.items)})),
+                standing:clean(form.standing),focus:clean(form.focus),sourceNote:form.sourceNote||""};
+              setOpStructures(p=>p.some(x=>x.userId===sd.userId)?p.map(x=>x.userId===sd.userId?sd:x):[...p,sd]);
+              db.saveOpStructure(sd);
+              log("updated operating structure",uName(sd.userId),"Team");
+            })}>Done</Btn>
+          </div>
+        </div></Modal>;
+      }
 
       /* ─── ROADMAP ITEM MODAL ─── */
       case "editRoadmapItem": {
