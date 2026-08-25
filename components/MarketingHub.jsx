@@ -339,6 +339,39 @@ const DOC_STATUS_COLORS = { Draft:"#4E6A78", "In Review":"#FFA94D", Final:"#1FC2
 /* ═══ COMPANY STRUCTURE (from Company Structure & Departmental Workflow) ═══ */
 const NANU_DEPARTMENTS = ["Business Development","Marketing and Advertising","Media and Content","Business Operations","Development","Partnerships and Outreach","Community Engagement","Advisory","Governance"];
 const DEPT_COLORS = { "Business Development":"#FFD43B", "Marketing and Advertising":"#FFA94D", "Media and Content":"#DA77F2", "Business Operations":"#22B8CF", "Development":"#1FC2C2", "Partnerships and Outreach":"#69DB7C", "Community Engagement":"#82F9F6", "Advisory":"#BDA177", "Governance":"#748FFC" };
+const MEETING_TYPES = ["Exec","All-hands","Marketing","Dev","Community","Media","Partnerships","Other"];
+const MEETING_TYPE_COLORS = { Exec:"#FFD43B", "All-hands":"#1FC2C2", Marketing:"#FFA94D", Dev:"#22B8CF", Community:"#82F9F6", Media:"#DA77F2", Partnerships:"#69DB7C", Other:"#6B7280" };
+const MACTION_STATUS = ["Open","In progress","Done","Dropped"];
+const MACTION_STATUS_COLORS = { Open:"#FF6B6B", "In progress":"#FFA94D", Done:"#69DB7C", Dropped:"#6B7280" };
+
+/* Pull action items out of a pasted Read.ai (or similar) meeting summary.
+   Looks for an "Action Items" heading, then takes the bullet/numbered lines under it. */
+function parseActionItems(text){
+  if(!text) return [];
+  const lines = text.split("\n");
+  const headingRe = /^\s*(#+\s*)?\**\s*(action items?|actions|next steps|to ?dos?|follow[- ]ups?)\s*\**\s*:?\s*$/i;
+  const otherHeadingRe = /^\s*(#+\s*)?\**\s*(summary|topics?|key questions?|overview|attendees|transcript|chapters?|highlights?|decisions?)\s*\**\s*:?\s*$/i;
+  const bulletRe = /^\s*(?:[-*•·–]|\d+[.)])\s+(.*)$/;
+  let inSection = false;
+  const out = [];
+  for(const raw of lines){
+    const line = raw.replace(/\r/g,"");
+    if(headingRe.test(line)){ inSection = true; continue; }
+    if(inSection && otherHeadingRe.test(line)) { inSection = false; continue; }
+    if(!inSection) continue;
+    const m = line.match(bulletRe);
+    if(m && m[1].trim()) out.push(m[1].trim().replace(/\*\*/g,""));
+  }
+  // Fallback: no heading found, take every bullet that reads like an assignment
+  if(out.length===0){
+    for(const raw of lines){
+      const m = raw.match(bulletRe);
+      if(m && /\b(to|will|should|needs? to|is going to)\b/i.test(m[1])) out.push(m[1].trim().replace(/\*\*/g,""));
+    }
+  }
+  return out;
+}
+
 const RM_BUCKETS = ["Requested","Now","Next","Later","Shipped","Parked"];
 const RM_BOARD_BUCKETS = ["Now","Next","Later"];
 const RM_BUCKET_COLORS = { Requested:"#748FFC", Now:"#69DB7C", Next:"#FFA94D", Later:"#4E6A78", Shipped:"#1FC2C2", Parked:"#6B7280" };
@@ -732,6 +765,9 @@ export default function MarketingHub() {
   const [phaseActions, setPhaseActions] = useState([]);
   const [roadmapItems, setRoadmapItems] = useState([]);
   const [opStructures, setOpStructures] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [meetingActions, setMeetingActions] = useState([]);
+  const [meetingView, setMeetingView] = useState("actions");
   const [rmView, setRmView] = useState("board");
   const [rmArea, setRmArea] = useState("All");
   const [bizDocs, setBizDocs] = useState([]);
@@ -811,6 +847,8 @@ export default function MarketingHub() {
       setPhaseActions(data.phaseActions || []);
       setRoadmapItems(data.roadmapItems || []);
       setOpStructures(data.opStructures || []);
+      setMeetings(data.meetings || []);
+      setMeetingActions(data.meetingActions || []);
       setMediaProducts(data.mediaProducts || []);
       setMediaItems(data.mediaItems || []);
       setMediaRoles(data.mediaRoles || []);
@@ -981,6 +1019,7 @@ export default function MarketingHub() {
         { key:"dashboard", label:"Dashboard", icon:<LayoutDashboard size={18}/> },
         { key:"team", label:"Team", icon:<Users size={18}/> },
         { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
+        { key:"meetings", label:"Meetings", icon:<MessageSquare size={18}/> },
         { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
         { key:"responsibilities", label:"Responsibilities", icon:<Repeat size={18}/> },
         { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
@@ -2981,6 +3020,143 @@ export default function MarketingHub() {
               </div>
             ))}
             {bizDocs.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No documents indexed yet. Click "Add Document" to start.</p>}
+          </div>}
+        </div>
+      );
+    }
+
+    /* ─── MEETINGS & ACTION POINTS ─── */
+    case "meetings": {
+      const myActions = meetingActions.filter(a=>a.owner===curUser.id&&a.status!=="Done"&&a.status!=="Dropped");
+      const openActions = meetingActions.filter(a=>a.status==="Open"||a.status==="In progress");
+      const mTitle = (id) => meetings.find(m=>m.id===id)?.title || "";
+      const mDate = (id) => meetings.find(m=>m.id===id)?.date || "";
+      const setActionStatus = (a, status) => {
+        const upd = {...a, status};
+        setMeetingActions(prev=>prev.map(x=>x.id===a.id?upd:x));
+        db.saveMeetingAction(upd);
+      };
+      const pushToTask = (a) => {
+        const nt = { id:uid("t"), title:a.text, owners:a.owner?[a.owner]:[], status:"Not Started", priority:"Medium",
+          dueDate:a.dueDate||"", blocker:"", notes:`Action point from ${mTitle(a.meetingId)}${mDate(a.meetingId)?" on "+mDate(a.meetingId):""}`,
+          context:`Agreed in ${mTitle(a.meetingId)}.`, contactName:"", contactDetail:"", outcome:"", linkedContent:"", project:"", updates:[],
+          createdBy:curUser.id, createdDate:todayStr };
+        setTasks(prev=>[...prev,nt]); db.saveTask(nt);
+        const upd={...a, taskId:nt.id};
+        setMeetingActions(prev=>prev.map(x=>x.id===a.id?upd:x)); db.saveMeetingAction(upd);
+        log("created task from action point", a.text, "Meetings");
+      };
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={<>
+            <Btn theme={theme} onClick={()=>openM("importMeeting",{raw:"",title:"",date:todayStr,type:"Exec",source:"Read.ai",_parsed:null})}><Download size={14}/> Import notes</Btn>
+            <Btn primary theme={theme} onClick={()=>openM("editMeeting",{title:"",date:todayStr,type:"Exec",attendees:[],summary:"",decisions:"",recordingUrl:"",source:"",notes:""})}><Plus size={14}/> Add Meeting</Btn>
+          </>}>Meetings & Action Points</SectionHead>
+
+          {/* My actions */}
+          {myActions.length>0&&<Card theme={theme} style={{padding:16,marginBottom:16,borderLeft:`3px solid ${theme.teal}`}}>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:10}}>Your action points ({myActions.length})</div>
+            {myActions.map(a=>(
+              <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${theme.borderLight}`,flexWrap:"wrap"}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:MACTION_STATUS_COLORS[a.status],flexShrink:0}}/>
+                <span style={{fontSize:13,flex:"1 1 220px",minWidth:0}}>{a.text}</span>
+                <span style={{fontSize:11,color:theme.textMut}}>{mTitle(a.meetingId)}</span>
+                {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:a.dueDate<todayStr?theme.red:theme.textMut}}>{a.dueDate}</span>}
+                <Btn theme={theme} small onClick={()=>setActionStatus(a,"Done")}><Check size={12}/> Done</Btn>
+              </div>
+            ))}
+          </Card>}
+
+          {/* View switcher */}
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+              {[["actions",`All actions${openActions.length?" ("+openActions.length+")":""}`],["meetings","Meetings"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setMeetingView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:meetingView===k?theme.teal:"transparent",color:meetingView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── ALL ACTIONS ── */}
+          {meetingView==="actions"&&<div>
+            {users.filter(u=>meetingActions.some(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped")).map(u=>(
+              <div key={u.id} style={{marginBottom:18}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:12,fontWeight:600,color:theme.textSec,textTransform:"uppercase",letterSpacing:".04em"}}>{u.name}</span>
+                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{meetingActions.filter(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped").length}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {meetingActions.filter(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped").map(a=>(
+                    <Card key={a.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${MACTION_STATUS_COLORS[a.status]}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <span style={{fontSize:13,flex:"1 1 220px",minWidth:0}}>{a.text}</span>
+                        <span style={{fontSize:11,color:theme.textMut}}>{mTitle(a.meetingId)}{mDate(a.meetingId)?` · ${mDate(a.meetingId)}`:""}</span>
+                        {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:a.dueDate<todayStr?theme.red:theme.textMut}}>{a.dueDate}</span>}
+                        <select value={a.status} onChange={e=>setActionStatus(a,e.target.value)} style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:MACTION_STATUS_COLORS[a.status],cursor:"pointer",fontWeight:700}}>
+                          {MACTION_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {a.taskId?<span title="Task created" style={{fontSize:10,color:theme.green,display:"flex",alignItems:"center",gap:3}}><CheckSquare size={11}/> task</span>
+                          :<Btn theme={theme} small onClick={()=>pushToTask(a)}><Plus size={11}/> Task</Btn>}
+                        <Btn theme={theme} small onClick={()=>openM("editMeetingAction",{...a})}><Edit3 size={11}/></Btn>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {(()=>{const un=meetingActions.filter(a=>!a.owner&&a.status!=="Done"&&a.status!=="Dropped");
+              return un.length>0&&<div style={{marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:600,color:theme.orange,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Unassigned · {un.length}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {un.map(a=>(
+                    <Card key={a.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${theme.orange}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <span style={{fontSize:13,flex:"1 1 220px",minWidth:0}}>{a.text}</span>
+                        {a.ownerText&&<span style={{fontSize:11,color:theme.textMut,fontStyle:"italic"}}>{a.ownerText}</span>}
+                        <span style={{fontSize:11,color:theme.textMut}}>{mTitle(a.meetingId)}</span>
+                        <Btn theme={theme} small onClick={()=>openM("editMeetingAction",{...a})}><Edit3 size={11}/> Assign</Btn>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>;})()}
+            {openActions.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No open action points. Import a set of meeting notes to get started.</p>}
+          </div>}
+
+          {/* ── MEETINGS ── */}
+          {meetingView==="meetings"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {meetings.map(m=>{
+              const acts=meetingActions.filter(a=>a.meetingId===m.id);
+              const openN=acts.filter(a=>a.status==="Open"||a.status==="In progress").length;
+              return <Card key={m.id} theme={theme} style={{padding:16,borderLeft:`3px solid ${MEETING_TYPE_COLORS[m.type]||theme.teal}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:6}}>
+                  <span style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,flex:"1 1 200px",minWidth:0}}>{m.title}</span>
+                  <Badge label={m.type} color={MEETING_TYPE_COLORS[m.type]}/>
+                  {m.source&&<Badge label={m.source} color={theme.textMut}/>}
+                  <span style={{fontFamily:FONT_MONO,fontSize:11,color:theme.textMut}}>{m.date}</span>
+                  {acts.length>0&&<span style={{fontSize:11,color:openN>0?theme.orange:theme.green,fontWeight:600}}>{openN>0?`${openN} open`:"all done"} · {acts.length} actions</span>}
+                  {m.recordingUrl&&<a href={m.recordingUrl} target="_blank" rel="noopener noreferrer" style={{color:theme.teal,display:"flex"}}><ExternalLink size={12}/></a>}
+                  <Btn theme={theme} small onClick={()=>openM("editMeeting",{...m})}><Edit3 size={11}/></Btn>
+                </div>
+                {m.summary&&<p style={{fontSize:12,color:theme.textSec,margin:"6px 0 0",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.summary}</p>}
+                {m.decisions&&<div style={{marginTop:8,padding:"8px 12px",background:theme.bgInput,borderRadius:8}}>
+                  <div style={{fontSize:9,color:theme.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>Decisions</div>
+                  <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.decisions}</p>
+                </div>}
+                {acts.length>0&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4}}>
+                  {acts.map(a=>(
+                    <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,paddingLeft:4}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:MACTION_STATUS_COLORS[a.status],flexShrink:0}}/>
+                      <span style={{flex:1,color:theme.textSec,textDecoration:a.status==="Done"?"line-through":"none",opacity:a.status==="Done"?0.6:1}}>{a.text}</span>
+                      <span style={{fontSize:11,color:theme.textMut}}>{a.owner?uName(a.owner):(a.ownerText||"Unassigned")}</span>
+                      {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:10,color:theme.textMut}}>{a.dueDate}</span>}
+                    </div>
+                  ))}
+                </div>}
+                <Btn theme={theme} small onClick={()=>openM("editMeetingAction",{meetingId:m.id,text:"",owner:"",ownerText:"",dueDate:"",status:"Open",taskId:"",notes:""})} style={{marginTop:10}}><Plus size={11}/> Add action point</Btn>
+              </Card>;
+            })}
+            {meetings.length===0&&<p style={{fontSize:13,color:theme.textMut,textAlign:"center",padding:24}}>No meetings logged yet.</p>}
           </div>}
         </div>
       );
@@ -5606,6 +5782,100 @@ export default function MarketingHub() {
             log("deleted",`${bulkSelected.length} task(s)`,"Tasks");
             setBulkSelected([]);
           })}><Trash2 size={13}/> Delete permanently</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── IMPORT MEETING NOTES ─── */
+      case "importMeeting": {
+        const parsed = form._parsed;
+        const guessOwner = (line) => {
+          const hit = activeUsers.find(u=>{
+            const first=u.name.split(" ")[0];
+            return new RegExp(`\\b${first}\\b`,"i").test(line);
+          });
+          return hit?hit.id:"";
+        };
+        const doParse = () => {
+          const items = parseActionItems(form.raw);
+          setForm(p=>({...p,_parsed: items.map(text=>({text, owner: guessOwner(text), dueDate:""}))}));
+        };
+        return <Modal theme={theme} title="Import meeting notes" onClose={closeM} width={680}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6}}>Paste the summary from Read.ai (or any notes tool). Action points are pulled out automatically — check the owners and dates before saving.</p>
+          <div className="nanu-form-row"><div><Label theme={theme}>Meeting title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Exec sync"/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div></div>
+          <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={MEETING_TYPES} value={form.type||"Exec"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Source</Label><Input theme={theme} value={form.source||""} onChange={e=>setForm(p=>({...p,source:e.target.value}))}/></div></div>
+          <div>
+            <Label theme={theme}>Paste the notes</Label>
+            <Textarea theme={theme} value={form.raw||""} onChange={e=>setForm(p=>({...p,raw:e.target.value,_parsed:null}))} style={{minHeight:160,fontFamily:FONT_MONO,fontSize:12}} placeholder={"Paste the full summary here.\n\nAction Items\n- Nicholas to set up the password manager by Wednesday\n- Ed to meet Maya and Keara"}/>
+            <Btn theme={theme} small onClick={doParse} style={{marginTop:8}}><Zap size={12}/> Find action points</Btn>
+          </div>
+
+          {parsed&&<div>
+            <Label theme={theme}>Found {parsed.length} action point{parsed.length===1?"":"s"}</Label>
+            {parsed.length===0&&<p style={{fontSize:12,color:theme.orange,lineHeight:1.6}}>Nothing detected. Add an "Action Items" heading with bullet points, or add them by hand after saving.</p>}
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:280,overflow:"auto"}}>
+              {parsed.map((a,i)=>(
+                <div key={i} style={{padding:10,background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`}}>
+                  <Textarea theme={theme} value={a.text} onChange={e=>{const p2=[...parsed];p2[i]={...a,text:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{minHeight:42,marginBottom:6}}/>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    <Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={a.owner} onChange={e=>{const p2=[...parsed];p2[i]={...a,owner:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{width:"auto",fontSize:12,padding:"4px 8px"}}/>
+                    <Input theme={theme} type="date" value={a.dueDate} onChange={e=>{const p2=[...parsed];p2[i]={...a,dueDate:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{width:"auto",fontSize:12,padding:"4px 8px"}}/>
+                    <button type="button" onClick={()=>{const p2=[...parsed];p2.splice(i,1);setForm(p=>({...p,_parsed:p2}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",marginLeft:"auto"}}><Trash2 size={13}/></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>}
+
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+            <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+            <Btn primary theme={theme} disabled={!form.title} onClick={()=>doSave(()=>{
+              const mid=uid("mtg");
+              const md={id:mid,title:form.title||"",date:form.date||"",type:form.type||"Exec",attendees:[],summary:form.raw||"",decisions:"",recordingUrl:"",source:form.source||"",notes:"",createdBy:curUser.id};
+              setMeetings(prev=>[md,...prev]); db.saveMeeting(md);
+              const acts=(parsed||[]).filter(a=>a.text.trim()).map(a=>({id:uid("ma"),meetingId:mid,text:a.text.trim(),owner:a.owner||"",ownerText:"",dueDate:a.dueDate||"",status:"Open",taskId:"",notes:""}));
+              setMeetingActions(prev=>[...prev,...acts]); acts.forEach(a=>db.saveMeetingAction(a));
+              log("imported",`${md.title} with ${acts.length} action point(s)`,"Meetings");
+            })}><Check size={13}/> Save meeting{parsed?` + ${parsed.length} actions`:""}</Btn>
+          </div>
+        </div></Modal>;
+      }
+
+      /* ─── MEETING MODAL ─── */
+      case "editMeeting": return <Modal theme={theme} title={form.id?"Edit Meeting":"New Meeting"} onClose={closeM} width={620}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div className="nanu-form-row"><div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div><div><Label theme={theme}>Date</Label><Input theme={theme} type="date" value={form.date||""} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Type</Label><Sel theme={theme} options={MEETING_TYPES} value={form.type||"Exec"} onChange={e=>setForm(p=>({...p,type:e.target.value}))}/></div><div><Label theme={theme}>Source</Label><Input theme={theme} value={form.source||""} onChange={e=>setForm(p=>({...p,source:e.target.value}))} placeholder="Read.ai, in person..."/></div></div>
+        <div><Label theme={theme}>Summary</Label><Textarea theme={theme} value={form.summary||""} onChange={e=>setForm(p=>({...p,summary:e.target.value}))} style={{minHeight:100}}/></div>
+        <div><Label theme={theme}>Decisions</Label><Textarea theme={theme} value={form.decisions||""} onChange={e=>setForm(p=>({...p,decisions:e.target.value}))} placeholder="What was actually decided"/></div>
+        <div><Label theme={theme}>Recording / notes link</Label><Input theme={theme} value={form.recordingUrl||""} onChange={e=>setForm(p=>({...p,recordingUrl:e.target.value}))}/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMeetings(p=>p.filter(x=>x.id!==form.id));meetingActions.filter(a=>a.meetingId===form.id).forEach(a=>db.deleteMeetingAction(a.id));setMeetingActions(p=>p.filter(a=>a.meetingId!==form.id));db.deleteMeeting(form.id);log("deleted",form.title,"Meetings")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const mid=form.id||uid("mtg");
+            const md={id:mid,title:form.title||"",date:form.date||"",type:form.type||"Exec",attendees:form.attendees||[],summary:form.summary||"",decisions:form.decisions||"",recordingUrl:form.recordingUrl||"",source:form.source||"",notes:form.notes||"",createdBy:form.createdBy||curUser.id};
+            if(form.id){setMeetings(p=>p.map(x=>x.id===form.id?md:x));log("updated",md.title,"Meetings")}
+            else{setMeetings(p=>[md,...p]);log("added",md.title,"Meetings")}
+            db.saveMeeting(md);
+          })}>Done</Btn>
+        </div>
+      </div></Modal>;
+
+      /* ─── MEETING ACTION MODAL ─── */
+      case "editMeetingAction": return <Modal theme={theme} title={form.id?"Edit Action Point":"New Action Point"} onClose={closeM} width={560}><div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div><Label theme={theme}>Action</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
+        <div><Label theme={theme}>Meeting</Label><Sel theme={theme} options={[{value:"",label:"Not linked"},...meetings.map(m=>({value:m.id,label:`${m.title}${m.date?" · "+m.date:""}`}))]} value={form.meetingId||""} onChange={e=>setForm(p=>({...p,meetingId:e.target.value}))}/></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Due date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={MACTION_STATUS} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner (free text)</Label><Input theme={theme} value={form.ownerText||""} onChange={e=>setForm(p=>({...p,ownerText:e.target.value}))} placeholder="If not a hub user"/></div></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+          {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMeetingActions(p=>p.filter(x=>x.id!==form.id));db.deleteMeetingAction(form.id);log("deleted action point","","Meetings")})}><Trash2 size={13}/> Delete</Btn>}
+          <Btn theme={theme} onClick={closeM}>Cancel</Btn>
+          <Btn primary theme={theme} onClick={()=>doSave(()=>{
+            const aid=form.id||uid("ma");
+            const ad={id:aid,meetingId:form.meetingId||"",text:form.text||"",owner:form.owner||"",ownerText:form.ownerText||"",dueDate:form.dueDate||"",status:form.status||"Open",taskId:form.taskId||"",notes:form.notes||""};
+            if(form.id){setMeetingActions(p=>p.map(x=>x.id===form.id?ad:x))}
+            else{setMeetingActions(p=>[...p,ad])}
+            db.saveMeetingAction(ad);
+          })}>Done</Btn>
         </div>
       </div></Modal>;
 
