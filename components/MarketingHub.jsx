@@ -342,6 +342,8 @@ const DEPT_COLORS = { "Business Development":"#FFD43B", "Marketing and Advertisi
 const MEETING_TYPES = ["Exec","All-hands","Marketing","Dev","Community","Media","Partnerships","Other"];
 const MEETING_TYPE_COLORS = { Exec:"#FFD43B", "All-hands":"#1FC2C2", Marketing:"#FFA94D", Dev:"#22B8CF", Community:"#82F9F6", Media:"#DA77F2", Partnerships:"#69DB7C", Other:"#6B7280" };
 const MACTION_STATUS = ["Open","In progress","Done","Dropped"];
+const MACTION_PRIORITY = ["Critical","High","Medium","Low"];
+const MACTION_PRIORITY_COLORS = { Critical:"#FF6B6B", High:"#FFA94D", Medium:"#FFD43B", Low:"#6B7280" };
 const MACTION_STATUS_COLORS = { Open:"#FF6B6B", "In progress":"#FFA94D", Done:"#69DB7C", Dropped:"#6B7280" };
 
 /* Pull action items out of a pasted Read.ai (or similar) meeting summary.
@@ -535,6 +537,41 @@ const Label = ({ children, theme }) => (
 const Card = ({ theme, children, style, onClick }) => (
   <div onClick={onClick} style={{ background:theme.bgCard, borderRadius:12, border:`1px solid ${theme.border}`, padding:18, boxShadow:theme.shadow, transition:"all .2s", cursor: onClick ? "pointer" : "default", ...style }}>{children}</div>
 );
+
+/* Blocker editor — same shape everywhere a blocker can be raised */
+const BlockerFields = ({ theme, form, setForm, users, todayStr }) => {
+  const active = !!(form.blocker && form.blocker.trim());
+  return (
+    <div style={{ padding:"12px 14px", background: active ? "rgba(255,107,107,0.05)" : theme.bgInput, borderRadius:10, border:`1px solid ${active ? "rgba(255,107,107,0.35)" : theme.border}` }}>
+      <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8 }}>
+        <AlertTriangle size={14} color={active ? theme.red : theme.textMut}/>
+        <span style={{ fontSize:13, fontWeight:600, color: active ? theme.red : theme.textSec }}>Blocker</span>
+        {active && <span style={{ fontSize:11, color:theme.textMut, marginLeft:"auto" }}>Appears in Blockers for the whole team</span>}
+      </div>
+      <Input theme={theme} value={form.blocker||""} placeholder="What is stopping this? Leave blank if nothing."
+        onChange={e=>setForm(p=>({ ...p, blocker:e.target.value,
+          blockerSince: e.target.value && !p.blockerSince ? todayStr : (e.target.value ? p.blockerSince : ""),
+          blockerOwner: e.target.value ? p.blockerOwner : "",
+          blockerEscalated: e.target.value ? p.blockerEscalated : false }))}/>
+      {active && <div style={{ marginTop:10, display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end" }}>
+        <div style={{ flex:"1 1 190px" }}>
+          <Label theme={theme}>Who can clear it?</Label>
+          <Sel theme={theme} options={[{value:"",label:"Not sure yet"},...users.map(u=>({value:u.id,label:u.name}))]}
+            value={form.blockerOwner||""} onChange={e=>setForm(p=>({...p,blockerOwner:e.target.value}))}/>
+        </div>
+        <div style={{ flex:"0 1 150px" }}>
+          <Label theme={theme}>Raised on</Label>
+          <Input theme={theme} type="date" value={form.blockerSince||""} onChange={e=>setForm(p=>({...p,blockerSince:e.target.value}))}/>
+        </div>
+        <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", fontSize:12, paddingBottom:9 }}>
+          <input type="checkbox" checked={!!form.blockerEscalated} onChange={e=>setForm(p=>({...p,blockerEscalated:e.target.checked}))}
+            style={{ accentColor:theme.red, width:15, height:15, cursor:"pointer" }}/>
+          Escalate to exec
+        </label>
+      </div>}
+    </div>
+  );
+};
 
 /* Reusable timeline: one cell per day, colour fades toward the deadline.
    Past days are dimmed, today is ringed. Buckets into weeks if the span is long. */
@@ -768,6 +805,8 @@ export default function MarketingHub() {
   const [meetings, setMeetings] = useState([]);
   const [meetingActions, setMeetingActions] = useState([]);
   const [meetingView, setMeetingView] = useState("actions");
+  const [meetingFilter, setMeetingFilter] = useState("all");
+  const [blockerScope, setBlockerScope] = useState("all");
   const [rmView, setRmView] = useState("board");
   const [rmArea, setRmArea] = useState("All");
   const [bizDocs, setBizDocs] = useState([]);
@@ -949,6 +988,38 @@ export default function MarketingHub() {
   };
   const userDept = (uid2) => { const u = users.find(x => x.id === uid2); return u ? (DEPT_BY_ROLE[u.role] || "Other") : "Unassigned"; };
 
+  /* ═══ BLOCKERS ═══
+     Blockers live on the thing they block (task, media item, roadmap item,
+     action point). This gathers them into one list so nothing sits quietly. */
+  const allBlockers = [
+    ...tasks.filter(t2=>t2.blocker&&t2.status!=="Done").map(t2=>({
+      id:"bt_"+t2.id, kind:"Task", title:t2.title, blocker:t2.blocker,
+      owner:Array.isArray(t2.owners)?t2.owners[0]:t2.owners, blockerOwner:t2.blockerOwner,
+      since:t2.blockerSince, escalated:t2.blockerEscalated, section:"tasks",
+      open:()=>openM("editTask",{...t2}),
+      clear:()=>{const u={...t2,blocker:"",blockerOwner:"",blockerSince:"",blockerEscalated:false};setTasks(p=>p.map(x=>x.id===t2.id?u:x));db.saveTask(u);log("cleared blocker on",t2.title,"Blockers")},
+    })),
+    ...mediaItems.filter(i=>i.blocker&&i.stage!=="Published").map(i=>({
+      id:"bm_"+i.id, kind:"Media", title:i.title||"Untitled item", blocker:i.blocker,
+      owner:i.owner, blockerOwner:i.blockerOwner, since:i.blockerSince, escalated:i.blockerEscalated, section:"media",
+      open:()=>openM("editMediaItem",{...i}),
+      clear:()=>{const u={...i,blocker:"",blockerOwner:"",blockerSince:"",blockerEscalated:false};setMediaItems(p=>p.map(x=>x.id===i.id?u:x));db.saveMediaItem(u);log("cleared blocker on",i.title,"Blockers")},
+    })),
+    ...roadmapItems.filter(r=>r.blocker&&r.bucket!=="Shipped"&&r.bucket!=="Parked").map(r=>({
+      id:"br_"+r.id, kind:"Roadmap", title:r.title, blocker:r.blocker,
+      owner:r.owner, blockerOwner:r.blockerOwner, since:r.blockerSince, escalated:r.blockerEscalated, section:"roadmap",
+      open:()=>openM("editRoadmapItem",{...r}),
+      clear:()=>{const u={...r,blocker:"",blockerOwner:"",blockerSince:"",blockerEscalated:false};setRoadmapItems(p=>p.map(x=>x.id===r.id?u:x));db.saveRoadmapItem(u);log("cleared blocker on",r.title,"Blockers")},
+    })),
+    ...meetingActions.filter(a=>a.blocker&&a.status!=="Done"&&a.status!=="Dropped").map(a=>({
+      id:"ba_"+a.id, kind:"Action point", title:a.text, blocker:a.blocker,
+      owner:a.owner, blockerOwner:a.blockerOwner, since:a.blockerSince, escalated:a.blockerEscalated, section:"meetings",
+      open:()=>openM("editMeetingAction",{...a}),
+      clear:()=>{const u={...a,blocker:"",blockerOwner:"",blockerSince:"",blockerEscalated:false};setMeetingActions(p=>p.map(x=>x.id===a.id?u:x));db.saveMeetingAction(u);log("cleared blocker on",a.text,"Blockers")},
+    })),
+  ];
+  const blockerAge = (b) => b.since ? daysBetween(b.since, todayStr) : null;
+
   // Responsibility helpers
   const respNextDue = (r) => {
     if (r.cadence === "Continuous") return "";
@@ -1020,6 +1091,7 @@ export default function MarketingHub() {
         { key:"team", label:"Team", icon:<Users size={18}/> },
         { key:"calendar", label:"Calendar", icon:<Calendar size={18}/> },
         { key:"meetings", label:"Meetings", icon:<MessageSquare size={18}/> },
+        { key:"blockers", label:"Blockers", icon:<AlertTriangle size={18}/> },
         { key:"tasks", label:"Tasks", icon:<CheckSquare size={18}/> },
         { key:"responsibilities", label:"Responsibilities", icon:<Repeat size={18}/> },
         { key:"projects", label:"Projects", icon:<FolderKanban size={18}/> },
@@ -3025,6 +3097,95 @@ export default function MarketingHub() {
       );
     }
 
+    /* ─── BLOCKERS ─── */
+    case "blockers": {
+      const scoped = blockerScope==="mine"
+        ? allBlockers.filter(b=>b.owner===curUser.id||b.blockerOwner===curUser.id)
+        : blockerScope==="onme" ? allBlockers.filter(b=>b.blockerOwner===curUser.id)
+        : allBlockers;
+      const escalated = scoped.filter(b=>b.escalated);
+      const stale = scoped.filter(b=>!b.escalated&&(blockerAge(b)??0)>=7);
+      const rest = scoped.filter(b=>!b.escalated&&(blockerAge(b)??0)<7);
+
+      const Row = ({b}) => {
+        const age = blockerAge(b);
+        const tone = b.escalated?theme.red:(age!==null&&age>=7?theme.orange:theme.yellow);
+        return <Card theme={theme} style={{padding:14,borderLeft:`3px solid ${tone}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+            <AlertTriangle size={15} color={tone} style={{flexShrink:0,marginTop:2}}/>
+            <div style={{flex:"1 1 240px",minWidth:0}}>
+              <div style={{fontSize:13,color:theme.text,fontWeight:600,lineHeight:1.5}}>{b.blocker}</div>
+              <div onClick={b.open} style={{fontSize:12,color:theme.textMut,marginTop:4,cursor:"pointer"}}>
+                blocking <span style={{color:theme.tealLt,textDecoration:"underline"}}>{b.title}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <Badge label={b.kind} color={theme.textMut}/>
+              {b.owner&&<span style={{fontSize:11,color:theme.textMut}}>{uName(b.owner)}</span>}
+              {b.blockerOwner&&<span style={{fontSize:11,color:theme.orange,fontWeight:600}}>needs {uName(b.blockerOwner)}</span>}
+              {age!==null&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:tone,fontWeight:700}}>{age}d</span>}
+              {b.escalated&&<Badge label="Escalated" color={theme.red}/>}
+              <Btn theme={theme} small onClick={b.open}><Edit3 size={11}/></Btn>
+              <Btn theme={theme} small onClick={b.clear}><Check size={11}/> Clear</Btn>
+            </div>
+          </div>
+        </Card>;
+      };
+
+      return (
+        <div>
+          <SectionHead theme={theme} right={
+            <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
+              {[["all","Everything"],["mine","Mine"],["onme","Waiting on me"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setBlockerScope(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:blockerScope===k?theme.teal:"transparent",color:blockerScope===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
+              ))}
+            </div>
+          }>Blockers</SectionHead>
+          <p style={{fontSize:13,color:theme.textSec,marginBottom:16,maxWidth:680,lineHeight:1.6}}>Everything currently stuck, from anywhere in the hub. A blocker is a blocker — nobody is asked to justify it. Clear it if you can, escalate if you cannot.</p>
+
+          <div className="nanu-grid-summary" style={{marginBottom:18}}>
+            <Card theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${theme.red}`}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.red}}>{escalated.length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Escalated</div>
+            </Card>
+            <Card theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${theme.orange}`}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.orange}}>{stale.length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Over a week</div>
+            </Card>
+            <Card theme={theme} style={{padding:12,textAlign:"center",borderTop:`3px solid ${theme.yellow}`}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.yellow}}>{rest.length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Recent</div>
+            </Card>
+            <Card theme={theme} style={{padding:12,textAlign:"center"}}>
+              <div className="nanu-big-num" style={{fontSize:22,color:theme.teal}}>{allBlockers.filter(b=>b.blockerOwner===curUser.id).length}</div>
+              <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>Waiting on you</div>
+            </Card>
+          </div>
+
+          {escalated.length>0&&<div style={{marginBottom:18}}>
+            <div style={{fontSize:12,fontWeight:700,color:theme.red,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Escalated · needs an executive decision</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>{escalated.map(b=><Row key={b.id} b={b}/>)}</div>
+          </div>}
+
+          {stale.length>0&&<div style={{marginBottom:18}}>
+            <div style={{fontSize:12,fontWeight:700,color:theme.orange,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Stuck over a week</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>{stale.map(b=><Row key={b.id} b={b}/>)}</div>
+          </div>}
+
+          {rest.length>0&&<div style={{marginBottom:18}}>
+            <div style={{fontSize:12,fontWeight:700,color:theme.textMut,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Recent</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>{rest.map(b=><Row key={b.id} b={b}/>)}</div>
+          </div>}
+
+          {scoped.length===0&&<Card theme={theme} style={{padding:32,textAlign:"center"}}>
+            <Check size={28} color={theme.green} style={{marginBottom:10}}/>
+            <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:16,marginBottom:6}}>Nothing blocked</div>
+            <p style={{fontSize:13,color:theme.textMut}}>{blockerScope==="all"?"Nothing across the hub is currently stuck.":"Nothing in this view."}</p>
+          </Card>}
+        </div>
+      );
+    }
+
     /* ─── MEETINGS & ACTION POINTS ─── */
     case "meetings": {
       const myActions = meetingActions.filter(a=>a.owner===curUser.id&&a.status!=="Done"&&a.status!=="Dropped");
@@ -3037,8 +3198,8 @@ export default function MarketingHub() {
         db.saveMeetingAction(upd);
       };
       const pushToTask = (a) => {
-        const nt = { id:uid("t"), title:a.text, owners:a.owner?[a.owner]:[], status:"Not Started", priority:"Medium",
-          dueDate:a.dueDate||"", blocker:"", notes:`Action point from ${mTitle(a.meetingId)}${mDate(a.meetingId)?" on "+mDate(a.meetingId):""}`,
+        const nt = { id:uid("t"), title:a.text, owners:a.owner?[a.owner]:[], status:"Not Started", priority:a.priority||"Medium", blockerOwner:a.blockerOwner||"", blockerSince:a.blockerSince||"", blockerEscalated:!!a.blockerEscalated,
+          dueDate:a.dueDate||"", blocker:a.blocker||"", notes:`Action point from ${mTitle(a.meetingId)}${mDate(a.meetingId)?" on "+mDate(a.meetingId):""}`,
           context:`Agreed in ${mTitle(a.meetingId)}.`, contactName:"", contactDetail:"", outcome:"", linkedContent:"", project:"", updates:[],
           createdBy:curUser.id, createdDate:todayStr };
         setTasks(prev=>[...prev,nt]); db.saveTask(nt);
@@ -3057,10 +3218,11 @@ export default function MarketingHub() {
           {/* My actions */}
           {myActions.length>0&&<Card theme={theme} style={{padding:16,marginBottom:16,borderLeft:`3px solid ${theme.teal}`}}>
             <div style={{fontFamily:FONT_DISPLAY,fontWeight:700,fontSize:15,marginBottom:10}}>Your action points ({myActions.length})</div>
-            {myActions.map(a=>(
+            {[...myActions].sort((x,y)=>MACTION_PRIORITY.indexOf(x.priority||"Medium")-MACTION_PRIORITY.indexOf(y.priority||"Medium")).map(a=>(
               <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${theme.borderLight}`,flexWrap:"wrap"}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:MACTION_STATUS_COLORS[a.status],flexShrink:0}}/>
-                <span style={{fontSize:13,flex:"1 1 220px",minWidth:0}}>{a.text}</span>
+                <div title={a.priority||"Medium"} style={{width:8,height:8,borderRadius:"50%",background:MACTION_PRIORITY_COLORS[a.priority||"Medium"],flexShrink:0}}/>
+                <span style={{fontSize:13,flex:"1 1 200px",minWidth:0}}>{a.text}</span>
+                {a.blocker&&<span title={a.blocker} style={{display:"flex",alignItems:"center",gap:3,fontSize:11,color:theme.red}}><AlertTriangle size={11}/>blocked</span>}
                 <span style={{fontSize:11,color:theme.textMut}}>{mTitle(a.meetingId)}</span>
                 {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:a.dueDate<todayStr?theme.red:theme.textMut}}>{a.dueDate}</span>}
                 <Btn theme={theme} small onClick={()=>setActionStatus(a,"Done")}><Check size={12}/> Done</Btn>
@@ -3068,28 +3230,53 @@ export default function MarketingHub() {
             ))}
           </Card>}
 
-          {/* View switcher */}
-          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {/* Summary */}
+          <div className="nanu-grid-summary" style={{marginBottom:16}}>
+            {[
+              {l:"Open",v:openActions.length,c:theme.teal},
+              {l:"Critical & High",v:openActions.filter(a=>["Critical","High"].includes(a.priority)).length,c:theme.orange},
+              {l:"Blocked",v:openActions.filter(a=>a.blocker).length,c:theme.red},
+              {l:"Overdue",v:openActions.filter(a=>a.dueDate&&a.dueDate<todayStr).length,c:theme.red},
+              {l:"Unassigned",v:openActions.filter(a=>!a.owner).length,c:theme.yellow},
+            ].map(s=>(
+              <Card key={s.l} theme={theme} style={{padding:12,textAlign:"center"}}>
+                <div className="nanu-big-num" style={{fontSize:22,color:s.v>0?s.c:theme.textMut}}>{s.v}</div>
+                <div style={{fontSize:11,color:theme.textMut,fontWeight:600,marginTop:2}}>{s.l}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* View switcher + filters */}
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",justifyContent:"space-between"}}>
             <div style={{display:"flex",background:theme.bgInput,borderRadius:8,border:`1px solid ${theme.border}`,overflow:"hidden"}}>
-              {[["actions",`All actions${openActions.length?" ("+openActions.length+")":""}`],["meetings","Meetings"]].map(([k,l])=>(
+              {[["actions",`All actions${openActions.length?" ("+openActions.length+")":""}`],["meetings",`Meetings (${meetings.length})`]].map(([k,l])=>(
                 <button key={k} onClick={()=>setMeetingView(k)} style={{padding:"6px 12px",border:"none",fontSize:12,background:meetingView===k?theme.teal:"transparent",color:meetingView===k?"#0D1B21":theme.textSec,cursor:"pointer",fontWeight:600}}>{l}</button>
               ))}
             </div>
+            {meetingView==="actions"&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[["all","All"],["critical","Critical & High"],["blocked","Blocked"],["overdue","Overdue"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setMeetingFilter(k)} style={{padding:"5px 11px",borderRadius:8,border:`1px solid ${meetingFilter===k?theme.teal:theme.border}`,fontSize:12,background:meetingFilter===k?`${theme.teal}18`:"transparent",color:meetingFilter===k?theme.teal:theme.textMut,cursor:"pointer",fontWeight:600}}>{l}</button>
+              ))}
+            </div>}
           </div>
 
           {/* ── ALL ACTIONS ── */}
           {meetingView==="actions"&&<div>
-            {users.filter(u=>meetingActions.some(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped")).map(u=>(
+            {(()=>{const pri=(a)=>MACTION_PRIORITY.indexOf(a.priority||"Medium");
+              const visible=(a)=>a.status!=="Done"&&a.status!=="Dropped"&&(meetingFilter==="all"||(meetingFilter==="critical"&&["Critical","High"].includes(a.priority))||(meetingFilter==="blocked"&&a.blocker)||(meetingFilter==="overdue"&&a.dueDate&&a.dueDate<todayStr));
+              return <>
+            {users.filter(u=>meetingActions.some(a=>a.owner===u.id&&visible(a))).map(u=>(
               <div key={u.id} style={{marginBottom:18}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                   <span style={{fontSize:12,fontWeight:600,color:theme.textSec,textTransform:"uppercase",letterSpacing:".04em"}}>{u.name}</span>
-                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{meetingActions.filter(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped").length}</span>
+                  <span style={{fontSize:11,color:theme.textMut,background:theme.bgInput,padding:"1px 8px",borderRadius:8}}>{meetingActions.filter(a=>a.owner===u.id&&visible(a)).length}</span>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                  {meetingActions.filter(a=>a.owner===u.id&&a.status!=="Done"&&a.status!=="Dropped").map(a=>(
-                    <Card key={a.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${MACTION_STATUS_COLORS[a.status]}`}}>
+                  {meetingActions.filter(a=>a.owner===u.id&&visible(a)).sort((x,y)=>pri(x)-pri(y)).map(a=>(
+                    <Card key={a.id} theme={theme} style={{padding:12,borderLeft:`3px solid ${a.blocker?theme.red:MACTION_PRIORITY_COLORS[a.priority||"Medium"]}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                        <span style={{fontSize:13,flex:"1 1 220px",minWidth:0}}>{a.text}</span>
+                        <Badge label={a.priority||"Medium"} color={MACTION_PRIORITY_COLORS[a.priority||"Medium"]}/>
+                        <span style={{fontSize:13,flex:"1 1 200px",minWidth:0}}>{a.text}</span>
                         <span style={{fontSize:11,color:theme.textMut}}>{mTitle(a.meetingId)}{mDate(a.meetingId)?` · ${mDate(a.meetingId)}`:""}</span>
                         {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:11,color:a.dueDate<todayStr?theme.red:theme.textMut}}>{a.dueDate}</span>}
                         <select value={a.status} onChange={e=>setActionStatus(a,e.target.value)} style={{fontSize:11,padding:"3px 6px",borderRadius:6,border:`1px solid ${theme.border}`,background:theme.bgInput,color:MACTION_STATUS_COLORS[a.status],cursor:"pointer",fontWeight:700}}>
@@ -3099,11 +3286,17 @@ export default function MarketingHub() {
                           :<Btn theme={theme} small onClick={()=>pushToTask(a)}><Plus size={11}/> Task</Btn>}
                         <Btn theme={theme} small onClick={()=>openM("editMeetingAction",{...a})}><Edit3 size={11}/></Btn>
                       </div>
+                      {a.blocker&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:7,paddingTop:7,borderTop:`1px solid ${theme.borderLight}`,fontSize:12,color:theme.red}}>
+                        <AlertTriangle size={11}/><span style={{flex:1}}>{a.blocker}</span>
+                        {a.blockerOwner&&<span style={{fontSize:11,color:theme.orange}}>needs {uName(a.blockerOwner)}</span>}
+                        {a.blockerEscalated&&<Badge label="Escalated" color={theme.red}/>}
+                      </div>}
                     </Card>
                   ))}
                 </div>
               </div>
             ))}
+            </>;})()}
             {(()=>{const un=meetingActions.filter(a=>!a.owner&&a.status!=="Done"&&a.status!=="Dropped");
               return un.length>0&&<div style={{marginBottom:18}}>
                 <div style={{fontSize:12,fontWeight:600,color:theme.orange,marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Unassigned · {un.length}</div>
@@ -3146,8 +3339,9 @@ export default function MarketingHub() {
                 {acts.length>0&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4}}>
                   {acts.map(a=>(
                     <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,paddingLeft:4}}>
-                      <div style={{width:6,height:6,borderRadius:"50%",background:MACTION_STATUS_COLORS[a.status],flexShrink:0}}/>
+                      <div title={a.priority||"Medium"} style={{width:6,height:6,borderRadius:"50%",background:a.status==="Done"?theme.green:MACTION_PRIORITY_COLORS[a.priority||"Medium"],flexShrink:0}}/>
                       <span style={{flex:1,color:theme.textSec,textDecoration:a.status==="Done"?"line-through":"none",opacity:a.status==="Done"?0.6:1}}>{a.text}</span>
+                      {a.blocker&&<AlertTriangle size={10} color={theme.red}/>}
                       <span style={{fontSize:11,color:theme.textMut}}>{a.owner?uName(a.owner):(a.ownerText||"Unassigned")}</span>
                       {a.dueDate&&<span style={{fontFamily:FONT_MONO,fontSize:10,color:theme.textMut}}>{a.dueDate}</span>}
                     </div>
@@ -4859,7 +5053,7 @@ export default function MarketingHub() {
         <div><Label theme={theme}>What does done look like?</Label><Input theme={theme} value={form.outcome||""} onChange={e=>setForm(p=>({...p,outcome:e.target.value}))} placeholder="What should happen once contact is made, or what's the finished result?"/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Assigned To</Label><div style={{display:"flex",flexDirection:"column",gap:4}}>{users.map(u=>(<label key={u.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.owners||[]).includes(u.id)} onChange={e=>{const cur=form.owners||[];setForm(p=>({...p,owners:e.target.checked?[...cur,u.id]:cur.filter(x=>x!==u.id)}))}}/>{u.name}</label>))}</div></div><div><Label theme={theme}>Status</Label><Sel theme={theme} options={TASK_STATUSES} value={form.status||"Not Started"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={TASK_PRIORITIES} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
-        <div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="Describe any blockers..."/></div>
+        <BlockerFields theme={theme} form={form} setForm={setForm} users={activeUsers} todayStr={todayStr}/>
         <div className="nanu-form-row"><div><Label theme={theme}>Project</Label><Sel theme={theme} options={[{value:"",label:"None"},...visibleProjects.map((p)=>({value:p.id,label:p.name}))]} value={form.project||""} onChange={(e)=>setForm(p=>({...p,project:e.target.value}))}/></div><div><Label theme={theme}>Linked Content</Label><Sel theme={theme} options={[{value:"",label:"None"},...calendar.map((c)=>({value:c.id,label:`${c.title} (${c.platform})`}))]} value={form.linkedContent||""} onChange={(e)=>setForm(p=>({...p,linkedContent:e.target.value}))}/></div></div>
 
         {/* Updates / Activity Feed */}
@@ -5797,7 +5991,7 @@ export default function MarketingHub() {
         };
         const doParse = () => {
           const items = parseActionItems(form.raw);
-          setForm(p=>({...p,_parsed: items.map(text=>({text, owner: guessOwner(text), dueDate:""}))}));
+          setForm(p=>({...p,_parsed: items.map(text=>({text, owner: guessOwner(text), dueDate:"", priority:"Medium"}))}));
         };
         return <Modal theme={theme} title="Import meeting notes" onClose={closeM} width={680}><div style={{display:"flex",flexDirection:"column",gap:14}}>
           <p style={{fontSize:12,color:theme.textSec,margin:0,lineHeight:1.6}}>Paste the summary from Read.ai (or any notes tool). Action points are pulled out automatically — check the owners and dates before saving.</p>
@@ -5819,6 +6013,7 @@ export default function MarketingHub() {
                   <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                     <Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={a.owner} onChange={e=>{const p2=[...parsed];p2[i]={...a,owner:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{width:"auto",fontSize:12,padding:"4px 8px"}}/>
                     <Input theme={theme} type="date" value={a.dueDate} onChange={e=>{const p2=[...parsed];p2[i]={...a,dueDate:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{width:"auto",fontSize:12,padding:"4px 8px"}}/>
+                    <Sel theme={theme} options={MACTION_PRIORITY} value={a.priority||"Medium"} onChange={e=>{const p2=[...parsed];p2[i]={...a,priority:e.target.value};setForm(p=>({...p,_parsed:p2}))}} style={{width:"auto",fontSize:12,padding:"4px 8px"}}/>
                     <button type="button" onClick={()=>{const p2=[...parsed];p2.splice(i,1);setForm(p=>({...p,_parsed:p2}))}} style={{background:"none",border:"none",color:theme.red,cursor:"pointer",marginLeft:"auto"}}><Trash2 size={13}/></button>
                   </div>
                 </div>
@@ -5832,7 +6027,7 @@ export default function MarketingHub() {
               const mid=uid("mtg");
               const md={id:mid,title:form.title||"",date:form.date||"",type:form.type||"Exec",attendees:[],summary:form.raw||"",decisions:"",recordingUrl:"",source:form.source||"",notes:"",createdBy:curUser.id};
               setMeetings(prev=>[md,...prev]); db.saveMeeting(md);
-              const acts=(parsed||[]).filter(a=>a.text.trim()).map(a=>({id:uid("ma"),meetingId:mid,text:a.text.trim(),owner:a.owner||"",ownerText:"",dueDate:a.dueDate||"",status:"Open",taskId:"",notes:""}));
+              const acts=(parsed||[]).filter(a=>a.text.trim()).map(a=>({id:uid("ma"),meetingId:mid,text:a.text.trim(),owner:a.owner||"",ownerText:"",dueDate:a.dueDate||"",status:"Open",priority:a.priority||"Medium",taskId:"",notes:"",blocker:"",blockerOwner:"",blockerSince:"",blockerEscalated:false}));
               setMeetingActions(prev=>[...prev,...acts]); acts.forEach(a=>db.saveMeetingAction(a));
               log("imported",`${md.title} with ${acts.length} action point(s)`,"Meetings");
             })}><Check size={13}/> Save meeting{parsed?` + ${parsed.length} actions`:""}</Btn>
@@ -5865,13 +6060,15 @@ export default function MarketingHub() {
         <div><Label theme={theme}>Action</Label><Textarea theme={theme} value={form.text||""} onChange={e=>setForm(p=>({...p,text:e.target.value}))}/></div>
         <div><Label theme={theme}>Meeting</Label><Sel theme={theme} options={[{value:"",label:"Not linked"},...meetings.map(m=>({value:m.id,label:`${m.title}${m.date?" · "+m.date:""}`}))]} value={form.meetingId||""} onChange={e=>setForm(p=>({...p,meetingId:e.target.value}))}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Due date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={MACTION_STATUS} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Owner (free text)</Label><Input theme={theme} value={form.ownerText||""} onChange={e=>setForm(p=>({...p,ownerText:e.target.value}))} placeholder="If not a hub user"/></div></div>
+        <div className="nanu-form-row"><div><Label theme={theme}>Status</Label><Sel theme={theme} options={MACTION_STATUS} value={form.status||"Open"} onChange={e=>setForm(p=>({...p,status:e.target.value}))}/></div><div><Label theme={theme}>Priority</Label><Sel theme={theme} options={MACTION_PRIORITY} value={form.priority||"Medium"} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}/></div></div>
+        <div><Label theme={theme}>Owner (free text)</Label><Input theme={theme} value={form.ownerText||""} onChange={e=>setForm(p=>({...p,ownerText:e.target.value}))} placeholder="If not a hub user"/></div>
+        <BlockerFields theme={theme} form={form} setForm={setForm} users={activeUsers} todayStr={todayStr}/>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
           {form.id&&<Btn theme={theme} danger onClick={()=>doSave(()=>{setMeetingActions(p=>p.filter(x=>x.id!==form.id));db.deleteMeetingAction(form.id);log("deleted action point","","Meetings")})}><Trash2 size={13}/> Delete</Btn>}
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const aid=form.id||uid("ma");
-            const ad={id:aid,meetingId:form.meetingId||"",text:form.text||"",owner:form.owner||"",ownerText:form.ownerText||"",dueDate:form.dueDate||"",status:form.status||"Open",taskId:form.taskId||"",notes:form.notes||""};
+            const ad={id:aid,meetingId:form.meetingId||"",text:form.text||"",owner:form.owner||"",ownerText:form.ownerText||"",dueDate:form.dueDate||"",status:form.status||"Open",priority:form.priority||"Medium",taskId:form.taskId||"",notes:form.notes||"",blocker:form.blocker||"",blockerOwner:form.blockerOwner||"",blockerSince:form.blockerSince||"",blockerEscalated:!!form.blockerEscalated};
             if(form.id){setMeetingActions(p=>p.map(x=>x.id===form.id?ad:x))}
             else{setMeetingActions(p=>[...p,ad])}
             db.saveMeetingAction(ad);
@@ -5970,6 +6167,7 @@ export default function MarketingHub() {
               <input type="range" min="0" max="100" step="5" value={form.progress||0} onChange={e=>setForm(p=>({...p,progress:Number(e.target.value)}))} style={{width:"100%",accentColor:theme.teal,cursor:"pointer"}}/>
             </div>}
             {form.bucket==="Shipped"&&<div className="nanu-form-row"><div><Label theme={theme}>Shipped date</Label><Input theme={theme} type="date" value={form.shippedDate||""} onChange={e=>setForm(p=>({...p,shippedDate:e.target.value}))}/></div><div><Label theme={theme}>Release tag</Label><Input theme={theme} value={form.releaseTag||""} onChange={e=>setForm(p=>({...p,releaseTag:e.target.value}))} placeholder="e.g. v2.1"/></div></div>}
+            <BlockerFields theme={theme} form={form} setForm={setForm} users={activeUsers} todayStr={todayStr}/>
             <div><Label theme={theme}>Decision note</Label><Textarea theme={theme} value={form.decisionNote||""} onChange={e=>setForm(p=>({...p,decisionNote:e.target.value}))} placeholder="Why it landed where it did — visible to whoever requested it"/></div>
             <div>
               <Label theme={theme}>Linked tasks</Label>
@@ -5989,7 +6187,7 @@ export default function MarketingHub() {
             <Btn theme={theme} onClick={closeM}>Cancel</Btn>
             <Btn primary theme={theme} onClick={()=>doSave(()=>{
               const rid4=form.id||uid("rm");
-              const rd={id:rid4,title:form.title||"",description:form.description||"",area:form.area||"",bucket:form.bucket||"Requested",owner:form.owner||"",priority:form.priority||"Medium",effort:form.effort||"",progress:form.progress||0,targetQuarter:form.targetQuarter||"",targetDate:form.targetDate||"",shippedDate:form.shippedDate||"",releaseTag:form.releaseTag||"",requestedBy:form.requestedBy||curUser.id,requestedDate:form.requestedDate||todayStr,why:form.why||"",decisionNote:form.decisionNote||"",linkedTasks:form.linkedTasks||[],sortOrder:form.sortOrder||0,notes:form.notes||""};
+              const rd={id:rid4,title:form.title||"",description:form.description||"",area:form.area||"",bucket:form.bucket||"Requested",owner:form.owner||"",priority:form.priority||"Medium",effort:form.effort||"",progress:form.progress||0,targetQuarter:form.targetQuarter||"",targetDate:form.targetDate||"",shippedDate:form.shippedDate||"",releaseTag:form.releaseTag||"",requestedBy:form.requestedBy||curUser.id,requestedDate:form.requestedDate||todayStr,why:form.why||"",decisionNote:form.decisionNote||"",linkedTasks:form.linkedTasks||[],sortOrder:form.sortOrder||0,notes:form.notes||"",blocker:form.blocker||"",blockerOwner:form.blockerOwner||"",blockerSince:form.blockerSince||"",blockerEscalated:!!form.blockerEscalated};
               if(form.id){setRoadmapItems(p=>p.map(x=>x.id===form.id?rd:x));log("updated",rd.title,"Roadmap")}
               else{setRoadmapItems(p=>[...p,rd]);log(rd.bucket==="Requested"?"requested":"added",rd.title,"Roadmap")}
               db.saveRoadmapItem(rd);
@@ -6179,7 +6377,8 @@ export default function MarketingHub() {
         <div className="nanu-form-row"><div><Label theme={theme}>Title</Label><Input theme={theme} value={form.title||""} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div><div><Label theme={theme}>Episode / Ref</Label><Input theme={theme} value={form.episodeNo||""} onChange={e=>setForm(p=>({...p,episodeNo:e.target.value}))} placeholder="e.g. S1E04"/></div></div>
         <div><Label theme={theme}>Summary</Label><Textarea theme={theme} value={form.summary||""} onChange={e=>setForm(p=>({...p,summary:e.target.value}))}/></div>
         <div className="nanu-form-row"><div><Label theme={theme}>Product</Label><Sel theme={theme} options={mediaProducts.map(p=>({value:p.id,label:p.name}))} value={form.productId||""} onChange={e=>setForm(p=>({...p,productId:e.target.value}))}/></div><div><Label theme={theme}>Stage</Label><Sel theme={theme} options={MEDIA_STAGES} value={form.stage||"Idea"} onChange={e=>setForm(p=>({...p,stage:e.target.value}))}/></div></div>
-        <div className="nanu-form-row"><div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div><div><Label theme={theme}>Blocker</Label><Input theme={theme} value={form.blocker||""} onChange={e=>setForm(p=>({...p,blocker:e.target.value}))} placeholder="What's holding it up"/></div></div>
+        <div><Label theme={theme}>Owner</Label><Sel theme={theme} options={[{value:"",label:"Unassigned"},...activeUsers.map(u=>({value:u.id,label:u.name}))]} value={form.owner||""} onChange={e=>setForm(p=>({...p,owner:e.target.value}))}/></div>
+        <BlockerFields theme={theme} form={form} setForm={setForm} users={activeUsers} todayStr={todayStr}/>
         <div className="nanu-form-row"><div><Label theme={theme}>Due Date</Label><Input theme={theme} type="date" value={form.dueDate||""} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div><div><Label theme={theme}>Air / Publish Date</Label><Input theme={theme} type="date" value={form.airDate||""} onChange={e=>setForm(p=>({...p,airDate:e.target.value}))}/></div></div>
         <div><Label theme={theme}>Script link</Label><Input theme={theme} value={form.scriptUrl||""} onChange={e=>setForm(p=>({...p,scriptUrl:e.target.value}))} placeholder="Google Doc URL"/></div>
         <div><Label theme={theme}>Assets folder link</Label><Input theme={theme} value={form.assetsUrl||""} onChange={e=>setForm(p=>({...p,assetsUrl:e.target.value}))} placeholder="Drive folder URL"/></div>
@@ -6232,7 +6431,7 @@ export default function MarketingHub() {
           <Btn theme={theme} onClick={closeM}>Cancel</Btn>
           <Btn primary theme={theme} onClick={()=>doSave(()=>{
             const iid=form.id||uid("mi");
-            const idata={id:iid,productId:form.productId||"",title:form.title||"",stage:form.stage||"Idea",owner:form.owner||"",episodeNo:form.episodeNo||"",summary:form.summary||"",dueDate:form.dueDate||"",airDate:form.airDate||"",scriptUrl:form.scriptUrl||"",assetsUrl:form.assetsUrl||"",finalUrl:form.finalUrl||"",blocker:form.blocker||"",notes:form.notes||"",needsDesign:!!form.needsDesign,designStatus:form.designStatus||"",stageSince:form.stageSince||todayStr,checklist:form.checklist||[],linkedTasks:form.linkedTasks||[]};
+            const idata={id:iid,productId:form.productId||"",title:form.title||"",stage:form.stage||"Idea",owner:form.owner||"",episodeNo:form.episodeNo||"",summary:form.summary||"",dueDate:form.dueDate||"",airDate:form.airDate||"",scriptUrl:form.scriptUrl||"",assetsUrl:form.assetsUrl||"",finalUrl:form.finalUrl||"",blocker:form.blocker||"",blockerOwner:form.blockerOwner||"",blockerSince:form.blockerSince||"",blockerEscalated:!!form.blockerEscalated,notes:form.notes||"",needsDesign:!!form.needsDesign,designStatus:form.designStatus||"",stageSince:form.stageSince||todayStr,checklist:form.checklist||[],linkedTasks:form.linkedTasks||[]};
             if(form.id){setMediaItems(p=>p.map(x=>x.id===form.id?idata:x));log("updated",idata.title,"Media")}
             else{setMediaItems(p=>[...p,idata]);log("created",idata.title,"Media")}
             db.saveMediaItem(idata);
